@@ -1,0 +1,33 @@
+{
+  "name": "class_manage_sys",
+  "version": "1.0.0",
+  "description": "区队管理系统 - 基于 uni-app 框架",
+  "main": "src/main.js",
+  "scripts": {
+    "dev:mp-weixin": "uni build --watch --platform mp-weixin",
+    "build:mp-weixin": "uni build --platform mp-weixin",
+    "dev:h5": "uni build --watch --platform h5",
+    "build:h5": "uni build --platform h5",
+    "dev:app": "uni build --watch --platform app",
+    "build:app": "uni build --platform app"
+  },
+  "keywords": [
+    "uni-app",
+    "vue3",
+    "wechat",
+    "mini-program"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "vue": "^3.2.45",
+    "@dcloudio/uni-app": "3.0.0-alpha-5000720260327001"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "3.3.0",
+    "@vue/compiler-sfc": "^3.2.45",
+    "sass": "^1.62.1",
+    "vite": "^3.2.4",
+    "@dcloudio/vite-plugin-uni": "3.0.0-alpha-5000720260327001"
+  }
+}

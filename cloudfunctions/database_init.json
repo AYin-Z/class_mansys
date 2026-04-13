@@ -1,0 +1,271 @@
+{
+  "collections": [
+    {
+      "collection_name": "users",
+      "description": "用户表",
+      "fields": [
+        {
+          "name": "openid",
+          "type": "string",
+          "description": "微信openid"
+        },
+        {
+          "name": "nickName",
+          "type": "string",
+          "description": "用户昵称"
+        },
+        {
+          "name": "avatarUrl",
+          "type": "string",
+          "description": "用户头像"
+        },
+        {
+          "name": "gender",
+          "type": "number",
+          "description": "性别"
+        },
+        {
+          "name": "student_id",
+          "type": "string",
+          "description": "学号"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "description": "真实姓名"
+        },
+        {
+          "name": "class_id",
+          "type": "string",
+          "description": "班级ID"
+        },
+        {
+          "name": "role",
+          "type": "number",
+          "description": "角色（0：学员，1：班长，2：辅导员）"
+        },
+        {
+          "name": "phone",
+          "type": "string",
+          "description": "手机号"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "description": "邮箱"
+        },
+        {
+          "name": "createdAt",
+          "type": "timestamp",
+          "description": "创建时间"
+        },
+        {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "description": "更新时间"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "openid_index",
+          "key": { "openid": 1 },
+          "unique": true
+        },
+        {
+          "name": "student_id_index",
+          "key": { "student_id": 1 },
+          "unique": true
+        }
+      ]
+    },
+    {
+      "collection_name": "leaves",
+      "description": "请假表",
+      "fields": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "description": "用户ID"
+        },
+        {
+          "name": "leave_type",
+          "type": "string",
+          "description": "请假类型"
+        },
+        {
+          "name": "start_time",
+          "type": "timestamp",
+          "description": "开始时间"
+        },
+        {
+          "name": "end_time",
+          "type": "timestamp",
+          "description": "结束时间"
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "description": "请假原因"
+        },
+        {
+          "name": "status",
+          "type": "number",
+          "description": "状态（0：待审批，1：已批准，2：已拒绝）"
+        },
+        {
+          "name": "approver_id",
+          "type": "string",
+          "description": "审批人ID"
+        },
+        {
+          "name": "approval_time",
+          "type": "timestamp",
+          "description": "审批时间"
+        },
+        {
+          "name": "approval_notes",
+          "type": "string",
+          "description": "审批备注"
+        },
+        {
+          "name": "is_cancelled",
+          "type": "boolean",
+          "description": "是否销假"
+        },
+        {
+          "name": "cancelled_time",
+          "type": "timestamp",
+          "description": "销假时间"
+        },
+        {
+          "name": "createdAt",
+          "type": "timestamp",
+          "description": "创建时间"
+        },
+        {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "description": "更新时间"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "user_id_index",
+          "key": { "user_id": 1 }
+        },
+        {
+          "name": "status_index",
+          "key": { "status": 1 }
+        }
+      ]
+    },
+    {
+      "collection_name": "notices",
+      "description": "通知表",
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "description": "通知标题"
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "description": "通知内容"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "description": "通知类型"
+        },
+        {
+          "name": "creator_id",
+          "type": "string",
+          "description": "创建人ID"
+        },
+        {
+          "name": "createdAt",
+          "type": "timestamp",
+          "description": "创建时间"
+        },
+        {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "description": "更新时间"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "createdAt_index",
+          "key": { "createdAt": -1 }
+        }
+      ]
+    },
+    {
+      "collection_name": "expenses",
+      "description": "班费表",
+      "fields": [
+        {
+          "name": "user_id",
+          "type": "string",
+          "description": "用户ID"
+        },
+        {
+          "name": "amount",
+          "type": "number",
+          "description": "金额"
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "description": "类型（收入/支出）"
+        },
+        {
+          "name": "purpose",
+          "type": "string",
+          "description": "用途"
+        },
+        {
+          "name": "status",
+          "type": "number",
+          "description": "状态（0：待审批，1：已批准，2：已拒绝）"
+        },
+        {
+          "name": "approver_id",
+          "type": "string",
+          "description": "审批人ID"
+        },
+        {
+          "name": "approval_time",
+          "type": "timestamp",
+          "description": "审批时间"
+        },
+        {
+          "name": "approval_notes",
+          "type": "string",
+          "description": "审批备注"
+        },
+        {
+          "name": "createdAt",
+          "type": "timestamp",
+          "description": "创建时间"
+        },
+        {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "description": "更新时间"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "user_id_index",
+          "key": { "user_id": 1 }
+        },
+        {
+          "name": "type_index",
+          "key": { "type": 1 }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+// Design System: Institutional Command
+// Based on "Disciplined Architecturalism" design philosophy
+
+// Colors
+$primary: #001e40;
+$primary-container: #003366;
+$secondary: #466270;
+$secondary-container: rgba(70, 98, 112, 0.08);
+$tertiary: #460002;
+$tertiary-container: rgba(70, 0, 2, 0.06);
+
+// Surface Hierarchy
+$surface: #f7f9fc;             // Base
+$surface-container-low: #f2f4f7; // Sectioning
+$surface-container-lowest: #ffffff; // Actionable Cards
+
+// Text Colors
+$on-surface: #191c1e;           // Primary text
+$on-surface-variant: #43474f;   // Secondary labels
+$on-surface-tertiary: #c3c6d1;   // Tertiary text
+
+// Accent Colors
+$error: #ba1a1a;
+$success: #003366;
+
+// Typography
+$font-display: 'Public Sans', 'PingFang SC', sans-serif;
+$font-body: 'Inter', 'PingFang SC', sans-serif;
+
+// Font Sizes
+$display-lg: 70rpx;   // 3.5rem
+$headline-sm: 30rpx;  // 1.5rem
+$title-md: 22rpx;     // 1.125rem
+$body-md: 18rpx;      // 0.875rem
+$label-sm: 14rpx;     // 0.6875rem
+
+// Font Weights
+$font-weight-light: 300;
+$font-weight-regular: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+// Spacing
+$spacing-xs: 8rpx;
+$spacing-sm: 16rpx;
+$spacing-md: 24rpx;
+$spacing-lg: 32rpx;
+$spacing-xl: 48rpx;
+
+// Border Radius
+$radius-sm: 8rpx;
+$radius-md: 16rpx;  // 0.375rem
+$radius-lg: 20rpx;
+$radius-full: 9999rpx; // Capsule
+
+// Shadows
+$shadow-ambient: 0 8rpx 32rpx rgba(0, 30, 64, 0.06);
+$shadow-floating: 0 12rpx 40rpx rgba(0, 30, 64, 0.1);
+
+// Transitions
+$transition-fast: 0.15s ease;
+$transition-normal: 0.2s ease;
+$transition-slow: 0.3s ease;
+
+// Gradients
+$gradient-primary: linear-gradient(135deg, $primary, $primary-container);
+$gradient-secondary: linear-gradient(135deg, $secondary, rgba(70, 98, 112, 0.8));
+
+// Ghost Border (for inputs)
+$ghost-border: 2rpx solid rgba(195, 198, 209, 0.2);
+$ghost-border-focus: 2rpx solid $primary;
+$ghost-border-error: 2rpx solid $error;
+
+// Z-index
+$z-index-nav: 999;
+$z-index-floating: 1000;
+$z-index-modal: 1100;
+
+// Responsive Breakpoints
+$breakpoint-sm: 320px;
+$breakpoint-md: 375px;
+$breakpoint-lg: 414px;
+$breakpoint-xl: 768px;
+
+// Utility Classes
+@mixin glass-effect {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(40rpx);
+  -webkit-backdrop-filter: blur(40rpx);
+}
+
+@mixin no-line-section {
+  background: $surface-container-low;
+  border-radius: $radius-md;
+  padding: $spacing-md;
+}
+
+@mixin actionable-card {
+  background: $surface-container-lowest;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-ambient;
+  padding: $spacing-md;
+  transition: transform $transition-fast, box-shadow $transition-fast;
+  
+  &:active {
+    transform: scale(0.98);
+    box-shadow: $shadow-ambient;
+  }
+}
+
+@mixin primary-button {
+  background: $gradient-primary;
+  color: #ffffff;
+  border: none;
+  border-radius: $radius-md;
+  font-family: $font-display;
+  font-weight: $font-weight-semibold;
+  transition: transform $transition-fast, box-shadow $transition-fast;
+  
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+@mixin secondary-button {
+  background: $surface-container-low;
+  color: $on-surface;
+  border: none;
+  border-radius: $radius-md;
+  font-weight: $font-weight-medium;
+  transition: background-color $transition-fast;
+  
+  &:active {
+    background: rgba(0, 30, 64, 0.06);
+  }
+}
+
+@mixin input-field {
+  background: transparent;
+  border: none;
+  border-bottom: $ghost-border;
+  padding: $spacing-sm 0;
+  font-family: $font-body;
+  font-size: $body-md;
+  color: $on-surface;
+  
+  &:focus {
+    border-bottom: $ghost-border-focus;
+    outline: none;
+  }
+  
+  &::placeholder {
+    color: $on-surface-tertiary;
+  }
+}
