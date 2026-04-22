@@ -55,3 +55,4 @@ build/
 
 # HBuilderX / uni-app
 unpackage/
+.hbuilderx/
