@@ -6,7 +6,7 @@
       <view class="top-three">
         <view v-for="(item, idx) in topThree" :key="item.id" :class="['top-card', 'pos-' + (idx + 1)]">
           <text class="rank-num">{{ idx + 1 }}</text>
-          <image class="avatar" src="/static/images/avatar.png" mode="aspectFill" />
+          <image class="avatar" :src="getDefaultAvatar(item.name)" mode="aspectFill" />
           <text class="name">{{ item.name }}</text>
           <text class="pts">{{ item.points }}分</text>
         </view>
@@ -16,7 +16,7 @@
       <view class="full-list">
         <view v-for="(item, idx) in rankList" :key="item.id" class="rank-row">
           <text class="row-rank">{{ idx + 4 }}</text>
-          <image class="row-avatar" src="/static/images/avatar.png" mode="aspectFill" />
+          <image class="row-avatar" :src="getDefaultAvatar(item.name)" mode="aspectFill" />
           <text class="row-name">{{ item.name }}</text>
           <text class="row-pts">{{ item.points }}</text>
         </view>
@@ -31,6 +31,7 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getPointsRanking } from '@/api/points'
+import { getDefaultAvatar } from '@/utils/avatar'
 
 const allList = ref([])
 const topThree = computed(() => allList.value.slice(0, 3).map(u => ({ id: u.id, name: u.name, points: u.total_score })))

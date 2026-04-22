@@ -120,11 +120,12 @@ import { getBalance } from '@/api/fee'
 import { getNotices, getUnreadCount } from '@/api/notice'
 import { getMyLeaves } from '@/api/leave'
 import { hasBackendToken } from '@/utils/request'
+import { getDefaultAvatar } from '@/utils/avatar'
 
 const userStore = useUserStore()
 const { profile, displayName, roleLabel } = storeToRefs(userStore)
 
-const avatar = computed(() => profile.value?.avatarUrl || '/static/images/avatar.png')
+const avatar = computed(() => profile.value?.avatarUrl || getDefaultAvatar(displayName.value))
 
 const currentDate = computed(() => {
   const now = new Date()

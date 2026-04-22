@@ -95,6 +95,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { logout as cloudbaseLogout } from '@/utils/cloudbase'
+import { getDefaultAvatar } from '@/utils/avatar'
 // #ifdef APP-PLUS
 import { checkAppUpdate, getCurrentAppVersion } from '@/utils/update-checker'
 // #endif
@@ -102,7 +103,7 @@ import { checkAppUpdate, getCurrentAppVersion } from '@/utils/update-checker'
 const userStore = useUserStore()
 const { profile, isAdmin: isAdminUser, displayName, roleLabel } = storeToRefs(userStore)
 
-const avatar = computed(() => profile.value?.avatarUrl || '/static/images/avatar.png')
+const avatar = computed(() => profile.value?.avatarUrl || getDefaultAvatar(displayName.value))
 
 function maskPhone(p) {
   if (!p) return ''
