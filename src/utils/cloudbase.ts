@@ -25,18 +25,30 @@ const PUBLISHABLE_KEY = import.meta.env.VITE_PUBLISHABLE_KEY || "";
  * @returns {Object} 云开发实例
  */
 export const init = (config: any = {}) => {
-  const appConfig = {
+  // App / H5 / 小程序 全平台统一使用 PublishableKey 鉴权
+  // 如需在 App 端启用"应用签名校验"以提升安全性，
+  // 可在云开发控制台创建 Android 应用后，通过 VITE_APP_SIGN / VITE_APP_ACCESS_KEY 注入
+  const appSign = import.meta.env.VITE_APP_SIGN;
+  const appAccessKeyId = import.meta.env.VITE_APP_ACCESS_KEY_ID;
+  const appAccessKey = import.meta.env.VITE_APP_ACCESS_KEY;
+
+  const appConfig: Record<string, any> = {
     env: config.env || ENV_ID,
     timeout: config.timeout || 15000,
     accessKey: config.accessKey || PUBLISHABLE_KEY,
     auth: { detectSessionInUrl: true },
-    // 仅在App端需要配置
-    appSign: "your-app-sign",
-    appSecret: {
-      appAccessKeyId: 1,
-      appAccessKey: "your-app-access-key",
-    },
   };
+
+  // 仅当环境变量齐全时才附加 App 端签名配置，避免空值导致 SDK 报错
+  // #ifdef APP-PLUS
+  if (appSign && appAccessKeyId && appAccessKey) {
+    appConfig.appSign = appSign;
+    appConfig.appSecret = {
+      appAccessKeyId: Number(appAccessKeyId),
+      appAccessKey,
+    };
+  }
+  // #endif
 
   if (!appConfig.accessKey) {
     console.warn("客户端 Publishable Key 未配置");

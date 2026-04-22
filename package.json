@@ -10,7 +10,8 @@
     "build:h5": "uni build --platform h5",
     "dev:app": "uni build --watch --platform app",
     "build:app": "uni build --platform app",
-    "build": "uni build --platform h5"
+    "build": "uni build --platform app",
+    "dev": "uni build --watch --platform app"
   },
   "keywords": [
     "uni-app",

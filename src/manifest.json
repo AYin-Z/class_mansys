@@ -1,7 +1,7 @@
 {
-    "name" : "CloudBase UniApp 模板",
+    "name" : "区队管理系统",
     "appid" : "",
-    "description" : "基于 UniApp 和腾讯云开发（CloudBase）的跨平台应用模板",
+    "description" : "面向高校区队/班级的综合管理系统：请假销假、通知公告、班费、积分、心理干预、相册、投票、抽奖等。",
     "versionName" : "1.0.0",
     "versionCode" : "100",
     "transformPx" : false,
@@ -16,30 +16,27 @@
             "autoclose" : true,
             "delay" : 0
         },
-        /* 模块配置 */
+        /* 模块配置：所有未勾选的模块都不会打包，能显著减小 APK 体积 */
         "modules" : {},
         /* 应用发布信息 */
         "distribute" : {
             /* android打包配置 */
             "android" : {
+                /* 后续在 HBuilderX 里通过图形界面填写：包名建议 com.yinzheng.classmanage */
+                "minSdkVersion" : 21,
+                "targetSdkVersion" : 30,
                 "permissions" : [
-                    "<uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\"/>",
-                    "<uses-permission android:name=\"android.permission.MOUNT_UNMOUNT_FILESYSTEMS\"/>",
-                    "<uses-permission android:name=\"android.permission.VIBRATE\"/>",
-                    "<uses-permission android:name=\"android.permission.READ_LOGS\"/>",
-                    "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
-                    "<uses-feature android:name=\"android.hardware.camera.autofocus\"/>",
+                    "<uses-permission android:name=\"android.permission.INTERNET\"/>",
                     "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\"/>",
                     "<uses-permission android:name=\"android.permission.CAMERA\"/>",
-                    "<uses-permission android:name=\"android.permission.GET_ACCOUNTS\"/>",
-                    "<uses-permission android:name=\"android.permission.READ_PHONE_STATE\"/>",
-                    "<uses-permission android:name=\"android.permission.CHANGE_WIFI_STATE\"/>",
-                    "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>",
-                    "<uses-permission android:name=\"android.permission.FLASHLIGHT\"/>",
-                    "<uses-feature android:name=\"android.hardware.camera\"/>",
-                    "<uses-permission android:name=\"android.permission.WRITE_SETTINGS\"/>"
+                    "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\"/>",
+                    "<uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\"/>",
+                    "<uses-permission android:name=\"android.permission.VIBRATE\"/>",
+                    "<uses-permission android:name=\"android.permission.WAKE_LOCK\"/>"
                 ],
-                "abiFilters" : [ "arm64-v8a", "x86" ]
+                /* 仅打 arm64-v8a：现代安卓机 100% 支持，包体减半 */
+                "abiFilters" : [ "arm64-v8a" ]
             },
             /* ios打包配置 */
             "ios" : {},
@@ -49,7 +46,7 @@
     },
     /* 快应用特有相关 */
     "quickapp" : {},
-    /* 小程序特有相关 */
+    /* 小程序特有相关（保留以便随时回滚到小程序版本） */
     "mp-weixin" : {
         "appid" : "",
         "setting" : {

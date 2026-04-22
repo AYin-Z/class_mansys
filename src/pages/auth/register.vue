@@ -10,7 +10,8 @@
 
     <scroll-view scroll-y class="form-scroll">
       <view class="form-container">
-        <!-- 微信登录按钮 -->
+        <!-- #ifdef MP-WEIXIN -->
+        <!-- 微信登录按钮：仅在微信小程序内显示，App / H5 无法调用 wx.login -->
         <view class="wechat-login-section">
           <button class="wechat-btn" @click="wechatLogin">
             <text class="wechat-icon">💬</text>
@@ -23,6 +24,7 @@
           <text class="divider-text">或填写信息注册</text>
           <view class="divider"></view>
         </view>
+        <!-- #endif -->
 
         <view class="section-label">
           <text class="label-text">基本信息</text>
@@ -169,6 +171,9 @@ function persistProfileFromBackend(token, user) {
   uni.setStorageSync('isRegistered', true)
 }
 
+// #ifdef MP-WEIXIN
+// 微信小程序专属：通过 wx.login 拿 code 换取后端 token。
+// App / H5 平台下此函数不会被编译进产物。
 async function wechatLogin() {
   uni.showLoading({ title: '登录中...' })
   try {
@@ -211,6 +216,7 @@ async function wechatLogin() {
     uni.showToast({ title: '登录失败，请重试', icon: 'none' })
   }
 }
+// #endif
 
 const genderOptions = ['男', '女']
 const politicalStatuses = ['群众', '共青团员', '中共预备党员', '中共党员']

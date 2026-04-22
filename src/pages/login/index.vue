@@ -16,6 +16,7 @@
         <view class="option-arrow">></view>
       </view>
 
+      <!-- #ifdef MP-WEIXIN -->
       <!-- 微信 OpenID 登录 -->
       <view class="login-option" @click="openIdLogin">
         <view class="option-icon">💬</view>
@@ -39,6 +40,7 @@
         </view>
         <view class="option-arrow">></view>
       </button>
+      <!-- #endif -->
       
       <!-- 手机验证码登录 -->
       <view class="login-option" @click="phoneLogin">
@@ -81,7 +83,10 @@
 </template>
 
 <script setup lang="ts">
-import { initCloudBase, signInWithPhoneAuth, signInWithOpenId, login } from '../../utils/cloudbase'
+import { initCloudBase, login } from '../../utils/cloudbase'
+// #ifdef MP-WEIXIN
+import { signInWithPhoneAuth, signInWithOpenId } from '../../utils/cloudbase'
+// #endif
 
 // 匿名登录
 const anonymousLogin = async () => {
@@ -108,7 +113,8 @@ const anonymousLogin = async () => {
   }
 }
 
-// 添加 openIdLogin 方法
+// #ifdef MP-WEIXIN
+// 微信小程序专属登录方法（App / H5 不会编译进产物）
 const openIdLogin = async () => {
   uni.showLoading({
     title: '正在登录...'
@@ -182,8 +188,8 @@ const handleGetPhoneNumber = async (event: any) => {
     uni.hideLoading()
   }
 }
+// #endif
 
-// 密码登录
 const passwordLogin = () => {
   uni.navigateTo({
     url: '/pages/login/password-login'
