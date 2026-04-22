@@ -55,6 +55,8 @@
     <view class="fab-btn" v-if="canPublish" @tap="goPublish">
       <text class="fab-icon">+</text>
     </view>
+
+    <custom-tab-bar current="notice" />
   </view>
 </template>
 
@@ -156,6 +158,7 @@ onShow(() => {
 .main-scroll {
   height: 100vh;
   padding-top: calc(env(safe-area-inset-top) + 88rpx);
+  padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
 }
 
 .tab-bar {
@@ -309,7 +312,8 @@ onShow(() => {
 .fab-btn {
   position: fixed;
   right: 32rpx;
-  bottom: calc(120rpx + env(safe-area-inset-bottom));
+  /* 140rpx tab-bar + 40rpx buffer */
+  bottom: calc(180rpx + env(safe-area-inset-bottom));
   width: 104rpx;
   height: 104rpx;
   background: linear-gradient(135deg, #001e40 0%, #003366 100%);

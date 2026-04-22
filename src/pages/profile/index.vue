@@ -67,6 +67,14 @@
           <text class="menu-label">意见反馈</text>
           <text class="menu-arrow">›</text>
         </view>
+        <!-- #ifdef APP-PLUS -->
+        <view class="menu-item" @tap="handleCheckUpdate">
+          <text class="menu-icon">🔄</text>
+          <text class="menu-label">检查更新</text>
+          <text class="menu-version">v{{ currentVersionName }}</text>
+          <text class="menu-arrow">›</text>
+        </view>
+        <!-- #endif -->
       </view>
 
       <!-- Logout Button -->
@@ -76,6 +84,8 @@
 
       <view style="height: 40rpx;"></view>
     </scroll-view>
+
+    <custom-tab-bar current="profile" />
   </view>
 </template>
 
@@ -85,6 +95,9 @@ import { onShow } from '@dcloudio/uni-app'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { logout as cloudbaseLogout } from '@/utils/cloudbase'
+// #ifdef APP-PLUS
+import { checkAppUpdate, getCurrentAppVersion } from '@/utils/update-checker'
+// #endif
 
 const userStore = useUserStore()
 const { profile, isAdmin: isAdminUser, displayName, roleLabel } = storeToRefs(userStore)
@@ -145,6 +158,19 @@ function goToFeedback() {
   uni.navigateTo({ url: '/pages/suggestion/submit' })
 }
 
+// #ifdef APP-PLUS
+const currentVersionName = ref(getCurrentAppVersion()?.versionName || '1.0.0')
+
+async function handleCheckUpdate() {
+  uni.showLoading({ title: '检查中...', mask: true })
+  try {
+    await checkAppUpdate({ silent: false })
+  } finally {
+    uni.hideLoading()
+  }
+}
+// #endif
+
 async function handleLogout() {
   uni.showModal({
     title: '确认退出',
@@ -172,6 +198,7 @@ onShow(() => refresh())
 .main-scroll {
   height: 100vh;
   padding-top: calc(env(safe-area-inset-top) + 88rpx);
+  padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
 }
 
 /* Profile Header */
@@ -315,6 +342,13 @@ onShow(() => refresh())
 .menu-arrow {
   font-size: 36rpx;
   color: $on-surface-tertiary;
+  flex-shrink: 0;
+}
+
+.menu-version {
+  font-size: 24rpx;
+  color: $on-surface-tertiary;
+  margin-right: 12rpx;
   flex-shrink: 0;
 }
 

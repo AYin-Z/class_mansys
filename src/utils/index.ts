@@ -75,7 +75,7 @@ export function hideLoading() {
  * @param url 页面路径
  * @param type 跳转类型
  */
-export function navigateTo(url: string, type: 'navigateTo' | 'redirectTo' | 'switchTab' = 'navigateTo') {
+export function navigateTo(url: string, type: 'navigateTo' | 'redirectTo' | 'switchTab' | 'reLaunch' = 'navigateTo') {
   switch (type) {
     case 'navigateTo':
       uni.navigateTo({ url });
@@ -84,7 +84,11 @@ export function navigateTo(url: string, type: 'navigateTo' | 'redirectTo' | 'swi
       uni.redirectTo({ url });
       break;
     case 'switchTab':
-      uni.switchTab({ url });
+      // pages.json 已移除 tabBar 配置，降级为 reLaunch
+      uni.reLaunch({ url });
+      break;
+    case 'reLaunch':
+      uni.reLaunch({ url });
       break;
   }
 }

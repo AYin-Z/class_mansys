@@ -57,18 +57,6 @@
     "navigationBarBackgroundColor": "#ffffff",
     "backgroundColor": "#f7f9fc"
   },
-  "tabBar": {
-    "color": "#c3c6d1",
-    "selectedColor": "#001e40",
-    "borderStyle": "white",
-    "backgroundColor": "#ffffff",
-    "list": [
-      { "pagePath": "pages/index/index", "text": "首页", "iconPath": "static/images/home.png", "selectedIconPath": "static/images/home-active.png" },
-      { "pagePath": "pages/notice/index", "text": "通知", "iconPath": "static/images/notice.png", "selectedIconPath": "static/images/notice-active.png" },
-      { "pagePath": "pages/fee/index", "text": "班费", "iconPath": "static/images/leave.png", "selectedIconPath": "static/images/leave-active.png" },
-      { "pagePath": "pages/profile/index", "text": "我的", "iconPath": "static/images/profile.png", "selectedIconPath": "static/images/profile-active.png" }
-    ]
-  },
   "easycom": {
     "autoscan": true,
     "custom": {

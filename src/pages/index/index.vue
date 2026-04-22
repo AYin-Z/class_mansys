@@ -105,6 +105,8 @@
     <view v-if="canPublishNotice()" class="fab" @tap="goToPublish">
       <text class="fab-icon">+</text>
     </view>
+
+    <custom-tab-bar current="home" />
   </view>
 </template>
 
@@ -282,7 +284,8 @@ onShow(() => { refreshAll() })
 .main-scroll {
   height: 100vh;
   padding-top: calc(env(safe-area-inset-top) + 88rpx);
-  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+  /* 140rpx = custom-tab-bar 高 110rpx + 上下 buffer */
+  padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
 }
 
 /* ============ Hero ============ */
@@ -619,7 +622,8 @@ onShow(() => { refreshAll() })
 .fab {
   position: fixed;
   right: 32rpx;
-  bottom: calc(140rpx + env(safe-area-inset-bottom));
+  /* 140rpx tab-bar + 40rpx buffer */
+  bottom: calc(180rpx + env(safe-area-inset-bottom));
   width: 104rpx;
   height: 104rpx;
   background: $gradient-primary;

@@ -78,6 +78,7 @@ app.use('/api/points', require('./routes/points'));
 app.use('/api/classes', require('./routes/classes'));
 app.use('/api/message', require('./routes/message'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/app', require('./routes/app'));
 
 // 健康检查
 app.get('/health', (req, res) => {

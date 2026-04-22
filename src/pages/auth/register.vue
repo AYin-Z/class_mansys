@@ -196,7 +196,7 @@ async function wechatLogin() {
           persistProfileFromBackend(result.token, result.user)
           uni.showToast({ title: '登录成功', icon: 'success' })
           setTimeout(() => {
-            uni.switchTab({ url: '/pages/index/index' })
+            uni.reLaunch({ url: '/pages/index/index' })
           }, 1200)
         } else {
           openid.value = result.user?.id || ''
@@ -381,7 +381,7 @@ async function onSubmit() {
         icon: 'success'
       })
       setTimeout(() => {
-        uni.switchTab({ url: '/pages/index/index' })
+        uni.reLaunch({ url: '/pages/index/index' })
       }, 1200)
     } else {
       uni.showToast({ title: result?.error || result?.message || '注册失败', icon: 'none' })

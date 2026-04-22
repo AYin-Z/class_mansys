@@ -101,6 +101,8 @@
 
       <view style="height: 40rpx;"></view>
     </scroll-view>
+
+    <custom-tab-bar current="fee" />
   </view>
 </template>
 
@@ -177,6 +179,7 @@ onMounted(() => {
 .main-scroll {
   height: 100vh;
   padding-top: calc(env(safe-area-inset-top) + 88rpx);
+  padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
 }
 
 .balance-card {

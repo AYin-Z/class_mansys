@@ -37,7 +37,7 @@ onMounted(() => {
 })
 
 function goBack() {
-  uni.navigateBack({ fail: () => uni.switchTab({ url: '/pages/index/index' }) })
+  uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/index/index' }) })
 }
 </script>
 

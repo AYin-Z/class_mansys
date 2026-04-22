@@ -2,6 +2,9 @@
 import { onLaunch, onShow, onHide } from "@dcloudio/uni-app";
 import { initCloudBase, checkEnvironment } from "./utils/cloudbase";
 import { useUserStore } from "@/stores/user";
+// #ifdef APP-PLUS
+import { checkAppUpdate } from "@/utils/update-checker";
+// #endif
 
 onLaunch(async () => {
   console.log("App Launch");
@@ -26,6 +29,15 @@ onLaunch(async () => {
   userStore.hydrate();
 
   routeGuard(userStore);
+
+  // #ifdef APP-PLUS
+  // App 启动后延迟 3s 静默检查更新，避免阻塞首屏
+  setTimeout(() => {
+    checkAppUpdate({ silent: true }).catch(err => {
+      console.warn("[update] 启动时检查更新失败", err);
+    });
+  }, 3000);
+  // #endif
 });
 
 onShow(() => {
