@@ -40,7 +40,11 @@
         </view>
 
         <view v-if="filteredNotices.length === 0" class="empty-state">
-          <text class="empty-text">暂无通知</text>
+          <text class="empty-icon">📭</text>
+          <text class="empty-title">{{ loading ? '加载中…' : '暂无通知' }}</text>
+          <text class="empty-hint">
+            {{ loading ? '正在从后端获取最新通知' : (canPublish ? '点击右下角按钮发布第一条通知' : '当有新的通知时会显示在这里') }}
+          </text>
         </view>
       </view>
 
@@ -56,10 +60,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { isAdmin, canPublishNotice } from '@/utils/auth.js'
+import { getNotices } from '@/api/notice'
+import { hasBackendToken } from '@/utils/request'
 
 const currentTab = ref('all')
 const canPublish = ref(false)
+const loading = ref(false)
 
 const tabs = [
   { key: 'all', label: '全部' },
@@ -68,14 +76,7 @@ const tabs = [
   { key: 'daily', label: '日常' }
 ]
 
-const noticeList = ref([
-  { id: 1, title: '关于期末考试安排的重要通知', summary: '请各位同学注意期末考试时间安排，提前做好复习准备...', time: '2026-04-09 10:00', author: '区队长', priority: 1, isPinned: true },
-  { id: 2, title: '紧急：今日晚点名时间调整', summary: '因特殊原因，今日晚点名时间调整为21:30...', time: '2026-04-09 08:00', author: '辅导员', priority: 2, isPinned: true },
-  { id: 3, title: '日常：本周卫生检查安排', summary: '本周三下午14:00进行宿舍卫生检查，请提前整理...', time: '2026-04-08 16:00', author: '生活副区', priority: 0, isPinned: true },
-  { id: 4, title: '关于下周班会的通知', summary: '下周一晚19:00在教室召开例行班会...', time: '2026-04-06 14:00', author: '区队长', priority: 0, isPinned: false },
-  { id: 5, title: '区队活动安排', summary: '本周六组织团建活动，地点待定...', time: '2026-04-05 10:30', author: '团支书', priority: 0, isPinned: false },
-  { id: 6, title: '考试安排通知', summary: '期中考试将于下周开始，具体时间表已发布...', time: '2026-04-04 09:00', author: '学习副区', priority: 1, isPinned: false }
-])
+const noticeList = ref([])
 
 const filteredNotices = computed(() => {
   if (currentTab.value === 'all') return noticeList.value
@@ -109,8 +110,40 @@ function goPublish() {
   uni.navigateTo({ url: '/pages/notice/publish' })
 }
 
+async function fetchNotices() {
+  if (!hasBackendToken()) {
+    console.warn('未登录后端，跳过加载通知数据')
+    return
+  }
+
+  loading.value = true
+  try {
+    const res = await getNotices()
+    if (res.success) {
+      noticeList.value = (res.notices || []).map(n => ({
+        ...n,
+        summary: n.summary || (n.content ? n.content.substring(0, 50) + '...' : ''),
+        time: n.created_at ? n.created_at.substring(0, 16).replace('T', ' ') : '',
+        author: n.creator_name || '管理员',
+        isPinned: n.is_pinned || false
+      }))
+    }
+  } catch (error) {
+    console.error('获取通知失败:', error)
+    uni.showToast({ title: '获取通知失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(() => {
   canPublish.value = canPublishNotice()
+  fetchNotices()
+})
+
+onShow(() => {
+  canPublish.value = canPublishNotice()
+  fetchNotices()
 })
 </script>
 
@@ -245,13 +278,32 @@ onMounted(() => {
 }
 
 .empty-state {
-  padding: 80rpx 0;
+  margin: 80rpx 32rpx 0;
+  padding: 60rpx 32rpx;
   text-align: center;
+  background: #ffffff;
+  border-radius: 24rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
 }
 
-.empty-text {
-  font-size: 26rpx;
+.empty-icon {
+  font-size: 72rpx;
+  line-height: 1;
+}
+
+.empty-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #43474f;
+}
+
+.empty-hint {
+  font-size: 24rpx;
   color: #c3c6d1;
+  line-height: 1.5;
 }
 
 .fab-btn {

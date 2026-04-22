@@ -66,6 +66,7 @@
 
 <script setup>
 import { reactive } from 'vue'
+import { createExpense } from '@/api/fee'
 
 const formData = reactive({
   purpose: '',
@@ -94,7 +95,7 @@ function removeProof(idx) {
   formData.proofs.splice(idx, 1)
 }
 
-function onSubmit() {
+async function onSubmit() {
   if (!formData.purpose) { uni.showToast({ title: '请填写用途', icon: 'none' }); return }
   if (!formData.amount) { uni.showToast({ title: '请输入金额', icon: 'none' }); return }
 
@@ -109,14 +110,26 @@ function onSubmit() {
   uni.showModal({
     title: '确认提交',
     content: `申请金额：¥${formData.amount}\n审批流程：${steps.join(' → ')}`,
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
         uni.showLoading({ title: '提交中...' })
-        setTimeout(() => {
+        try {
+          const res = await createExpense({
+            type: '支出',
+            amount: amount,
+            purpose: formData.purpose + (formData.details ? `\n明细：${formData.details}` : '')
+          })
           uni.hideLoading()
-          uni.showToast({ title: '已提交，等待审核', icon: 'success' })
-          setTimeout(() => uni.navigateBack(), 1500)
-        }, 1000)
+          if (res.success) {
+            uni.showToast({ title: '已提交，等待审核', icon: 'success' })
+            setTimeout(() => uni.navigateBack(), 1500)
+          } else {
+            uni.showToast({ title: res.message || '提交失败', icon: 'none' })
+          }
+        } catch (error) {
+          uni.hideLoading()
+          uni.showToast({ title: '网络错误，请重试', icon: 'none' })
+        }
       }
     }
   })

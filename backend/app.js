@@ -7,14 +7,17 @@ require('dotenv').config();
 
 const db = require('./config/database');
 
-// 测试数据库连接
+// 测试数据库连接（不阻塞启动）
 async function testDatabaseConnection() {
   try {
     const [rows] = await db.query('SELECT 1');
     console.log('数据库连接成功');
   } catch (error) {
-    console.error('数据库连接失败:', error);
-    process.exit(1);
+    console.error('数据库连接失败:', error.message);
+    // CloudRun 环境下不退出，等待后续重连
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
   }
 }
 
@@ -26,7 +29,18 @@ const PORT = process.env.PORT || 3000;
 // 中间件配置
 app.use(helmet());
 app.use(cors({
-  origin: '*',
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'https://class-manage-sys-247928-5-1420593393.sh.run.tcloudbase.com'
+    ];
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -43,6 +57,9 @@ app.use(limiter);
 // 静态文件服务
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// 操作记录中间件（只记录写操作，失败自吞）
+app.use('/api', require('./middleware/operationLog'));
+
 // 路由
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
@@ -58,6 +75,9 @@ app.use('/api/vote', require('./routes/vote'));
 app.use('/api/suggestion', require('./routes/suggestion'));
 app.use('/api/lottery', require('./routes/lottery'));
 app.use('/api/points', require('./routes/points'));
+app.use('/api/classes', require('./routes/classes'));
+app.use('/api/message', require('./routes/message'));
+app.use('/api/admin', require('./routes/admin'));
 
 // 健康检查
 app.get('/health', (req, res) => {

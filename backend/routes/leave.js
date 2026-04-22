@@ -12,6 +12,9 @@ router.get('/my', authenticateToken, LeaveController.getMyLeaves);
 // 获取所有请假记录（管理员）
 router.get('/all', authenticateToken, authorizeAdmin, LeaveController.getAllLeaves);
 
+// 单条请假详情（本人或管理员）
+router.get('/:id', authenticateToken, LeaveController.getLeaveById);
+
 // 审批请假
 router.put('/approve', authenticateToken, authorizeAdmin, LeaveController.approveLeave);
 

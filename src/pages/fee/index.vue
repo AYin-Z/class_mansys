@@ -107,22 +107,64 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { isAdmin as checkAdmin } from '@/utils/auth.js'
+import { getBalance, getMyExpenses, getAllExpenses } from '@/api/fee'
+import { hasBackendToken } from '@/utils/request'
 
-const balance = ref('3,580.00')
-const totalIncome = ref('5,000.00')
-const totalExpense = ref('1,420.00')
+const balance = ref('0.00')
+const totalIncome = ref('0.00')
+const totalExpense = ref('0.00')
 const isAdmin = ref(false)
+const loading = ref(false)
 
-const recentRecords = ref([
-  { id: 1, desc: '班费收缴 - 四月份', time: '2026-04-01', amount: '500.00', type: 'income' },
-  { id: 2, desc: '购买班级物资 - 清洁用品', time: '2026-03-28', amount: '186.50', type: 'expense' },
-  { id: 3, desc: '活动经费 - 团建聚餐', time: '2026-03-20', amount: '680.00', type: 'expense' },
-  { id: 4, desc: '报销 - 学习资料打印', time: '2026-03-15', amount: '45.00', type: 'expense' },
-  { id: 5, desc: '班费收缴 - 三月份', time: '2026-03-01', amount: '500.00', type: 'income' }
-])
+const recentRecords = ref([])
+
+function formatAmount(num) {
+  if (typeof num !== 'number') return '0.00'
+  return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+async function fetchFeeData() {
+  if (!hasBackendToken()) {
+    console.warn('未登录后端，跳过加载班费数据')
+    return
+  }
+
+  loading.value = true
+  try {
+    // 获取余额
+    const balanceRes = await getBalance()
+    if (balanceRes.success && balanceRes.balance) {
+      const b = balanceRes.balance
+      balance.value = formatAmount(b.balance || 0)
+      totalIncome.value = formatAmount(b.totalIncome || 0)
+      totalExpense.value = formatAmount(b.totalExpense || 0)
+    }
+
+    // 获取记录
+    const expensesRes = isAdmin.value
+      ? await getAllExpenses()
+      : await getMyExpenses()
+
+    if (expensesRes.success) {
+      recentRecords.value = (expensesRes.expenses || []).map(e => ({
+        id: e.id,
+        desc: e.purpose,
+        time: e.created_at ? e.created_at.substring(0, 10) : '',
+        amount: formatAmount(e.amount),
+        type: e.type
+      }))
+    }
+  } catch (error) {
+    console.error('获取班费数据失败:', error)
+    uni.showToast({ title: '获取数据失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
+}
 
 onMounted(() => {
   isAdmin.value = checkAdmin()
+  fetchFeeData()
 })
 </script>
 

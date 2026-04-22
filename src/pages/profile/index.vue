@@ -6,30 +6,39 @@
       <view class="profile-header">
         <view class="header-bg"></view>
         <view class="user-info">
-          <image class="avatar" src="/static/images/avatar.png" mode="aspectFill" />
-          <text class="username">{{ userInfo.name || '未登录' }}</text>
-          <text class="role-badge">{{ userInfo.role || '学员' }}</text>
+          <image class="avatar" :src="avatar" mode="aspectFill" />
+          <text class="username">{{ displayName }}</text>
+          <text class="role-badge">{{ roleLabel }}</text>
+          <text v-if="profile?.student_id" class="sub-line">学号 {{ profile.student_id }}</text>
         </view>
         <view class="stats-row">
           <view class="stat-item">
-            <text class="stat-val">{{ myPoints }}</text>
-            <text class="stat-label">积分</text>
+            <text class="stat-val">{{ profile?.class_id || '—' }}</text>
+            <text class="stat-label">班级</text>
           </view>
           <view class="stat-divider"></view>
           <view class="stat-item">
-            <text class="stat-val">{{ attendance }}</text>
-            <text class="stat-label">出勤率</text>
+            <text class="stat-val">{{ profile?.phone ? maskPhone(profile.phone) : '—' }}</text>
+            <text class="stat-label">手机</text>
           </view>
           <view class="stat-divider"></view>
           <view class="stat-item">
-            <text class="stat-val">{{ rank }}</text>
-            <text class="stat-label">排名</text>
+            <text class="stat-val">{{ isAdminUser ? '管理员' : '学员' }}</text>
+            <text class="stat-label">身份</text>
           </view>
         </view>
       </view>
 
       <!-- Menu Sections -->
       <view class="menu-section">
+        <view v-if="isAdminUser" class="menu-group">
+          <text class="group-title">管理员后台</text>
+          <view class="menu-item" @tap="goPage({ url: '/pages/admin/members/index' })">
+            <text class="menu-icon">👥</text>
+            <text class="menu-label">成员管理</text>
+            <text class="menu-arrow">›</text>
+          </view>
+        </view>
         <view v-for="group in menuGroups" :key="group.title" class="menu-group">
           <text class="group-title">{{ group.title }}</text>
           <view v-for="item in group.items" :key="item.key" class="menu-item" @tap="goPage(item)">
@@ -71,41 +80,49 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { storeToRefs } from 'pinia'
+import { useUserStore } from '@/stores/user'
+import { logout as cloudbaseLogout } from '@/utils/cloudbase'
 
-const userInfo = ref({})
-const myPoints = ref(1280)
-const attendance = ref('96%')
-const rank = ref('5')
+const userStore = useUserStore()
+const { profile, isAdmin: isAdminUser, displayName, roleLabel } = storeToRefs(userStore)
+
+const avatar = computed(() => profile.value?.avatarUrl || '/static/images/avatar.png')
+
+function maskPhone(p) {
+  if (!p) return ''
+  const s = String(p)
+  if (s.length < 7) return s
+  return s.slice(0, 3) + '****' + s.slice(-4)
+}
 
 const menuGroups = ref([
   {
     title: '我的服务',
     items: [
-      { key: 'points', icon: '⭐', label: '积分中心', url: '/pages/points/index' },
       { key: 'leave', icon: '🏥', label: '请假记录', url: '/pages/leave/index' },
       { key: 'fee', icon: '💰', label: '班费记录', url: '/pages/fee/index' },
-      { key: 'homework', icon: '📝', label: '作业记录', url: '/pages/homework/index' }
+      { key: 'notice', icon: '📢', label: '通知中心', url: '/pages/notice/index' },
+      { key: 'announcement', icon: '📰', label: '公告资源', url: '/pages/announcement/index' }
     ]
   },
   {
-    title: '我的活动',
+    title: '互动中心',
     items: [
-      { key: 'challenge', icon: '🏆', label: '擂台挑战', url: '/pages/challenge/index' },
-      { key: 'lottery', icon: '🎁', label: '抽奖活动', url: '/pages/lottery/index' },
-      { key: 'vote', icon: '🗳️', label: '投票记录', url: '/pages/vote/index' }
+      { key: 'album', icon: '📷', label: '区队相册', url: '/pages/album/index' },
+      { key: 'vote', icon: '🗳️', label: '投票活动', url: '/pages/vote/index' },
+      { key: 'suggestion', icon: '💡', label: '建议箱', url: '/pages/suggestion/index' }
     ]
   }
 ])
 
-onMounted(() => {
-  const stored = uni.getStorageSync('userInfo')
-  if (stored) {
-    try {
-      userInfo.value = JSON.parse(stored)
-    } catch (e) {}
-  }
-})
+async function refresh() {
+  // 优先用 store 内本地数据，再后台拉一次最新
+  userStore.hydrate()
+  try { await userStore.refresh() } catch (e) {}
+}
 
 function goPage(item) {
   if (!item.url) return
@@ -113,30 +130,35 @@ function goPage(item) {
 }
 
 function goToSettings() {
-  uni.showToast({ title: '系统设置', icon: 'none' })
+  uni.showToast({ title: '系统设置开发中', icon: 'none' })
 }
 
 function goToAbout() {
-  uni.showToast({ title: '关于我们', icon: 'none' })
+  uni.showModal({
+    title: '关于',
+    content: '区队管理系统 v1.0\n基于 UniApp + Express + CloudBase',
+    showCancel: false
+  })
 }
 
 function goToFeedback() {
   uni.navigateTo({ url: '/pages/suggestion/submit' })
 }
 
-function handleLogout() {
+async function handleLogout() {
   uni.showModal({
     title: '确认退出',
     content: '确定要退出当前账号吗？',
-    success: (res) => {
-      if (res.confirm) {
-        uni.removeStorageSync('userInfo')
-        uni.removeStorageSync('token')
-        uni.reLaunch({ url: '/pages/auth/register' })
-      }
+    success: async (res) => {
+      if (!res.confirm) return
+      try { await cloudbaseLogout() } catch (e) {}
+      userStore.logout()
+      uni.reLaunch({ url: '/pages/auth/register' })
     }
   })
 }
+
+onShow(() => refresh())
 </script>
 
 <style lang="scss" scoped>
@@ -202,6 +224,13 @@ function handleLogout() {
   font-size: 22rpx;
   color: rgba(255, 255, 255, 0.85);
   font-weight: $font-weight-medium;
+}
+
+.sub-line {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 1rpx;
 }
 
 .stats-row {

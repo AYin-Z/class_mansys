@@ -42,7 +42,7 @@ function goBack() {
 </script>
 
 <style lang="scss" scoped>
-@import "../../uni.scss";
+@import "@/uni.scss";
 
 .nav-bar {
   position: fixed;

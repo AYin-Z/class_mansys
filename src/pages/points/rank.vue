@@ -28,21 +28,22 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { getPointsRanking } from '@/api/points'
 
-const topThree = ref([
-  { id: 1, name: '张三', points: 1560 },
-  { id: 2, name: '李四', points: 1420 },
-  { id: 3, name: '王五', points: 1350 }
-])
+const allList = ref([])
+const topThree = computed(() => allList.value.slice(0, 3).map(u => ({ id: u.id, name: u.name, points: u.total_score })))
+const rankList = computed(() => allList.value.slice(3).map(u => ({ id: u.id, name: u.name, points: u.total_score })))
 
-const rankList = ref([
-  { id: 4, name: '赵六', points: 1280 },
-  { id: 5, name: '钱七', points: 1210 },
-  { id: 6, name: '孙八', points: 1150 },
-  { id: 7, name: '周九', points: 1080 },
-  { id: 8, name: '吴十', points: 1020 }
-])
+async function fetchRank() {
+  try {
+    const res = await getPointsRanking(200)
+    allList.value = res?.ranking || []
+  } catch (_) { allList.value = [] }
+}
+
+onShow(() => { fetchRank() })
 </script>
 
 <style lang="scss" scoped

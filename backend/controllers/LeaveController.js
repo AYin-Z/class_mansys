@@ -26,10 +26,32 @@ class LeaveController {
 
   static async getAllLeaves(req, res) {
     try {
-      const leaves = await Leave.getAll();
+      const leaves = await Leave.getAllWithApplicants();
       res.json({ success: true, leaves });
     } catch (error) {
       res.status(500).json({ success: false, error: '获取请假记录失败' });
+    }
+  }
+
+  static async getLeaveById(req, res) {
+    try {
+      const id = parseInt(req.params.id, 10);
+      if (Number.isNaN(id)) {
+        return res.status(400).json({ success: false, error: '无效的请假 ID' });
+      }
+      const leave = await Leave.findByIdWithApplicant(id);
+      if (!leave) {
+        return res.status(404).json({ success: false, error: '请假记录不存在' });
+      }
+      const isOwner = Number(leave.user_id) === Number(req.user.id);
+      const isAdmin = !!req.user.isAdmin;
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ success: false, error: '无权查看该请假记录' });
+      }
+      res.json({ success: true, leave });
+    } catch (error) {
+      console.error('获取请假详情失败:', error);
+      res.status(500).json({ success: false, error: '获取请假详情失败' });
     }
   }
 
@@ -64,7 +86,7 @@ class LeaveController {
       }
       
       // 只能取消自己的请假
-      if (leave.user_id != req.user.id) {
+      if (Number(leave.user_id) !== Number(req.user.id)) {
         return res.status(403).json({ success: false, error: '权限不足' });
       }
       

@@ -22,14 +22,28 @@
 
 <script setup>
 import { reactive } from 'vue'
+import { submitPsychApplication } from '@/api/psychological'
+
 const types = ['情绪疏导', '学业压力', '人际关系', '睡眠问题', '其他']
 const form = reactive({ type: '', detail: '' })
+
 function onTypeChange(e) { form.type = types[e.detail.value] }
-function submit() {
+
+async function submit() {
   if (!form.type) { uni.showToast({ title: '请选择类型', icon: 'none' }); return }
   if (!form.detail) { uni.showToast({ title: '请填写详情', icon: 'none' }); return }
   uni.showLoading({ title: '提交中...' })
-  setTimeout(() => { uni.hideLoading(); uni.showToast({ title: '已提交，请放心', icon: 'success' }); setTimeout(() => uni.navigateBack(), 1500) }, 1000)
+  try {
+    const content = `[${form.type}] ${form.detail}`
+    const res = await submitPsychApplication(content)
+    uni.hideLoading()
+    if (res?.success) {
+      uni.showToast({ title: '已提交，请放心', icon: 'success' })
+      setTimeout(() => uni.navigateBack(), 1500)
+    }
+  } catch (_) {
+    uni.hideLoading()
+  }
 }
 </script>
 

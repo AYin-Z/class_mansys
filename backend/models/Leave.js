@@ -2,11 +2,11 @@ const db = require('../config/database');
 
 class Leave {
   static async create(leaveData) {
-    const { user_id, leave_type, start_time, end_time, reason } = leaveData;
+    const { user_id, type, start_time, end_time, reason } = leaveData;
     
     const [result] = await db.query(
       'INSERT INTO leaves (user_id, leave_type, start_time, end_time, reason) VALUES (?, ?, ?, ?, ?)',
-      [user_id, leave_type, start_time, end_time, reason]
+      [user_id, type, start_time, end_time, reason]
     );
     
     return result.insertId;
@@ -25,6 +25,29 @@ class Leave {
   static async getAll() {
     const [rows] = await db.query('SELECT * FROM leaves ORDER BY created_at DESC');
     return rows;
+  }
+
+  /** 管理员列表：附带申请人姓名、学号 */
+  static async getAllWithApplicants() {
+    const [rows] = await db.query(
+      `SELECT l.*, u.name AS applicant_name, u.student_id AS applicant_student_id
+       FROM leaves l
+       LEFT JOIN users u ON l.user_id = u.id
+       ORDER BY l.created_at DESC`
+    );
+    return rows;
+  }
+
+  /** 单条详情：附带申请人信息（管理员查看他人申请时用） */
+  static async findByIdWithApplicant(id) {
+    const [rows] = await db.query(
+      `SELECT l.*, u.name AS applicant_name, u.student_id AS applicant_student_id
+       FROM leaves l
+       LEFT JOIN users u ON l.user_id = u.id
+       WHERE l.id = ?`,
+      [id]
+    );
+    return rows[0];
   }
 
   static async updateStatus(id, status, approver_id, approval_notes) {

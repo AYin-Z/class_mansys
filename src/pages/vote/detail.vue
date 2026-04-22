@@ -2,49 +2,136 @@
   <view class="detail-page">
     <custom-nav-bar title="投票详情" :showBack="true" />
     <scroll-view scroll-y class="main-scroll">
-      <view class="vote-info">
+      <view v-if="vote.id" class="vote-info">
         <text class="vote-title">{{ vote.title }}</text>
-        <text class="vote-desc">{{ vote.desc }}</text>
-        <view :class="['status-badge', vote.status]">{{ statusText(vote.status) }}</view>
+        <text v-if="vote.description" class="vote-desc">{{ vote.description }}</text>
+        <view class="meta-row">
+          <view :class="['status-badge', status]">{{ statusText(status) }}</view>
+          <text class="meta-text">{{ isSingle ? '单选' : '多选' }} · {{ totalVotes }}票</text>
+        </view>
+        <text class="period">{{ formatTime(vote.start_time) }} 至 {{ formatTime(vote.end_time) }}</text>
       </view>
 
       <view class="options-section">
         <text class="section-label">投票选项</text>
-        <view v-for="(opt, idx) in options" :key="idx" class="option-card" @tap="selectOption(idx)">
+        <view v-for="opt in options" :key="opt.id"
+              :class="['option-card', { selected: isSelected(opt.id), voted: hasVoted }]"
+              @tap="selectOption(opt.id)">
           <view class="option-header">
-            <view :class="['radio', { selected: selectedIdx === idx }]"></view>
-            <text class="option-label">{{ opt.label }}</text>
-            <text class="option-count" v-if="voted">{{ opt.count }}票</text>
+            <view :class="['mark', isSingle ? 'radio' : 'check', { selected: isSelected(opt.id) }]"></view>
+            <text class="option-label">{{ opt.content }}</text>
+            <text v-if="showResults" class="option-count">{{ opt.vote_count }}票</text>
           </view>
-          <view v-if="voted" class="progress-bar-sm"><view class="progress-fill" :style="{ width: opt.rate + '%' }"></view></view>
+          <view v-if="showResults" class="progress-bar-sm">
+            <view class="progress-fill" :style="{ width: (opt.rate || 0) + '%' }"></view>
+          </view>
+          <text v-if="showResults" class="rate-text">{{ opt.rate || 0 }}%</text>
         </view>
       </view>
 
-      <button class="submit-btn" v-if="!voted && vote.status === 'active'" @click="castVote">提交投票</button>
+      <button v-if="canVote" class="submit-btn" :disabled="loading" @click="onCastVote">
+        {{ hasVoted ? (isSingle ? '修改投票' : '已投票') : (loading ? '提交中…' : '提交投票') }}
+      </button>
+
+      <button v-if="canClose" class="close-btn" @click="onClose">关闭投票</button>
+
       <view style="height: 40rpx;"></view>
     </scroll-view>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-const voted = ref(false)
-const selectedIdx = ref(-1)
-const vote = ref({ title: '春游地点选择', desc: '选择本学期春游目的地', type: 'single', status: 'active' })
-const options = ref([
-  { label: '西湖风景区', count: 12, rate: 40 },
-  { label: '千岛湖', count: 8, rate: 27 },
-  { label: '西溪湿地', count: 6, rate: 20 },
-  { label: '灵隐寺', count: 4, rate: 13 }
-])
-function statusText(s) { return s === 'active' ? '进行中' : '已结束' }
-function selectOption(idx) {
-  if (!voted.value && vote.value.status === 'active') selectedIdx.value = idx
+import { ref, computed } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { getVoteDetail, castVote, closeVote, isVoteSingle, getVoteStatus } from '@/api/vote'
+import { isAdmin } from '@/utils/auth.js'
+
+const vote = ref({})
+const options = ref([])
+const myChoices = ref([])
+const totalVotes = ref(0)
+const selectedIds = ref([])
+const loading = ref(false)
+const isAdminUser = ref(false)
+
+const isSingle = computed(() => isVoteSingle(vote.value || { type: 'single' }))
+const status = computed(() => vote.value?.id ? getVoteStatus(vote.value) : 'pending')
+const hasVoted = computed(() => myChoices.value.length > 0)
+const showResults = computed(() => hasVoted.value || status.value === 'ended' || isAdminUser.value)
+const canVote = computed(() => status.value === 'active')
+const canClose = computed(() => isAdminUser.value && vote.value?.is_active)
+
+function isSelected(id) {
+  return selectedIds.value.includes(id)
 }
-function castVote() {
-  if (selectedIdx.value === -1) { uni.showToast({ title: '请选择选项', icon: 'none' }); return }
-  voted.value = true; uni.showToast({ title: '投票成功', icon: 'success' })
+
+function selectOption(id) {
+  if (!canVote.value) return
+  if (isSingle.value) {
+    selectedIds.value = [id]
+  } else {
+    const idx = selectedIds.value.indexOf(id)
+    if (idx >= 0) selectedIds.value.splice(idx, 1)
+    else selectedIds.value.push(id)
+  }
 }
+
+function statusText(s) {
+  if (s === 'pending') return '未开始'
+  if (s === 'active') return '进行中'
+  return '已结束'
+}
+
+function formatTime(ts) {
+  if (!ts) return ''
+  return String(ts).substring(0, 16).replace('T', ' ')
+}
+
+async function fetchDetail(id) {
+  try {
+    const res = await getVoteDetail(id)
+    if (res?.success) {
+      vote.value = res.vote || {}
+      options.value = res.options || []
+      myChoices.value = res.my_choices || []
+      selectedIds.value = [...myChoices.value]
+      totalVotes.value = res.total_votes || 0
+    }
+  } catch (e) {}
+}
+
+async function onCastVote() {
+  if (selectedIds.value.length === 0) {
+    uni.showToast({ title: '请选择选项', icon: 'none' })
+    return
+  }
+  loading.value = true
+  try {
+    await castVote(vote.value.id, selectedIds.value)
+    uni.showToast({ title: '投票成功', icon: 'success' })
+    fetchDetail(vote.value.id)
+  } catch (e) {}
+  finally { loading.value = false }
+}
+
+function onClose() {
+  uni.showModal({
+    title: '关闭投票', content: '关闭后将无法继续投票，确认？',
+    success: async (r) => {
+      if (!r.confirm) return
+      try {
+        await closeVote(vote.value.id)
+        uni.showToast({ title: '已关闭', icon: 'success' })
+        fetchDetail(vote.value.id)
+      } catch (e) {}
+    }
+  })
+}
+
+onLoad((opts) => {
+  isAdminUser.value = isAdmin()
+  if (opts?.id) fetchDetail(Number(opts.id))
+})
 </script>
 
 <style lang="scss" scoped
@@ -56,20 +143,28 @@ function castVote() {
 .vote-desc { font-size: 26rpx; color: #43474f; line-height: 1.5; display: block; margin-bottom: 16rpx; }
 .status-badge {
   display: inline-block; padding: 6rpx 18rpx; border-radius: 999rpx; font-size: 22rpx; font-weight: 600;
-  &.active { background: rgba(70,98,112,0.08); color: #466270; }
+  &.pending { background: rgba(70,98,112,0.08); color: #466270; }
+  &.active { background: rgba(0,30,64,0.06); color: #001e40; }
   &.ended { background: rgba(195,198,209,0.2); color: #c3c6d1; }
 }
+.meta-row { display: flex; align-items: center; gap: 14rpx; margin-bottom: 10rpx; }
+.meta-text { font-size: 24rpx; color: #466270; }
+.period { font-size: 22rpx; color: #c3c6d1; display: block; }
 
 .options-section { margin: 0 32rpx; }
 .section-label { font-size: 25rpx; font-weight: 600; color: #43474f; text-transform: uppercase; letter-spacing: 4rpx; display: block; margin-bottom: 18rpx; }
 
-.option-card { background: #fff; border-radius: 16rpx; padding: 22rpx 24rpx; margin-bottom: 14rpx; &:active { opacity: 0.85; } }
+.option-card { position: relative; background: #fff; border-radius: 16rpx; padding: 22rpx 24rpx; margin-bottom: 14rpx; &:active { opacity: 0.85; } &.selected { background: linear-gradient(135deg, rgba(0,30,64,0.04), rgba(0,51,102,0.02)); } }
 .option-header { display: flex; align-items: center; gap: 14rpx; }
-.radio {
-  width: 36rpx; height: 36rpx; border-radius: 50%; border: 3rpx solid #e0e3e6;
+.mark {
+  width: 36rpx; height: 36rpx; border: 3rpx solid #e0e3e6;
   flex-shrink: 0; transition: all 0.2s;
-  &.selected { border-color: #001e40; background: linear-gradient(135deg, #001e40, #003366); box-shadow: inset 0 0 0 5rpx #fff; }
 }
+.radio { border-radius: 50%; }
+.check { border-radius: 8rpx; }
+.mark.selected { border-color: #001e40; background: linear-gradient(135deg, #001e40, #003366); box-shadow: inset 0 0 0 5rpx #fff; }
+.rate-text { display: block; font-size: 22rpx; color: #466270; margin-top: 6rpx; text-align: right; font-weight: 600; }
+.close-btn { margin: 12rpx 32rpx 0; height: 80rpx; background: #f2f4f7; border-radius: 16rpx; border: none; font-size: 26rpx; color: #460002; font-weight: 600; &::after { display: none; } }
 .option-label { flex: 1; font-size: 28rpx; font-weight: 500; color: #191c1e; }
 .option-count { font-size: 24rpx; color: #001e40; font-weight: 600; }
 .progress-bar-sm { height: 8rpx; background: #f2f4f7; border-radius: 4rpx; overflow: hidden; margin-top: 14rpx; }

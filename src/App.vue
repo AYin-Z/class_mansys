@@ -1,153 +1,113 @@
-<template>
-  <view class="app-container">
-    <slot></slot>
-  </view>
-</template>
+<script setup lang="ts">
+import { onLaunch, onShow, onHide } from "@dcloudio/uni-app";
+import { initCloudBase, checkEnvironment } from "./utils/cloudbase";
+import { useUserStore } from "@/stores/user";
 
-<script setup>
-import { onMounted } from 'vue'
+onLaunch(async () => {
+  console.log("App Launch");
 
-onMounted(() => {
-  // 初始化微信云开发
-  if (typeof wx !== 'undefined' && wx.cloud) {
-    wx.cloud.init({
-      env: 'your-cloud-env-id', // 替换为你的云开发环境ID
-      traceUser: true
-    })
+  if (checkEnvironment()) {
+    try {
+      const success = await initCloudBase();
+      if (success) {
+        console.log("云开发初始化成功");
+      } else {
+        console.warn("云开发初始化失败");
+      }
+    } catch (error) {
+      console.error("云开发初始化异常:", error);
+    }
+  } else {
+    console.warn("云开发环境ID未配置，请在 src/utils/cloudbase.ts 中配置");
   }
-})
+
+  // 从本地恢复用户信息（store 内已自动处理）
+  const userStore = useUserStore();
+  userStore.hydrate();
+
+  routeGuard(userStore);
+});
+
+onShow(() => {
+  console.log("App Show");
+});
+
+onHide(() => {
+  console.log("App Hide");
+});
+
+function routeGuard(userStore: ReturnType<typeof useUserStore>) {
+  if (userStore.isAuthenticated) return;
+
+  // 已经在注册/登录页就别再跳
+  const pages = getCurrentPages();
+  const current = pages[pages.length - 1];
+  const route = current?.route || current?.$page?.fullPath || "";
+  if (route.includes("auth/register") || route.includes("auth/login")) return;
+
+  uni.reLaunch({ url: "/pages/auth/register" });
+}
 </script>
 
 <style lang="scss">
-@import "./uni.scss";
+@import "@/uni.scss";
 
-/* Global Reset */
-* {
-  margin: 0;
-  padding: 0;
+/* ========== 全局 reset ========== */
+page {
+  background-color: $surface;
+  font-family: $font-body;
+  color: $on-surface;
+}
+
+view, text, button, input, textarea {
   box-sizing: border-box;
 }
 
-body {
-  font-family: $font-body;
-  font-size: $body-md;
+/* ========== 通用按钮（仅供旧页面降级使用，新页面请使用 .primary-btn / mixin） ========== */
+.btn {
+  border-radius: $radius-md;
+  font-size: $body-lg;
+  padding: 20rpx 40rpx;
+  border: none;
+  transition: opacity $transition-fast;
+}
+
+.btn-primary {
+  background: $gradient-primary;
+  color: $on-primary;
+
+  &:active { opacity: 0.92; }
+}
+
+.btn-secondary {
+  background-color: $surface-container-low;
   color: $on-surface;
-  background: $surface;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+
+  &:active { background-color: $surface-container; }
 }
 
-/* Page Container */
-.app-container {
-  min-height: 100vh;
-  background: $surface;
+.btn:disabled { opacity: $uni-opacity-disabled; }
+
+/* ========== 通用卡片 ========== */
+.card {
+  background: $surface-container-lowest;
+  border-radius: $radius-lg;
+  padding: $spacing-md;
+  margin: $spacing-sm;
+  box-shadow: $shadow-ambient;
 }
 
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-  width: 6rpx;
-  height: 6rpx;
-}
+/* ========== 通用输入框 ========== */
+.input {
+  padding: 20rpx;
+  border-radius: $radius-md;
+  font-size: $body-lg;
+  background-color: $surface-container-lowest;
+  /* 「No-Line」: 不再使用 1px solid border，仅在 focus 时显示 */
+  border: 2rpx solid transparent;
 
-::-webkit-scrollbar-track {
-  background: $surface-container-low;
-  border-radius: 3rpx;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 30, 64, 0.2);
-  border-radius: 3rpx;
-  &:hover {
-    background: rgba(0, 30, 64, 0.3);
-  }
-}
-
-/* Loading Toast */
-uni-loading {
-  --uni-loading-color: $primary !important;
-}
-
-/* Modal */
-uni-modal {
-  --uni-modal-background-color: $surface-container-lowest !important;
-  --uni-modal-title-color: $on-surface !important;
-  --uni-modal-content-color: $on-surface-variant !important;
-  --uni-modal-button-color: $primary !important;
-  --uni-modal-border-radius: $radius-lg !important;
-}
-
-/* Action Sheet */
-uni-action-sheet {
-  --uni-action-sheet-background-color: $surface-container-lowest !important;
-  --uni-action-sheet-button-color: $on-surface !important;
-  --uni-action-sheet-cancel-color: $on-surface-tertiary !important;
-  --uni-action-sheet-separator-color: $surface-container-low !important;
-}
-
-/* Picker */
-uni-picker {
-  --uni-picker-background-color: $surface-container-lowest !important;
-  --uni-picker-text-color: $on-surface !important;
-  --uni-picker-confirm-color: $primary !important;
-  --uni-picker-cancel-color: $on-surface-tertiary !important;
-}
-
-/* Input */
-uni-input {
-  font-family: $font-body;
-  font-size: $body-md;
-  color: $on-surface;
-  
-  &::placeholder {
-    color: $on-surface-tertiary;
-  }
-}
-
-/* Button */
-uni-button {
-  font-family: $font-display;
-  font-weight: $font-weight-semibold;
-  
-  &[type="primary"] {
-    background: $gradient-primary !important;
-    color: #ffffff !important;
-    border: none !important;
-  }
-  
-  &[type="default"] {
-    background: $surface-container-low !important;
-    color: $on-surface !important;
-    border: none !important;
-  }
-  
-  &[type="warn"] {
-    background: $tertiary-container !important;
-    color: $tertiary !important;
-    border: none !important;
-  }
-}
-
-/* TabBar */
-.uni-tabbar {
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(40rpx) !important;
-  -webkit-backdrop-filter: blur(40rpx) !important;
-  border-top: 1rpx solid rgba(195, 198, 209, 0.2) !important;
-  
-  .uni-tabbar__item {
-    &.uni-tabbar__item--active {
-      .uni-tabbar__label {
-        color: $primary !important;
-        font-weight: $font-weight-semibold !important;
-      }
-    }
-    
-    .uni-tabbar__label {
-      font-family: $font-body;
-      font-size: $label-sm;
-      color: $on-surface-tertiary !important;
-      margin-top: 4rpx !important;
-    }
+  &:focus {
+    border-color: $primary;
   }
 }
 </style>

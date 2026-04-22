@@ -1,156 +1,192 @@
-// Design System: Institutional Command
-// Based on "Disciplined Architecturalism" design philosophy
+/**
+ * uni-app 内置样式变量 + 项目设计令牌
+ * 设计语言：Disciplined Architecturalism（参考 _legacy/stitch_ui/DESIGN.md）
+ *
+ * 「No-Line」原则：禁用 1px 实线分隔，全部用 surface 色阶切换实现
+ * 渐变方向统一 135deg，from $primary to $primary-container
+ */
 
-// Colors
+/* ========== Stitch · 颜色（深海军蓝 + 中性灰阶） ========== */
 $primary: #001e40;
 $primary-container: #003366;
+$on-primary: #ffffff;
+$primary-fixed: #d5e3ff;
+
 $secondary: #466270;
-$secondary-container: rgba(70, 98, 112, 0.08);
-$tertiary: #460002;
-$tertiary-container: rgba(70, 0, 2, 0.06);
+$secondary-container: #c6e4f4;
+$on-secondary: #ffffff;
+$on-secondary-container: #4a6774;
 
-// Surface Hierarchy
-$surface: #f7f9fc;             // Base
-$surface-container-low: #f2f4f7; // Sectioning
-$surface-container-lowest: #ffffff; // Actionable Cards
+$tertiary: #460002;          // 仅用于错误 / 高优警示
+$tertiary-container: #ffdad6;
+$on-tertiary: #ffffff;
+$on-tertiary-container: #93000b;
 
-// Text Colors
-$on-surface: #191c1e;           // Primary text
-$on-surface-variant: #43474f;   // Secondary labels
-$on-surface-tertiary: #c3c6d1;   // Tertiary text
+$surface: #f7f9fc;                  // 页面底色
+$surface-container-low: #f2f4f7;    // 段落分组底色
+$surface-container: #eceef1;
+$surface-container-high: #e6e8eb;
+$surface-container-lowest: #ffffff; // 可点击卡片
+$on-surface: #191c1e;               // 不要用纯黑
+$on-surface-variant: #43474f;       // 二级文本
+$on-surface-tertiary: #8b95a1;      // 占位 / 时间戳
+$outline-variant: #c3c6d1;          // 仅用于 ghost border @ 20%
 
-// Accent Colors
 $error: #ba1a1a;
-$success: #003366;
+$success: #466270;     // 警务风格不用绿色，借 secondary 表达「已完成」
 
-// Typography
-$font-display: 'Public Sans', 'PingFang SC', sans-serif;
-$font-body: 'Inter', 'PingFang SC', sans-serif;
+$gradient-primary: linear-gradient(135deg, #001e40 0%, #003366 100%);
+$gradient-glass: linear-gradient(135deg, rgba(0,30,64,0.04), rgba(0,51,102,0.02));
 
-// Font Sizes
-$display-lg: 70rpx;   // 3.5rem
-$headline-sm: 30rpx;  // 1.5rem
-$title-md: 22rpx;     // 1.125rem
-$body-md: 18rpx;      // 0.875rem
-$label-sm: 14rpx;     // 0.6875rem
+/* ========== 间距（8 倍数，rpx 友好） ========== */
+$spacing-xs: 8rpx;
+$spacing-sm: 16rpx;
+$spacing-md: 24rpx;
+$spacing-lg: 32rpx;
+$spacing-xl: 48rpx;
+$spacing-2xl: 64rpx;
 
-// Font Weights
+/* ========== 字号（rpx） ========== */
+$display-lg: 56rpx;     // hero 数字
+$display-md: 44rpx;
+$headline-lg: 38rpx;
+$headline-sm: 30rpx;
+$title-md: 28rpx;
+$title-sm: 26rpx;
+$body-lg: 28rpx;
+$body-md: 26rpx;
+$body-sm: 24rpx;
+$label-md: 22rpx;       // uppercase 标签 / badge
+$label-sm: 20rpx;
+
+/* ========== 字重 ========== */
 $font-weight-light: 300;
 $font-weight-regular: 400;
 $font-weight-medium: 500;
 $font-weight-semibold: 600;
 $font-weight-bold: 700;
 
-// Spacing
-$spacing-xs: 8rpx;
-$spacing-sm: 16rpx;
-$spacing-md: 24rpx;
-$spacing-lg: 32rpx;
-$spacing-xl: 48rpx;
+/* ========== 字体（小程序无法加载远程字体，做降级） ========== */
+$font-display: 'Public Sans', 'PingFang SC', -apple-system, BlinkMacSystemFont, sans-serif;
+$font-body: 'Inter', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-// Border Radius
-$radius-sm: 8rpx;
-$radius-md: 16rpx;  // 0.375rem
+/* ========== 圆角 ========== */
+$radius-xs: 6rpx;
+$radius-sm: 10rpx;
+$radius-md: 14rpx;
 $radius-lg: 20rpx;
-$radius-full: 9999rpx; // Capsule
+$radius-xl: 28rpx;
+$radius-full: 9999rpx;
 
-// Shadows
-$shadow-ambient: 0 8rpx 32rpx rgba(0, 30, 64, 0.06);
-$shadow-floating: 0 12rpx 40rpx rgba(0, 30, 64, 0.1);
+/* ========== 阴影：仅 ambient（高散射、低不透明） ========== */
+$shadow-ambient: 0 8rpx 24rpx rgba(25, 28, 30, 0.06);
+$shadow-floating: 0 12rpx 40rpx rgba(0, 30, 64, 0.18);
 
-// Transitions
+/* ========== 动画 ========== */
 $transition-fast: 0.15s ease;
-$transition-normal: 0.2s ease;
-$transition-slow: 0.3s ease;
+$transition-base: 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 
-// Gradients
-$gradient-primary: linear-gradient(135deg, $primary, $primary-container);
-$gradient-secondary: linear-gradient(135deg, $secondary, rgba(70, 98, 112, 0.8));
+/* ========== 层级 ========== */
+$z-index-floating: 100;
+$z-index-nav: 1000;
+$z-index-modal: 2000;
 
-// Ghost Border (for inputs)
-$ghost-border: 2rpx solid rgba(195, 198, 209, 0.2);
-$ghost-border-focus: 2rpx solid $primary;
-$ghost-border-error: 2rpx solid $error;
+/* ========== Mixins ========== */
+@mixin actionable-card {
+  background: $surface-container-lowest;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-ambient;
+  transition: transform $transition-fast, box-shadow $transition-fast;
+  &:active {
+    transform: scale(0.98);
+  }
+}
 
-// Z-index
-$z-index-nav: 999;
-$z-index-floating: 1000;
-$z-index-modal: 1100;
+@mixin section-card {
+  background: $surface-container-low;
+  border-radius: $radius-lg;
+  padding: $spacing-md;
+}
 
-// Responsive Breakpoints
-$breakpoint-sm: 320px;
-$breakpoint-md: 375px;
-$breakpoint-lg: 414px;
-$breakpoint-xl: 768px;
-
-// Utility Classes
-@mixin glass-effect {
+@mixin glass-bar {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(40rpx);
   -webkit-backdrop-filter: blur(40rpx);
 }
 
-@mixin no-line-section {
-  background: $surface-container-low;
-  border-radius: $radius-md;
-  padding: $spacing-md;
+/* 兼容旧组件 (custom-nav-bar 等) */
+@mixin glass-effect {
+  @include glass-bar;
 }
 
-@mixin actionable-card {
-  background: $surface-container-lowest;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-ambient;
-  padding: $spacing-md;
-  transition: transform $transition-fast, box-shadow $transition-fast;
-  
-  &:active {
-    transform: scale(0.98);
-    box-shadow: $shadow-ambient;
-  }
-}
-
-@mixin primary-button {
+@mixin hero-gradient {
   background: $gradient-primary;
-  color: #ffffff;
-  border: none;
-  border-radius: $radius-md;
-  font-family: $font-display;
+  color: $on-primary;
+}
+
+@mixin accent-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 12rpx;
+  background: $primary;
+}
+
+@mixin uppercase-label {
+  font-size: $label-md;
   font-weight: $font-weight-semibold;
-  transition: transform $transition-fast, box-shadow $transition-fast;
-  
-  &:active {
-    transform: scale(0.98);
-  }
+  color: $on-surface-variant;
+  text-transform: uppercase;
+  letter-spacing: 4rpx;
 }
 
-@mixin secondary-button {
-  background: $surface-container-low;
-  color: $on-surface;
-  border: none;
-  border-radius: $radius-md;
-  font-weight: $font-weight-medium;
-  transition: background-color $transition-fast;
-  
-  &:active {
-    background: rgba(0, 30, 64, 0.06);
-  }
-}
 
-@mixin input-field {
-  background: transparent;
-  border: none;
-  border-bottom: $ghost-border;
-  padding: $spacing-sm 0;
-  font-family: $font-body;
-  font-size: $body-md;
-  color: $on-surface;
-  
-  &:focus {
-    border-bottom: $ghost-border-focus;
-    outline: none;
-  }
-  
-  &::placeholder {
-    color: $on-surface-tertiary;
-  }
-}
+/* ========== uni-app 内置变量（保持兼容） ========== */
+$uni-color-primary: #001e40;
+$uni-color-success: #466270;
+$uni-color-warning: #f0ad4e;
+$uni-color-error: #ba1a1a;
+
+$uni-text-color: #191c1e;
+$uni-text-color-inverse: #ffffff;
+$uni-text-color-grey: #8b95a1;
+$uni-text-color-placeholder: #c3c6d1;
+$uni-text-color-disable: #c3c6d1;
+
+$uni-bg-color: #ffffff;
+$uni-bg-color-grey: #f2f4f7;
+$uni-bg-color-hover: #eceef1;
+$uni-bg-color-mask: rgba(25, 28, 30, 0.4);
+
+$uni-border-color: #c3c6d1;
+
+$uni-font-size-sm: 12px;
+$uni-font-size-base: 14px;
+$uni-font-size-lg: 16px;
+
+$uni-img-size-sm: 20px;
+$uni-img-size-base: 26px;
+$uni-img-size-lg: 40px;
+
+$uni-border-radius-sm: 4px;
+$uni-border-radius-base: 8px;
+$uni-border-radius-lg: 12px;
+$uni-border-radius-circle: 50%;
+
+$uni-spacing-row-sm: 5px;
+$uni-spacing-row-base: 10px;
+$uni-spacing-row-lg: 15px;
+
+$uni-spacing-col-sm: 4px;
+$uni-spacing-col-base: 8px;
+$uni-spacing-col-lg: 12px;
+
+$uni-opacity-disabled: 0.3;
+
+$uni-color-title: #191c1e;
+$uni-font-size-title: 20px;
+$uni-color-subtitle: #43474f;
+$uni-font-size-subtitle: 18px;
+$uni-color-paragraph: #43474f;
+$uni-font-size-paragraph: 15px;

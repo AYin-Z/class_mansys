@@ -3,11 +3,20 @@ const Notice = require('../models/Notice');
 class NoticeController {
   static async createNotice(req, res) {
     try {
+      const { title, content, type, priority, is_pinned } = req.body || {};
+      if (!title || !content) {
+        return res.status(400).json({ success: false, error: '标题和内容必填' });
+      }
+
       const noticeId = await Notice.create({
-        creator_id: req.user.id,
-        ...req.body
+        title,
+        content,
+        type: type || '日常',
+        priority: typeof priority === 'number' ? priority : 0,
+        is_pinned: !!is_pinned,
+        creator_id: req.user.id
       });
-      
+
       res.json({ success: true, noticeId, message: '通知发布成功' });
     } catch (error) {
       console.error('通知发布失败:', error);
@@ -20,6 +29,7 @@ class NoticeController {
       const notices = await Notice.getAll();
       res.json({ success: true, notices });
     } catch (error) {
+      console.error('获取通知列表失败:', error);
       res.status(500).json({ success: false, error: '获取通知失败' });
     }
   }
@@ -30,12 +40,13 @@ class NoticeController {
       if (!notice) {
         return res.status(404).json({ success: false, error: '通知不存在' });
       }
-      
-      // 标记为已读
-      await Notice.markAsRead(req.params.id, req.user.id);
-      
+
+      // 标记为已读（容错，失败不影响详情返回）
+      try { await Notice.markAsRead(req.params.id, req.user.id); } catch (_) { /* ignore */ }
+
       res.json({ success: true, notice });
     } catch (error) {
+      console.error('获取通知详情失败:', error);
       res.status(500).json({ success: false, error: '获取通知详情失败' });
     }
   }
@@ -46,6 +57,16 @@ class NoticeController {
       res.json({ success: true, count });
     } catch (error) {
       res.status(500).json({ success: false, error: '获取未读通知数失败' });
+    }
+  }
+
+  static async deleteNotice(req, res) {
+    try {
+      const ok = await Notice.delete(req.params.id);
+      if (!ok) return res.status(404).json({ success: false, error: '通知不存在' });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ success: false, error: '删除通知失败' });
     }
   }
 }

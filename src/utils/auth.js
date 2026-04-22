@@ -1,64 +1,104 @@
-const ADMIN_ROLES = {
-  CLASS_LEADER: '区队长',
-  LIFE_VICE: '生活副区',
-  STUDY_VICE: '学习副区',
-  PSYCHOLOGICAL_VICE: '心理副区',
-  LEAGUE_SECRETARY: '团支书',
-  ORGANIZATION_COMMITTEE: '组织委员',
-  PUBLICITY_COMMITTEE: '宣传委员'
-}
+/**
+ * 兼容层：保持旧业务页面 import 路径不变。
+ * 新代码请直接使用 useUserStore() / src/constants/roles.ts。
+ *
+ * 历史 bug 修复：
+ *   - 旧版 ADMIN_ROLES 是中文字符串，与后端 INT 永不相等 → 永远 false
+ *   - 现在统一走 USER_ROLES (INT) + PERMISSIONS 矩阵
+ */
+import { useUserStore } from '@/stores/user'
+import {
+  USER_ROLES,
+  ROLE_LABELS,
+  ADMIN_ROLE_IDS,
+  PERMISSIONS,
+  hasPermission as _hasPermission,
+  hasAnyRole as _hasAnyRole,
+  isAdmin as _isAdmin
+} from '@/constants/roles'
 
-const SUPER_ADMIN_PASSWORD = 'kskblzdjdwqzkbl'
 const MAX_ADMIN_COUNT = 7
 
+/* ---------- 兼容旧导出（中文 key → INT 值） ---------- */
+const ADMIN_ROLES = {
+  CLASS_LEADER: USER_ROLES.CLASS_LEADER,
+  LIFE_VICE: USER_ROLES.LIFE_VICE,
+  STUDY_VICE: USER_ROLES.STUDY_VICE,
+  PSYCHOLOGICAL_VICE: USER_ROLES.PSYCHOLOGICAL_VICE,
+  LEAGUE_SECRETARY: USER_ROLES.LEAGUE_SECRETARY,
+  ORGANIZATION_COMMITTEE: USER_ROLES.ORGANIZATION_COMMITTEE,
+  PUBLICITY_COMMITTEE: USER_ROLES.PUBLICITY_COMMITTEE
+}
+
 function getCurrentUser() {
-  const encryptedUserInfo = uni.getStorageSync('userInfo')
-  if (encryptedUserInfo) {
-    return {
-      ...encryptedUserInfo,
-      studentId: decodeBase64(encryptedUserInfo.studentId),
-      phone: decodeBase64(encryptedUserInfo.phone),
-      email: decodeBase64(encryptedUserInfo.email)
-    }
+  // 同时尝试 store 和老存储 key（向下兼容历史代码）
+  try {
+    const store = useUserStore()
+    if (store.profile) return store.profile
+  } catch (_) {
+    /* Pinia 未初始化时（极少数）降级到 storage */
   }
-  return null
+  const raw = uni.getStorageSync('user_profile') || uni.getStorageSync('userInfo')
+  if (!raw) return null
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw) } catch { return null }
+  }
+  return raw
 }
 
 function setCurrentUser(user) {
-  uni.setStorageSync('userInfo', user)
+  try {
+    const store = useUserStore()
+    store.setProfile(user)
+  } catch (_) {
+    uni.setStorageSync('user_profile', user)
+  }
   uni.setStorageSync('isRegistered', true)
 }
 
 function isAdmin() {
   const user = getCurrentUser()
-  return user && user.isAdmin
+  if (!user) return false
+  // 同时支持新字段 role(INT) 与遗留字段 isAdmin(boolean)
+  if (typeof user.role === 'number') return _isAdmin(user.role)
+  return !!user.isAdmin
 }
 
-function isAdminRole(role) {
+function isAdminRole(roleId) {
   const user = getCurrentUser()
-  return user && user.isAdmin && user.adminRole === role
+  if (!user) return false
+  return user.role === roleId
 }
 
 function getAdminRole() {
   const user = getCurrentUser()
-  return user ? user.adminRole : null
+  return user ? (user.role ?? null) : null
+}
+
+function getAdminRoleLabel() {
+  const user = getCurrentUser()
+  if (!user || typeof user.role !== 'number') return ''
+  return ROLE_LABELS[user.role] || ''
 }
 
 function canPublishHomework() {
   const user = getCurrentUser()
-  return isAdminRole(ADMIN_ROLES.STUDY_VICE) || (user && user.is_kclass_representative)
+  return _hasPermission(user?.role, 'PUBLISH_HOMEWORK')
 }
 
 function canPublishNotice() {
-  return isAdmin()
+  const user = getCurrentUser()
+  return _hasPermission(user?.role, 'PUBLISH_NOTICE')
 }
 
 function canApproveNotice() {
-  return isAdminRole(ADMIN_ROLES.CLASS_LEADER)
+  const user = getCurrentUser()
+  return _hasPermission(user?.role, 'PUBLISH_NOTICE')
 }
 
 function canApproveLeave() {
-  return isAdmin()
+  const user = getCurrentUser()
+  return _hasPermission(user?.role, 'APPROVE_LEAVE')
 }
 
 function isTreasurer() {
@@ -73,12 +113,17 @@ function isClassLeader() {
   return isAdminRole(ADMIN_ROLES.CLASS_LEADER)
 }
 
-function verifySuperAdminPassword(password) {
-  return password === SUPER_ADMIN_PASSWORD
-}
-
-function getSuperAdminPassword() {
-  return SUPER_ADMIN_PASSWORD
+async function verifySuperAdminPassword(password) {
+  try {
+    const res = await uni.request({
+      url: `${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/verify-admin`,
+      method: 'POST',
+      data: { password }
+    })
+    return res.data && res.data.success
+  } catch (e) {
+    return false
+  }
 }
 
 function getMaxAdminCount() {
@@ -86,7 +131,7 @@ function getMaxAdminCount() {
 }
 
 function getAdminRoles() {
-  return Object.values(ADMIN_ROLES)
+  return Object.values(ROLE_LABELS).filter(label => label !== ROLE_LABELS[USER_ROLES.STUDENT])
 }
 
 function encodeBase64(str) {
@@ -100,11 +145,14 @@ function decodeBase64(str) {
 
 export {
   ADMIN_ROLES,
+  USER_ROLES,
+  PERMISSIONS,
   getCurrentUser,
   setCurrentUser,
   isAdmin,
   isAdminRole,
   getAdminRole,
+  getAdminRoleLabel,
   canPublishHomework,
   canPublishNotice,
   canApproveNotice,
@@ -113,7 +161,6 @@ export {
   isBookkeeper,
   isClassLeader,
   verifySuperAdminPassword,
-  getSuperAdminPassword,
   getMaxAdminCount,
   getAdminRoles,
   encodeBase64,

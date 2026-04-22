@@ -2,43 +2,39 @@
   <view class="lottery-page">
     <custom-nav-bar title="抽奖活动" />
     <scroll-view scroll-y class="main-scroll">
-      <view class="active-lottery" v-if="currentLottery">
+      <view class="active-lottery" v-if="activeList.length">
         <text class="section-label">进行中</text>
-        <view class="lottery-card" @tap="goDetail(currentLottery)">
+        <view v-for="lot in activeList" :key="lot.id" class="lottery-card" @tap="goDetail(lot)">
           <view class="prize-area">
             <text class="prize-icon">🎁</text>
             <view class="prize-info">
-              <text class="prize-name">{{ currentLottery.name }}</text>
-              <text class="prize-desc">{{ currentLottery.desc }}</text>
+              <text class="prize-name">{{ lot.name }}</text>
+              <text class="prize-desc">{{ lot.description || lot.rules }}</text>
             </view>
           </view>
           <view class="lottery-meta">
-            <text class="meta-item">已参与 {{ currentLottery.joined }}/{{ currentLottery.total }} 人</text>
+            <text class="meta-item">已参与 {{ lot.participant_count || 0 }} 人</text>
             <text class="meta-dot">·</text>
-            <text class="meta-item">截止 {{ currentLottery.deadline }}</text>
+            <text class="meta-item">截止 {{ formatDate(lot.end_time) }}</text>
           </view>
-          <view class="progress-row">
-            <view class="progress-bar"><view class="progress-fill" :style="{ width: (currentLottery.joined / currentLottery.total * 100) + '%' }"></view></view>
-            <text class="progress-pct">{{ Math.round(currentLottery.joined / currentLottery.total * 100) }}%</text>
-          </view>
-          <button class="join-btn" @click.stop="joinLottery">立即参与</button>
         </view>
       </view>
 
       <view class="history-section">
         <text class="section-label">历史记录</text>
-        <view v-for="item in history" :key="item.id" class="hist-card" @tap="goDetail(item)">
+        <view v-for="item in endedList" :key="item.id" class="hist-card" @tap="goDetail(item)">
           <view class="hist-body">
             <text class="hist-name">{{ item.name }}</text>
-            <text class="hist-time">{{ item.time }}</text>
-            <view :class="['hist-status', item.won ? 'won' : 'lost']">{{ item.won ? '🏆 中奖' : '未中奖' }}</view>
+            <text class="hist-time">{{ formatDate(item.end_time) }}</text>
+            <view class="hist-status won" v-if="item.winner_count">🏆 已开奖</view>
+            <view class="hist-status lost" v-else>未开奖</view>
           </view>
         </view>
 
-        <view v-if="history.length === 0" class="empty-state"><text class="empty-text">暂无抽奖记录</text></view>
+        <view v-if="!loading && lotteries.length === 0" class="empty-state"><text class="empty-text">暂无抽奖活动</text></view>
       </view>
 
-      <button class="create-btn" v-if="isAdmin" @tap="goCreate"><text class="create-text">+ 创建抽奖</text></button>
+      <button class="create-btn" v-if="isAdminUser" @tap="goCreate"><text class="create-text">+ 创建抽奖</text></button>
 
       <view style="height: 40rpx;"></view>
     </scroll-view>
@@ -46,28 +42,42 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { storeToRefs } from 'pinia'
+import { useUserStore } from '@/stores/user'
+import { isAdmin as checkIsAdmin } from '@/constants/roles'
+import { getLotteries } from '@/api/lottery'
 
-const isAdmin = ref(true)
-const currentLottery = ref({
-  id: 1, name: '月度幸运抽奖', desc: '精美礼品等你来拿', joined: 18, total: 32, deadline: '2026-04-15'
-})
-const history = ref([
-  { id: 2, name: '开学季抽奖', time: '2026-03-01', won: false },
-  { id: 3, name: '元旦抽奖', time: '2025-12-31', won: true }
-])
+const userStore = useUserStore()
+const { profile } = storeToRefs(userStore)
+const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
+
+const lotteries = ref([])
+const loading = ref(false)
+
+const activeList = computed(() => lotteries.value.filter(l => !!l.is_active))
+const endedList = computed(() => lotteries.value.filter(l => !l.is_active))
+
+function formatDate(s) {
+  if (!s) return ''
+  const d = new Date(s)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+async function fetchList() {
+  loading.value = true
+  try {
+    const res = await getLotteries()
+    lotteries.value = res?.lotteries || []
+  } catch (_) { lotteries.value = [] }
+  finally { loading.value = false }
+}
 
 function goDetail(item) { uni.navigateTo({ url: `/pages/lottery/detail?id=${item.id}` }) }
-function joinLottery() {
-  uni.showModal({
-    title: '确认参与',
-    content: '确定参加本次抽奖？',
-    success: (res) => {
-      if (res.confirm) { currentLottery.value.joined++; uni.showToast({ title: '已参与', icon: 'success' }) }
-    }
-  })
-}
 function goCreate() { uni.navigateTo({ url: '/pages/lottery/create' }) }
+
+onShow(() => fetchList())
 </script>
 
 <style lang="scss" scoped

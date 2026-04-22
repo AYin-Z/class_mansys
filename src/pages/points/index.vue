@@ -38,27 +38,66 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { storeToRefs } from 'pinia'
+import { useUserStore } from '@/stores/user'
+import { isAdmin as checkIsAdmin } from '@/constants/roles'
+import { getMyPoints, getPointsRanking } from '@/api/points'
 
-const myPoints = ref(1280)
-const myRank = ref(5)
-const actions = [
-  { key: 'rank', icon: '🏆', label: '排行榜' },
-  { key: 'rate', icon: '📊', label: '评分标准' },
-  { key: 'exchange', icon: '🎁', label: '积分兑换' },
-  { key: 'rules', icon: '📋', label: '积分规则' }
-]
+const userStore = useUserStore()
+const { profile } = storeToRefs(userStore)
+const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
 
-const records = ref([
-  { id: 1, title: '全勤打卡奖励', time: '2026-04-08', points: 10, type: 'add' },
-  { id: 2, title: '参与区队活动', time: '2026-04-05', points: 5, type: 'add' },
-  { id: 3, title: '迟到扣分', time: '2026-04-03', points: -3, type: 'minus' }
-])
+const myPoints = ref(0)
+const myRank = ref('-')
+const records = ref([])
+
+const actions = computed(() => {
+  const base = [
+    { key: 'rank', icon: '🏆', label: '排行榜' },
+    { key: 'rate', icon: '📊', label: '互评' },
+    { key: 'rules', icon: '📋', label: '积分规则' }
+  ]
+  if (isAdminUser.value) base.push({ key: 'admin', icon: '⚙️', label: '加扣分' })
+  return base
+})
+
+function formatDate(s) {
+  if (!s) return ''
+  const d = new Date(s)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+async function fetchAll() {
+  try {
+    const [mineRes, rankRes] = await Promise.all([
+      getMyPoints(),
+      getPointsRanking(200)
+    ])
+    myPoints.value = mineRes?.total ?? 0
+    records.value = (mineRes?.records || []).map(r => ({
+      id: r.id,
+      title: r.reason,
+      time: formatDate(r.created_at),
+      points: r.score,
+      type: r.score >= 0 ? 'add' : 'minus'
+    }))
+    const ranking = rankRes?.ranking || []
+    const myUserId = profile.value?.id
+    const myIdx = ranking.findIndex(u => u.id === myUserId)
+    myRank.value = myIdx >= 0 ? `${myIdx + 1}` : '-'
+  } catch (_) {}
+}
 
 function goAction(act) {
   if (act.key === 'rank') uni.navigateTo({ url: '/pages/points/rank' })
   else if (act.key === 'rate') uni.navigateTo({ url: '/pages/points/rate' })
+  else if (act.key === 'rules') uni.showModal({ title: '积分规则', content: '正向行为加分、违规扣分；具体明细以管理员公示为准', showCancel: false })
+  else if (act.key === 'admin') uni.navigateTo({ url: '/pages/points/rate?admin=1' })
 }
+
+onShow(() => { fetchAll() })
 </script>
 
 <style lang="scss" scoped

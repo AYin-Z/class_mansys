@@ -16,6 +16,18 @@
 
           <view class="divider"></view>
 
+          <picker mode="selector" :range="typeOptions" @change="onTypeChange">
+            <view class="form-row">
+              <text class="row-label">类型</text>
+              <view class="row-value">
+                <text class="value-text">{{ formData.type || '请选择' }}</text>
+                <text class="arrow">›</text>
+              </view>
+            </view>
+          </picker>
+
+          <view class="divider"></view>
+
           <picker mode="selector" :range="priorityOptions" @change="onPriorityChange">
             <view class="form-row">
               <text class="row-label">优先级</text>
@@ -25,6 +37,15 @@
               </view>
             </view>
           </picker>
+
+          <view class="divider"></view>
+
+          <view class="form-row toggle-row" @tap="formData.is_pinned = !formData.is_pinned">
+            <text class="row-label">置顶</text>
+            <view :class="['toggle', { on: formData.is_pinned }]">
+              <view class="toggle-knob"></view>
+            </view>
+          </view>
 
           <view class="divider"></view>
 
@@ -56,12 +77,16 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
+import { createNotice } from '@/api/notice'
 
 const priorityOptions = ['日常', '重要', '紧急']
+const typeOptions = ['系统通知', '集合通知', '学习通知', '活动通知', '其他']
 const formData = reactive({
   title: '',
+  type: '',
   priority: 0,
-  priorityLabel: '',
+  priorityLabel: '日常',
+  is_pinned: false,
   content: '',
   attachments: []
 })
@@ -70,6 +95,11 @@ function onPriorityChange(e) {
   const idx = e.detail.value
   formData.priority = idx
   formData.priorityLabel = priorityOptions[idx]
+}
+
+function onTypeChange(e) {
+  const idx = e.detail.value
+  formData.type = typeOptions[idx]
 }
 
 function chooseFile() {
@@ -81,7 +111,7 @@ function chooseFile() {
   })
 }
 
-function onPublish() {
+async function onPublish() {
   if (!formData.title) {
     uni.showToast({ title: '请输入标题', icon: 'none' })
     return
@@ -92,13 +122,32 @@ function onPublish() {
   }
 
   uni.showLoading({ title: '发布中...' })
-  setTimeout(() => {
+  try {
+    if (!formData.type) {
+      uni.hideLoading()
+      uni.showToast({ title: '请选择通知类型', icon: 'none' })
+      return
+    }
+    const res = await createNotice({
+      title: formData.title,
+      content: formData.content,
+      type: formData.type,
+      priority: formData.priority,
+      is_pinned: formData.is_pinned
+    })
     uni.hideLoading()
-    uni.showToast({ title: '发布成功', icon: 'success' })
-    setTimeout(() => {
-      uni.navigateBack()
-    }, 1500)
-  }, 1000)
+    if (res.success) {
+      uni.showToast({ title: '发布成功', icon: 'success' })
+      setTimeout(() => {
+        uni.navigateBack()
+      }, 1500)
+    } else {
+      uni.showToast({ title: res.message || '发布失败', icon: 'none' })
+    }
+  } catch (error) {
+    uni.hideLoading()
+    uni.showToast({ title: '网络错误，请重试', icon: 'none' })
+  }
 }
 </script>
 
@@ -212,6 +261,41 @@ function onPublish() {
   &::placeholder {
     color: #c3c6d1;
   }
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.toggle {
+  width: 80rpx;
+  height: 44rpx;
+  border-radius: 999rpx;
+  background: #d8dde5;
+  position: relative;
+  transition: background 0.2s;
+
+  &.on {
+    background: #001e40;
+
+    .toggle-knob {
+      transform: translateX(36rpx);
+    }
+  }
+}
+
+.toggle-knob {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  position: absolute;
+  top: 4rpx;
+  left: 4rpx;
+  transition: transform 0.2s;
+  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.1);
 }
 
 .upload-area {

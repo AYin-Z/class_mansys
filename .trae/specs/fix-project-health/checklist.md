@@ -1,0 +1,14 @@
+- [x] pages.json 中无 JSON 注释，语法合法
+- [x] vite.config.js 已更新，无 BigInt 插件问题
+- [x] src/main.js 包含全局组件注册
+- [x] src/pages/expense/ 下每个 .json 都有对应的 .vue 文件
+- [x] pages.json 中注册了 login 页面路径
+- [x] App.vue 中 checkLoginStatus 不再对对象调用 JSON.parse
+- [x] auth.js 中无明文密码和 getSuperAdminPassword 函数
+- [x] User.update 方法有字段白名单校验
+- [x] database_init.sql 中 notices 表包含 priority 和 is_pinned 字段
+- [x] 根目录无原生小程序遗留文件（app.js, app.json, app.wxss, project.config.json 等）
+- [x] 无关文件已归档到 _legacy/ 目录
+- [x] .gitignore 包含 .env、*.zip、_legacy/ 等规则
+- [x] npm run build:mp-weixin 编译成功
+- [x] dist/build/mp-weixin/ 包含 app.js、app.json、app.wxss 和 pages/ 目录

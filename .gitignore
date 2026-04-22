@@ -1,1 +1,57 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
 node_modules
+.DS_Store
+dist
+*.local
+
+# Editor directories and files
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment variables
+# 默认忽略所有 .env 文件，但显式白名单 .env.example / .env.development，
+# 方便多人协作时共享无密的默认配置
+**/.env
+.env.production
+.env.*.local
+.env.local
+!.env.example
+!.env.development
+
+# Archives
+*.zip
+
+# Legacy files
+_legacy/
+
+# AI tool directories
+.agents/
+.codebuddy/
+rules/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build output
+dist/
+build/
+
+# HBuilderX / uni-app
+unpackage/

@@ -43,7 +43,11 @@ class Fee {
     const income = incomeRows[0].total || 0;
     const expense = expenseRows[0].total || 0;
     
-    return income - expense;
+    return {
+      balance: income - expense,
+      totalIncome: income,
+      totalExpense: expense
+    };
   }
 }
 

@@ -16,11 +16,23 @@
 
 <script setup>
 import { ref } from 'vue'
-const title = ref(''), content = ref('')
-function submit() {
-  if (!title.value) { uni.showToast({ title: '请输入标题', icon: 'none' }); return }
+import { createAnnouncement } from '@/api/announcement'
+
+const title = ref('')
+const content = ref('')
+
+async function submit() {
+  if (!title.value.trim()) { uni.showToast({ title: '请输入标题', icon: 'none' }); return }
+  if (!content.value.trim()) { uni.showToast({ title: '请输入内容', icon: 'none' }); return }
   uni.showLoading({ title: '发布中...' })
-  setTimeout(() => { uni.hideLoading(); uni.showToast({ title: '发布成功', icon: 'success' }); setTimeout(() => uni.navigateBack(), 1500) }, 1000)
+  try {
+    await createAnnouncement({ title: title.value.trim(), content: content.value.trim() })
+    uni.hideLoading()
+    uni.showToast({ title: '发布成功', icon: 'success' })
+    setTimeout(() => uni.navigateBack(), 1000)
+  } catch (e) {
+    uni.hideLoading()
+  }
 }
 </script>
 

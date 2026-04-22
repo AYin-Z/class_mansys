@@ -34,21 +34,21 @@ class User {
   }
 
   static async update(id, userData) {
+    const allowedFields = ['name', 'phone', 'email', 'nickName', 'avatarUrl', 'class_id'];
     const fields = [];
     const values = [];
-    
     Object.entries(userData).forEach(([key, value]) => {
-      fields.push(`${key} = ?`);
-      values.push(value);
+      if (allowedFields.includes(key)) {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
     });
-    
+    if (fields.length === 0) return false;
     values.push(id);
-    
     const [result] = await db.query(
       `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
       values
     );
-    
     return result.affectedRows > 0;
   }
 

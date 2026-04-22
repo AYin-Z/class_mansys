@@ -4,31 +4,47 @@
     <scroll-view scroll-y class="main-scroll">
       <view class="form-area">
         <view class="form-card">
-          <picker mode="selector" :range="['学习', '纪律', '体能']" @change="(e) => form.type = ['study','discipline','fitness'][e.detail.value]">
-            <view class="form-row"><text class="row-label">挑战类型</text><view class="row-value"><text class="value-text">{{ typeName(form.type) || '请选择' }}</text><text class="arrow">›</text></view></view>
+          <picker mode="selector" :range="typeList" @change="onTypeChange">
+            <view class="form-row"><text class="row-label">擂台类型</text><view class="row-value"><text class="value-text">{{ form.type || '请选择' }}</text><text class="arrow">›</text></view></view>
           </picker>
-          <view class="divider"></view>
-          <view class="form-row"><text class="row-label block">挑战标题</text><input class="solid-input" placeholder="请输入挑战标题" v-model="form.title" /></view>
-          <view class="divider"></view>
-          <view class="textarea-wrap"><text class="row-label block">挑战规则</text><textarea class="solid-textarea" v-model="form.rule" placeholder="描述挑战的具体规则和成功条件..." /></view>
-          <view class="divider"></view>
-          <view class="form-row"><text class="row-label block">截止日期</text><input class="solid-input" type="text" v-model="form.deadline" placeholder="选择截止日期" /></view>
+          <view class="form-row"><text class="row-label block">擂台名称</text><input class="solid-input" placeholder="例如：高数擂台" v-model="form.name" /></view>
+          <view class="textarea-wrap"><text class="row-label block">擂台描述</text><textarea class="solid-textarea" v-model="form.description" placeholder="描述擂台规则和挑战标准..." /></view>
         </view>
       </view>
-      <view class="bottom-action"><button class="primary-btn" @click="submit"><text class="btn-text">发起挑战</text></button></view>
+      <view class="bottom-action"><button class="primary-btn" @click="submit"><text class="btn-text">{{ canCreate ? '创建擂台' : '需要管理员权限' }}</text></button></view>
     </scroll-view>
   </view>
 </template>
 
 <script setup>
-import { reactive } from 'vue'
-const form = reactive({ type: '', title: '', rule: '', deadline: '' })
-function typeName(t) { const map = { study: '学习', discipline: '纪律', fitness: '体能' }; return map[t] || '' }
-function submit() {
+import { reactive, computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useUserStore } from '@/stores/user'
+import { isAdmin as checkIsAdmin } from '@/constants/roles'
+import { createChallenge } from '@/api/challenge'
+
+const userStore = useUserStore()
+const { profile } = storeToRefs(userStore)
+const canCreate = computed(() => checkIsAdmin(profile.value?.role))
+
+const typeList = ['学习', '纪律作风', '体能']
+const form = reactive({ type: '', name: '', description: '' })
+
+function onTypeChange(e) { form.type = typeList[e.detail.value] }
+
+async function submit() {
+  if (!canCreate.value) { uni.showToast({ title: '无权创建', icon: 'none' }); return }
   if (!form.type) { uni.showToast({ title: '请选择类型', icon: 'none' }); return }
-  if (!form.title) { uni.showToast({ title: '请输入标题', icon: 'none' }); return }
-  uni.showLoading({ title: '发布中...' })
-  setTimeout(() => { uni.hideLoading(); uni.showToast({ title: '挑战已发布', icon: 'success' }); setTimeout(() => uni.navigateBack(), 1500) }, 1000)
+  if (!form.name) { uni.showToast({ title: '请输入擂台名称', icon: 'none' }); return }
+  if (!form.description) { uni.showToast({ title: '请输入描述', icon: 'none' }); return }
+
+  uni.showLoading({ title: '创建中...' })
+  try {
+    await createChallenge({ name: form.name, type: form.type, description: form.description })
+    uni.hideLoading()
+    uni.showToast({ title: '已创建', icon: 'success' })
+    setTimeout(() => uni.navigateBack(), 1200)
+  } catch (_) { uni.hideLoading() }
 }
 </script>
 

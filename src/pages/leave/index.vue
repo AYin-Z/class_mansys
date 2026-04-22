@@ -3,13 +3,18 @@
     <custom-nav-bar title="请假销假" />
 
     <scroll-view scroll-y class="main-scroll">
-      <!-- Stats Overview -->
+      <view class="hero-strip">
+        <text class="hero-kicker">区队事务</text>
+        <text class="hero-title">请假与销假</text>
+        <text class="hero-sub">记录与审批状态与后台实时同步</text>
+      </view>
+
       <view class="stats-row">
         <view class="stat-card">
           <text class="stat-num">{{ stats.pending }}</text>
           <text class="stat-label">待审批</text>
         </view>
-        <view class="stat-card active">
+        <view class="stat-card accent">
           <text class="stat-num">{{ stats.approved }}</text>
           <text class="stat-label">已通过</text>
         </view>
@@ -19,10 +24,9 @@
         </view>
       </view>
 
-      <!-- Action Buttons -->
       <view class="action-bar">
         <navigator url="/pages/leave/apply" class="action-btn primary">
-          <text class="action-icon">+</text>
+          <text class="action-icon">＋</text>
           <text class="action-text">申请请假</text>
         </navigator>
         <navigator url="/pages/leave/cancel" class="action-btn secondary" v-if="hasActiveLeave">
@@ -31,25 +35,24 @@
         </navigator>
       </view>
 
-      <!-- Leave List -->
       <view class="section-header">
         <text class="section-title">请假记录</text>
-        <text class="count-badge">{{ leaveList.length }}条</text>
+        <text class="count-badge">{{ leaveList.length }} 条</text>
       </view>
 
       <view class="leave-list">
         <view v-for="item in leaveList" :key="item.id" class="leave-card" @tap="goDetail(item)">
-          <view class="card-accent" :class="statusClass(item.status)"></view>
+          <view class="card-accent" :class="statusClass(item)"></view>
           <view class="card-body">
             <view class="card-top">
-              <text class="leave-type">{{ item.type }}</text>
-              <view :class="['status-badge', statusClass(item.status)]">
-                {{ statusLabel(item.status) }}
+              <text class="leave-type">{{ leaveTypeLabel(item) }}</text>
+              <view :class="['status-badge', statusClass(item)]">
+                {{ statusLabel(item) }}
               </view>
             </view>
-            <text class="leave-reason">{{ item.reason }}</text>
+            <text class="leave-reason">{{ item.reason || '—' }}</text>
             <view class="card-meta">
-              <text class="meta-text">{{ item.startDate }} ~ {{ item.endDate }}</text>
+              <text class="meta-text">{{ formatLeaveDateTime(item.start_time) }} ~ {{ formatLeaveDateTime(item.end_time) }}</text>
             </view>
           </view>
         </view>
@@ -57,76 +60,134 @@
         <view v-if="leaveList.length === 0" class="empty-state">
           <text class="empty-icon">📋</text>
           <text class="empty-text">暂无请假记录</text>
+          <text class="empty-hint">登录并提交申请后将在此展示</text>
         </view>
       </view>
 
-      <!-- Admin Approve Entry -->
       <view class="admin-entry" v-if="isAdmin" @tap="goApprove">
         <view class="admin-icon-wrap">
-          <text class="admin-icon">⚡</text>
+          <text class="admin-icon">◎</text>
         </view>
         <view class="admin-info">
           <text class="admin-title">审批管理</text>
-          <text class="admin-desc">{{ pendingCount }}条待处理</text>
+          <text class="admin-desc">{{ pendingCount }} 条待处理</text>
         </view>
         <text class="admin-arrow">›</text>
       </view>
 
-      <view style="height: 40rpx;"></view>
+      <view class="page-spacer"></view>
     </scroll-view>
   </view>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { isAdmin as checkAdmin, canApproveLeave } from '@/utils/auth.js'
+import { getMyLeaves, getAllLeaves } from '@/api/leave'
+import { hasBackendToken } from '@/utils/request'
+import { formatLeaveDateTime } from '@/utils/index'
 
 const isAdmin = ref(false)
-const hasActiveLeave = ref(true)
-const pendingCount = ref(3)
+const hasActiveLeave = ref(false)
+const pendingCount = ref(0)
+const loading = ref(false)
 
 const stats = ref({
-  pending: 2,
-  approved: 8,
-  rejected: 1
+  pending: 0,
+  approved: 0,
+  rejected: 0
 })
 
-const leaveList = ref([
-  { id: 1, type: '早操', reason: '身体不适', startDate: '2026-04-10', endDate: '2026-04-10', status: 0 },
-  { id: 2, type: '晚自习', reason: '参加学术讲座', startDate: '2026-04-11', endDate: '2026-04-11', status: 1 },
-  { id: 3, type: '午集合', reason: '病假', startDate: '2026-04-09', endDate: '2026-04-09', status: 2 },
-  { id: 4, type: '其他', reason: '家中有事', startDate: '2026-04-12', endDate: '2026-04-13', status: 0 }
-])
+const leaveList = ref([])
 
-function statusClass(status) {
-  if (status === 0) return 'pending'
-  if (status === 1) return 'approved'
+function leaveTypeLabel(item) {
+  return item.leave_type || item.type || '—'
+}
+
+function isLeaveCancelled(item) {
+  return item.is_cancelled === 1 || item.is_cancelled === true
+}
+
+function statusClass(item) {
+  if (isLeaveCancelled(item)) return 'cancelled'
+  if (item.status === 0) return 'pending'
+  if (item.status === 1) return 'approved'
   return 'rejected'
 }
 
-function statusLabel(status) {
-  if (status === 0) return '待审批'
-  if (status === 1) return '已通过'
+function statusLabel(item) {
+  if (isLeaveCancelled(item)) return '已销假'
+  if (item.status === 0) return '待审批'
+  if (item.status === 1) return '已通过'
   return '已驳回'
 }
 
 function goDetail(item) {
-  console.log('查看详情', item)
+  uni.navigateTo({ url: `/pages/leave/detail?id=${item.id}` })
 }
 
 function goApprove() {
+  if (!canApproveLeave()) {
+    uni.showToast({ title: '无审批权限', icon: 'none' })
+    return
+  }
   uni.navigateTo({ url: '/pages/leave/approve' })
+}
+
+function recomputeStats(leaves) {
+  stats.value.pending = leaves.filter((l) => l.status === 0).length
+  stats.value.approved = leaves.filter((l) => l.status === 1).length
+  stats.value.rejected = leaves.filter((l) => l.status === 2).length
+  pendingCount.value = stats.value.pending
+}
+
+async function fetchLeaveData() {
+  if (!hasBackendToken()) {
+    leaveList.value = []
+    recomputeStats([])
+    return
+  }
+
+  loading.value = true
+  try {
+    if (isAdmin.value) {
+      const res = await getAllLeaves()
+      if (res.success) {
+        leaveList.value = res.leaves || []
+        recomputeStats(leaveList.value)
+      }
+    } else {
+      const res = await getMyLeaves()
+      if (res.success) {
+        const leaves = res.leaves || []
+        leaveList.value = leaves
+        recomputeStats(leaves)
+        hasActiveLeave.value = leaves.some((l) => l.status === 1 && !isLeaveCancelled(l))
+      }
+    }
+  } catch (error) {
+    console.error('获取请假数据失败:', error)
+    uni.showToast({ title: '获取数据失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(() => {
   isAdmin.value = checkAdmin()
+  fetchLeaveData()
+})
+
+onShow(() => {
+  fetchLeaveData()
 })
 </script>
 
 <style lang="scss" scoped>
 .leave-page {
   min-height: 100vh;
-  background-color: #f7f9fc;
+  background: #f7f9fc;
 }
 
 .main-scroll {
@@ -134,30 +195,64 @@ onMounted(() => {
   padding-top: calc(env(safe-area-inset-top) + 88rpx);
 }
 
+.hero-strip {
+  margin: 16rpx 32rpx 24rpx;
+  padding: 32rpx 28rpx 28rpx;
+  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  border-radius: 24rpx;
+  box-shadow: 0 12rpx 40rpx rgba(0, 30, 64, 0.22);
+}
+
+.hero-kicker {
+  display: block;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 6rpx;
+  text-transform: uppercase;
+}
+
+.hero-title {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 40rpx;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 2rpx;
+}
+
+.hero-sub {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.45;
+}
+
 .stats-row {
   display: flex;
   gap: 16rpx;
-  padding: 24rpx 32rpx;
+  padding: 0 32rpx 24rpx;
 }
 
 .stat-card {
   flex: 1;
   background: #ffffff;
-  border-radius: 18rpx;
-  padding: 28rpx 20rpx;
+  border-radius: 20rpx;
+  padding: 26rpx 16rpx;
   text-align: center;
 
-  &.active {
+  &.accent {
     background: linear-gradient(135deg, #001e40 0%, #003366 100%);
 
-    .stat-num, .stat-label {
+    .stat-num,
+    .stat-label {
       color: #ffffff;
     }
   }
 }
 
 .stat-num {
-  font-family: 'PingFang SC', sans-serif;
   font-size: 44rpx;
   font-weight: 700;
   color: #001e40;
@@ -175,7 +270,7 @@ onMounted(() => {
   display: flex;
   gap: 16rpx;
   padding: 0 32rpx;
-  margin-bottom: 32rpx;
+  margin-bottom: 28rpx;
 }
 
 .action-btn {
@@ -185,27 +280,30 @@ onMounted(() => {
   justify-content: center;
   gap: 10rpx;
   height: 88rpx;
-  border-radius: 18rpx;
+  border-radius: 20rpx;
 
   &.primary {
     background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+    box-shadow: 0 10rpx 28rpx rgba(0, 30, 64, 0.22);
 
-    .action-icon, .action-text {
+    .action-icon,
+    .action-text {
       color: #ffffff;
     }
   }
 
   &.secondary {
-    background: #f2f4f7;
+    background: #ffffff;
 
-    .action-icon, .action-text {
+    .action-icon,
+    .action-text {
       color: #001e40;
     }
   }
 }
 
 .action-icon {
-  font-size: 32rpx;
+  font-size: 30rpx;
   font-weight: 600;
 }
 
@@ -223,9 +321,8 @@ onMounted(() => {
 }
 
 .section-title {
-  font-family: 'PingFang SC', sans-serif;
   font-size: 30rpx;
-  font-weight: 600;
+  font-weight: 700;
   color: #191c1e;
 }
 
@@ -243,12 +340,12 @@ onMounted(() => {
   position: relative;
   display: flex;
   background: #ffffff;
-  border-radius: 18rpx;
+  border-radius: 20rpx;
   overflow: hidden;
   margin-bottom: 16rpx;
 
   &:active {
-    opacity: 0.85;
+    opacity: 0.92;
   }
 }
 
@@ -256,9 +353,18 @@ onMounted(() => {
   width: 10rpx;
   flex-shrink: 0;
 
-  &.pending { background: #466270; }
-  &.approved { background: #003366; }
-  &.rejected { background: #460002; }
+  &.pending {
+    background: #466270;
+  }
+  &.approved {
+    background: #001e40;
+  }
+  &.rejected {
+    background: #460002;
+  }
+  &.cancelled {
+    background: #c3c6d1;
+  }
 }
 
 .card-body {
@@ -274,9 +380,8 @@ onMounted(() => {
 }
 
 .leave-type {
-  font-family: 'PingFang SC', sans-serif;
   font-size: 28rpx;
-  font-weight: 600;
+  font-weight: 700;
   color: #191c1e;
 }
 
@@ -286,9 +391,22 @@ onMounted(() => {
   font-size: 20rpx;
   font-weight: 600;
 
-  &.pending { background: rgba(70,98,112,0.1); color: #466270; }
-  &.approved { background: rgba(0,30,64,0.08); color: #001e40; }
-  &.rejected { background: rgba(70,0,2,0.08); color: #460002; }
+  &.pending {
+    background: rgba(70, 98, 112, 0.10);
+    color: #466270;
+  }
+  &.approved {
+    background: rgba(0, 30, 64, 0.06);
+    color: #001e40;
+  }
+  &.rejected {
+    background: rgba(70, 0, 2, 0.08);
+    color: #460002;
+  }
+  &.cancelled {
+    background: rgba(195, 198, 209, 0.20);
+    color: #43474f;
+  }
 }
 
 .leave-reason {
@@ -296,6 +414,7 @@ onMounted(() => {
   color: #43474f;
   margin-bottom: 12rpx;
   display: block;
+  line-height: 1.4;
 }
 
 .card-meta {
@@ -320,7 +439,15 @@ onMounted(() => {
 }
 
 .empty-text {
-  font-size: 26rpx;
+  font-size: 28rpx;
+  color: #43474f;
+  font-weight: 500;
+}
+
+.empty-hint {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
   color: #c3c6d1;
 }
 
@@ -330,19 +457,18 @@ onMounted(() => {
   align-items: center;
   gap: 20rpx;
   padding: 28rpx 24rpx;
-  background: linear-gradient(135deg, rgba(0,30,64,0.03) 0%, rgba(0,51,102,0.02) 100%);
-  border-left: 10rpx solid #001e40;
-  border-radius: 18rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
 
   &:active {
-    opacity: 0.8;
+    opacity: 0.88;
   }
 }
 
 .admin-icon-wrap {
   width: 72rpx;
   height: 72rpx;
-  background: rgba(0,30,64,0.06);
+  background: rgba(0, 30, 64, 0.06);
   border-radius: 16rpx;
   display: flex;
   align-items: center;
@@ -352,6 +478,7 @@ onMounted(() => {
 
 .admin-icon {
   font-size: 32rpx;
+  color: #001e40;
 }
 
 .admin-info {
@@ -362,9 +489,8 @@ onMounted(() => {
 }
 
 .admin-title {
-  font-family: 'PingFang SC', sans-serif;
   font-size: 28rpx;
-  font-weight: 600;
+  font-weight: 700;
   color: #191c1e;
 }
 
@@ -376,5 +502,9 @@ onMounted(() => {
 .admin-arrow {
   font-size: 40rpx;
   color: #c3c6d1;
+}
+
+.page-spacer {
+  height: 48rpx;
 }
 </style>

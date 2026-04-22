@@ -26,13 +26,35 @@
 
 <script setup>
 import { ref } from 'vue'
-const title = ref(''), content = ref(''), category = ref('')
+import { submitSuggestion } from '@/api/suggestion'
+
+const title = ref('')
+const content = ref('')
+const category = ref('')
 const categories = ['学习', '生活', '纪律', '活动', '其他']
-function submit() {
-  if (!title.value) { uni.showToast({ title: '请输入标题', icon: 'none' }); return }
-  if (!content.value) { uni.showToast({ title: '请填写内容', icon: 'none' }); return }
+
+async function submit() {
+  if (!content.value || content.value.trim().length < 5) {
+    uni.showToast({ title: '请填写完整内容（至少 5 字）', icon: 'none' })
+    return
+  }
+  if (!category.value) {
+    uni.showToast({ title: '请选择分类', icon: 'none' })
+    return
+  }
+  const finalContent = title.value.trim()
+    ? `【${title.value.trim()}】\n${content.value.trim()}`
+    : content.value.trim()
+
   uni.showLoading({ title: '提交中...' })
-  setTimeout(() => { uni.hideLoading(); uni.showToast({ title: '已提交，感谢反馈', icon: 'success' }); setTimeout(() => uni.navigateBack(), 1500) }, 1000)
+  try {
+    await submitSuggestion({ content: finalContent, category: category.value })
+    uni.hideLoading()
+    uni.showToast({ title: '已匿名提交', icon: 'success' })
+    setTimeout(() => uni.navigateBack(), 800)
+  } catch (e) {
+    uni.hideLoading()
+  }
 }
 </script>
 

@@ -3,6 +3,11 @@
     <custom-nav-bar title="申请请假" :showBack="true" />
 
     <scroll-view scroll-y class="main-scroll">
+      <view class="hero-strip">
+        <text class="hero-title">请假申请</text>
+        <text class="hero-sub">请选择类型、事由与起止时间，提交后由干部审批</text>
+      </view>
+
       <view class="form-area">
         <view class="section-label">
           <text class="label-text">请假信息</text>
@@ -19,7 +24,7 @@
             </view>
           </picker>
 
-          <view class="divider"></view>
+          <view class="divider" />
 
           <picker mode="selector" :range="reasonTypes" @change="onReasonChange" :value="reasonIndex">
             <view class="form-row">
@@ -31,27 +36,47 @@
             </view>
           </picker>
 
-          <view class="divider"></view>
+          <view class="divider" />
 
-          <view class="form-row" @tap="showStartDate = true">
+          <view class="form-row group-row">
             <text class="row-label">开始时间</text>
-            <view class="row-value">
-              <text :class="['value-text', { placeholder: !formData.startDate }]">{{ formData.startDate || '请选择' }}</text>
-              <text class="arrow">›</text>
-            </view>
+          </view>
+          <view class="form-sub-row">
+            <picker mode="date" :value="formData.startDateOnly" :start="todayStr" @change="onStartDateChange">
+              <view class="sub-pill">
+                <text :class="['sub-text', { placeholder: !formData.startDateOnly }]">{{ formData.startDateOnly || '选择日期' }}</text>
+                <text class="sub-arrow">▾</text>
+              </view>
+            </picker>
+            <picker mode="time" :value="formData.startTime" @change="onStartTimeChange">
+              <view class="sub-pill">
+                <text :class="['sub-text', { placeholder: !formData.startTime }]">{{ formData.startTime || '选择时间' }}</text>
+                <text class="sub-arrow">▾</text>
+              </view>
+            </picker>
           </view>
 
-          <view class="divider"></view>
+          <view class="divider" />
 
-          <view class="form-row" @tap="showEndDate = true">
+          <view class="form-row group-row">
             <text class="row-label">结束时间</text>
-            <view class="row-value">
-              <text :class="['value-text', { placeholder: !formData.endDate }]">{{ formData.endDate || '请选择' }}</text>
-              <text class="arrow">›</text>
-            </view>
+          </view>
+          <view class="form-sub-row">
+            <picker mode="date" :value="formData.endDateOnly" :start="formData.startDateOnly || todayStr" @change="onEndDateChange">
+              <view class="sub-pill">
+                <text :class="['sub-text', { placeholder: !formData.endDateOnly }]">{{ formData.endDateOnly || '选择日期' }}</text>
+                <text class="sub-arrow">▾</text>
+              </view>
+            </picker>
+            <picker mode="time" :value="formData.endTime" @change="onEndTimeChange">
+              <view class="sub-pill">
+                <text :class="['sub-text', { placeholder: !formData.endTime }]">{{ formData.endTime || '选择时间' }}</text>
+                <text class="sub-arrow">▾</text>
+              </view>
+            </picker>
           </view>
 
-          <view class="divider"></view>
+          <view class="divider" />
 
           <view class="textarea-wrap">
             <text class="row-label block">详细说明</text>
@@ -66,30 +91,43 @@
         </button>
       </view>
     </scroll-view>
-
-    <uni-datetime-picker type="date" v-model="formData.startDate" :visible="showStartDate" @close="showStartDate = false" @confirm="showStartDate = false" />
-    <uni-datetime-picker type="date" v-model="formData.endDate" :visible="showEndDate" @close="showEndDate = false" @confirm="showEndDate = false" />
   </view>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
+import { applyLeave } from '@/api/leave'
+import { parseLeaveDateTimeMs } from '@/utils/index'
 
 const leaveTypes = ['早操', '早集合', '午集合', '晚自习', '其他']
 const reasonTypes = ['事假', '病假', '上课', '公假', '其他']
 
 const typeIndex = ref(0)
 const reasonIndex = ref(0)
-const showStartDate = ref(false)
-const showEndDate = ref(false)
+
+function pad(n) {
+  return n < 10 ? '0' + n : '' + n
+}
+
+const now = new Date()
+const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 
 const formData = reactive({
   type: '',
   reasonType: '',
-  startDate: '',
-  endDate: '',
+  startDateOnly: '',
+  startTime: '',
+  endDateOnly: '',
+  endTime: '',
   detail: ''
 })
+
+const formData_startDate = computed(() =>
+  formData.startDateOnly && formData.startTime ? `${formData.startDateOnly} ${formData.startTime}` : ''
+)
+const formData_endDate = computed(() =>
+  formData.endDateOnly && formData.endTime ? `${formData.endDateOnly} ${formData.endTime}` : ''
+)
 
 function onTypeChange(e) {
   formData.type = leaveTypes[e.detail.value]
@@ -99,7 +137,23 @@ function onReasonChange(e) {
   formData.reasonType = reasonTypes[e.detail.value]
 }
 
-function onSubmit() {
+function onStartDateChange(e) {
+  formData.startDateOnly = e.detail.value
+}
+
+function onStartTimeChange(e) {
+  formData.startTime = e.detail.value
+}
+
+function onEndDateChange(e) {
+  formData.endDateOnly = e.detail.value
+}
+
+function onEndTimeChange(e) {
+  formData.endTime = e.detail.value
+}
+
+async function onSubmit() {
   if (!formData.type) {
     uni.showToast({ title: '请选择请假类型', icon: 'none' })
     return
@@ -108,30 +162,78 @@ function onSubmit() {
     uni.showToast({ title: '请选择请假事由', icon: 'none' })
     return
   }
-  if (!formData.startDate) {
+  if (!formData_startDate.value) {
     uni.showToast({ title: '请选择开始时间', icon: 'none' })
     return
   }
-  if (!formData.endDate) {
+  if (!formData_endDate.value) {
     uni.showToast({ title: '请选择结束时间', icon: 'none' })
     return
   }
 
+  const t0 = parseLeaveDateTimeMs(formData_startDate.value)
+  const t1 = parseLeaveDateTimeMs(formData_endDate.value)
+  if (Number.isNaN(t0) || Number.isNaN(t1)) {
+    uni.showToast({ title: '时间格式无效', icon: 'none' })
+    return
+  }
+  if (t1 < t0) {
+    uni.showToast({ title: '结束时间不能早于开始时间', icon: 'none' })
+    return
+  }
+
   uni.showLoading({ title: '提交中...' })
-  setTimeout(() => {
+  try {
+    const res = await applyLeave({
+      type: formData.type,
+      reason: formData.reasonType + (formData.detail ? ` - ${formData.detail}` : ''),
+      start_time: formData_startDate.value,
+      end_time: formData_endDate.value
+    })
     uni.hideLoading()
-    uni.showToast({ title: '申请已提交', icon: 'success' })
-    setTimeout(() => {
-      uni.navigateBack()
-    }, 1500)
-  }, 1000)
+    if (res.success) {
+      uni.showToast({ title: '申请已提交', icon: 'success' })
+      setTimeout(() => {
+        uni.navigateBack()
+      }, 1500)
+    } else {
+      uni.showToast({ title: res.message || '提交失败', icon: 'none' })
+    }
+  } catch (error) {
+    uni.hideLoading()
+    uni.showToast({ title: '网络错误，请重试', icon: 'none' })
+  }
 }
 </script>
 
 <style lang="scss" scoped>
 .apply-page {
   min-height: 100vh;
-  background-color: #f7f9fc;
+  background: #f7f9fc;
+}
+
+.hero-strip {
+  margin: 24rpx 32rpx 8rpx;
+  padding: 28rpx 28rpx 24rpx;
+  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  border-radius: 24rpx;
+  box-shadow: 0 12rpx 40rpx rgba(0, 30, 64, 0.22);
+}
+
+.hero-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 2rpx;
+}
+
+.hero-sub {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.45;
 }
 
 .main-scroll {
@@ -141,7 +243,7 @@ function onSubmit() {
 }
 
 .form-area {
-  padding: 32rpx;
+  padding: 16rpx 32rpx 32rpx;
 }
 
 .section-label {
@@ -153,13 +255,13 @@ function onSubmit() {
   font-size: 22rpx;
   font-weight: 600;
   color: #43474f;
-  text-transform: uppercase;
   letter-spacing: 4rpx;
+  text-transform: uppercase;
 }
 
 .form-card {
   background: #ffffff;
-  border-radius: 20rpx;
+  border-radius: 22rpx;
   overflow: hidden;
 }
 
@@ -189,11 +291,13 @@ function onSubmit() {
   display: flex;
   align-items: center;
   gap: 8rpx;
+  max-width: 62%;
 }
 
 .value-text {
-  font-size: 28rpx;
+  font-size: 26rpx;
   color: #191c1e;
+  text-align: right;
 
   &.placeholder {
     color: #c3c6d1;
@@ -203,6 +307,7 @@ function onSubmit() {
 .arrow {
   font-size: 36rpx;
   color: #c3c6d1;
+  flex-shrink: 0;
 }
 
 .divider {
@@ -210,6 +315,46 @@ function onSubmit() {
   margin-left: 24rpx;
   margin-right: 24rpx;
   background: transparent;
+}
+
+.group-row {
+  padding-bottom: 8rpx;
+}
+
+.form-sub-row {
+  display: flex;
+  gap: 16rpx;
+  padding: 0 24rpx 24rpx;
+}
+
+.sub-pill {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8rpx;
+  padding: 18rpx 22rpx;
+  background: #f7f9fc;
+  border-radius: 14rpx;
+
+  &:active {
+    background: #eef1f6;
+  }
+}
+
+.sub-text {
+  font-size: 26rpx;
+  color: #191c1e;
+
+  &.placeholder {
+    color: #c3c6d1;
+  }
+}
+
+.sub-arrow {
+  font-size: 22rpx;
+  color: #001e40;
+  flex-shrink: 0;
 }
 
 .textarea-wrap {
@@ -222,16 +367,13 @@ function onSubmit() {
   font-size: 28rpx;
   color: #191c1e;
   border: none;
-  border-bottom: 2rpx solid rgba(195,198,209,0.2);
-  background: transparent;
-  padding: 0;
+  background: #f7f9fc;
+  border-radius: 12rpx;
+  padding: 18rpx;
+  box-sizing: border-box;
 
   &::placeholder {
     color: #c3c6d1;
-  }
-
-  &:focus {
-    border-bottom-color: #001e40;
   }
 }
 
@@ -242,7 +384,7 @@ function onSubmit() {
   right: 0;
   padding: 24rpx 32rpx;
   padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
-  background: rgba(255,255,255,0.85);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(40rpx);
   -webkit-backdrop-filter: blur(40rpx);
   z-index: 100;
@@ -257,7 +399,7 @@ function onSubmit() {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8rpx 32rpx rgba(0,30,64,0.25);
+  box-shadow: 0 10rpx 36rpx rgba(0, 30, 64, 0.28);
 
   &:active {
     transform: scale(0.98);
@@ -265,7 +407,6 @@ function onSubmit() {
 }
 
 .btn-text {
-  font-family: 'PingFang SC', sans-serif;
   font-size: 32rpx;
   font-weight: 700;
   color: #ffffff;

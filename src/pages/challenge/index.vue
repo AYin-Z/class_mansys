@@ -10,26 +10,23 @@
       </view>
 
       <view class="challenge-list">
-        <view v-for="item in challenges" :key="item.id" class="challenge-card" @tap="goDetail(item)">
+        <view v-for="item in filteredChallenges" :key="item.id" class="challenge-card" @tap="goDetail(item)">
           <view class="card-header">
-            <view :class="['type-badge', item.type]">{{ typeName(item.type) }}</view>
-            <view :class="['status-badge', item.status]">{{ statusName(item.status) }}</view>
+            <view :class="['type-badge', typeKey(item.type)]">{{ item.type }}</view>
+            <view class="status-badge active" v-if="item.champion_name">擂主：{{ item.champion_name }}</view>
+            <view class="status-badge ended" v-else>虚位以待</view>
           </view>
-          <text class="ch-title">{{ item.title }}</text>
+          <text class="ch-title">{{ item.name }}</text>
           <view class="ch-meta">
-            <text class="meta-item">发起人：{{ item.challenger }}</text>
-            <text class="meta-item">截止：{{ item.deadline }}</text>
+            <text class="meta-item" v-if="item.record_count !== undefined">挑战记录：{{ item.record_count }} 次</text>
           </view>
-          <view class="progress-row" v-if="item.status === 'active'">
-            <view class="progress-bar-sm"><view class="progress-fill" :style="{ width: item.progress + '%' }"></view></view>
-            <text class="progress-text">{{ item.votes }}票</text>
-          </view>
+          <text class="ch-desc">{{ item.description }}</text>
         </view>
 
-        <view v-if="challenges.length === 0" class="empty-state"><text class="empty-text">暂无挑战</text></view>
+        <view v-if="!loading && filteredChallenges.length === 0" class="empty-state"><text class="empty-text">暂无擂台</text></view>
       </view>
 
-      <button class="create-btn" @tap="goCreate"><text class="create-text">+ 发起挑战</text></button>
+      <button v-if="canCreate" class="create-btn" @tap="goCreate"><text class="create-text">+ 创建擂台</text></button>
 
       <view style="height: 40rpx;"></view>
     </scroll-view>
@@ -37,25 +34,53 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { storeToRefs } from 'pinia'
+import { useUserStore } from '@/stores/user'
+import { isAdmin as checkIsAdmin } from '@/constants/roles'
+import { getChallenges } from '@/api/challenge'
 
-const currentCat = ref('study')
+const userStore = useUserStore()
+const { profile } = storeToRefs(userStore)
+const canCreate = computed(() => checkIsAdmin(profile.value?.role))
+
+const currentCat = ref('all')
 const categories = [
-  { key: 'study', icon: '📚', label: '学习' },
-  { key: 'discipline', icon: '📋', label: '纪律' },
-  { key: 'fitness', icon: '💪', label: '体能' }
+  { key: 'all', icon: '🌐', label: '全部' },
+  { key: '学习', icon: '📚', label: '学习' },
+  { key: '纪律作风', icon: '📋', label: '纪律' },
+  { key: '体能', icon: '💪', label: '体能' }
 ]
 
-const challenges = ref([
-  { id: 1, type: 'study', status: 'active', title: '高数月考挑战赛', challenger: '学习副区', deadline: '2026-04-20', votes: 12, progress: 60 },
-  { id: 2, type: 'discipline', status: 'active', title: '全勤打卡挑战', challenger: '区队长', deadline: '2026-04-30', votes: 8, progress: 40 },
-  { id: 3, type: 'fitness', status: 'ended', title: '5公里跑步挑战', challenger: '体育委员', deadline: '2026-04-01', votes: 15, progress: 100 }
-])
+const challenges = ref([])
+const loading = ref(false)
 
-function typeName(t) { const map = { study: '学习', discipline: '纪律', fitness: '体能' }; return map[t] || t }
-function statusName(s) { const map = { active: '进行中', ended: '已结束' }; return map[s] || s }
+const filteredChallenges = computed(() => {
+  if (currentCat.value === 'all') return challenges.value
+  return challenges.value.filter(c => c.type === currentCat.value)
+})
+
+function typeKey(t) {
+  if (t === '学习') return 'study'
+  if (t === '体能') return 'fitness'
+  return 'discipline'
+}
+
+async function fetchList() {
+  loading.value = true
+  try {
+    const res = await getChallenges()
+    challenges.value = res?.challenges || []
+  } catch (_) {
+    challenges.value = []
+  } finally { loading.value = false }
+}
+
 function goDetail(item) { uni.navigateTo({ url: `/pages/challenge/detail?id=${item.id}` }) }
 function goCreate() { uni.navigateTo({ url: '/pages/challenge/apply' }) }
+
+onShow(() => fetchList())
 </script>
 
 <style lang="scss" scoped
@@ -93,8 +118,9 @@ function goCreate() { uni.navigateTo({ url: '/pages/challenge/apply' }) }
 }
 
 .ch-title { font-family: 'PingFang SC'; font-size: 29rpx; font-weight: 600; color: #191c1e; display: block; margin-bottom: 12rpx; }
-.ch-meta { display: flex; gap: 20rpx; margin-bottom: 16rpx; flex-wrap: wrap; }
+.ch-meta { display: flex; gap: 20rpx; margin-bottom: 12rpx; flex-wrap: wrap; }
 .meta-item { font-size: 22rpx; color: #c3c6d1; }
+.ch-desc { font-size: 24rpx; color: #43474f; line-height: 1.5; display: block; }
 
 .progress-row { display: flex; align-items: center; gap: 12rpx; }
 .progress-bar-sm { flex: 1; height: 10rpx; background: #f2f4f7; border-radius: 5rpx; overflow: hidden; }

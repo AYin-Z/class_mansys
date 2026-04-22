@@ -16,11 +16,22 @@
 
 <script setup>
 import { ref } from 'vue'
-const name = ref(''), desc = ref('')
-function submit() {
-  if (!name.value) { uni.showToast({ title: '请输入名称', icon: 'none' }); return }
+import { createAlbum } from '@/api/album'
+
+const name = ref('')
+const desc = ref('')
+
+async function submit() {
+  if (!name.value.trim()) { uni.showToast({ title: '请输入名称', icon: 'none' }); return }
   uni.showLoading({ title: '创建中...' })
-  setTimeout(() => { uni.hideLoading(); uni.showToast({ title: '创建成功', icon: 'success' }); setTimeout(() => uni.navigateBack(), 1500) }, 1000)
+  try {
+    await createAlbum({ name: name.value.trim(), description: desc.value.trim() })
+    uni.hideLoading()
+    uni.showToast({ title: '创建成功', icon: 'success' })
+    setTimeout(() => uni.navigateBack(), 800)
+  } catch (e) {
+    uni.hideLoading()
+  }
 }
 </script>
 

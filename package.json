@@ -9,7 +9,8 @@
     "dev:h5": "uni build --watch --platform h5",
     "build:h5": "uni build --platform h5",
     "dev:app": "uni build --watch --platform app",
-    "build:app": "uni build --platform app"
+    "build:app": "uni build --platform app",
+    "build": "uni build --platform h5"
   },
   "keywords": [
     "uni-app",
@@ -20,14 +21,20 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "vue": "^3.2.45",
-    "@dcloudio/uni-app": "3.0.0-alpha-5000720260327001"
+    "@cloudbase/adapter-uni-app": "^1.1.0",
+    "@cloudbase/js-sdk": "^3.3.3",
+    "@dcloudio/uni-app": "^3.0.0-alpha-5000720260416001",
+    "@dcloudio/uni-mp-weixin": "^3.0.0-alpha-5000720260416001",
+    "@dcloudio/uni-ui": "^1.5.12",
+    "@vue/shared": "^3.5.13",
+    "pinia": "^2.3.1",
+    "vue": "^3.5.13"
   },
   "devDependencies": {
-    "@dcloudio/types": "3.3.0",
-    "@vue/compiler-sfc": "^3.2.45",
+    "@dcloudio/types": "3.4.28",
+    "@dcloudio/vite-plugin-uni": "^3.0.0-alpha-5000720260416001",
+    "@vue/compiler-sfc": "^3.5.13",
     "sass": "^1.62.1",
-    "vite": "^3.2.4",
-    "@dcloudio/vite-plugin-uni": "3.0.0-alpha-5000720260327001"
+    "vite": "5.2.8"
   }
 }

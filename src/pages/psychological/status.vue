@@ -2,17 +2,23 @@
   <view class="status-page">
     <custom-nav-bar title="处理状态" :showBack="true" />
     <scroll-view scroll-y class="main-scroll">
-      <view class="timeline-card">
-        <view v-for="(step, idx) in steps" :key="idx" class="timeline-item">
-          <view class="step-dot-wrap">
-            <view :class="['step-dot', step.done ? 'done' : 'pending']">{{ idx + 1 }}</view>
-            <view class="step-line" v-if="idx < steps.length - 1"></view>
-          </view>
-          <view class="step-content">
-            <text :class="['step-title', { active: step.done }]">{{ step.title }}</text>
-            <text class="step-time">{{ step.time || '待处理' }}</text>
-            <text class="step-note" v-if="step.note">{{ step.note }}</text>
-          </view>
+      <view v-if="application" class="info-card">
+        <text class="title">{{ extractType(application.content) }}</text>
+        <text class="desc">{{ extractDetail(application.content) }}</text>
+        <view class="meta-row"><text class="label">提交时间</text><text class="value">{{ formatDate(application.created_at) }}</text></view>
+        <view class="meta-row"><text class="label">处理状态</text><text :class="['value', statusClass(application.status)]">{{ PSYCH_STATUS_LABEL[application.status] }}</text></view>
+        <view v-if="application.handler_name" class="meta-row"><text class="label">处理人</text><text class="value">{{ application.handler_name }}</text></view>
+        <view v-if="application.handler_notes" class="desc-section">
+          <text class="section-label">处理备注</text>
+          <text class="desc-text">{{ application.handler_notes }}</text>
+        </view>
+      </view>
+
+      <view v-if="isAdminUser && application" class="info-card">
+        <text class="section-label">管理员操作</text>
+        <view class="btn-row">
+          <button v-if="application.status !== 1" class="action-btn" @tap="handleStatus(1)">标记处理中</button>
+          <button v-if="application.status !== 2" class="action-btn primary" @tap="handleStatus(2)">标记已完成</button>
         </view>
       </view>
 
@@ -22,34 +28,89 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-const steps = ref([
-  { title: '提交申请', time: '2026-04-05 14:30', note: '', done: true },
-  { title: '心理副区接收', time: '2026-04-05 16:00', note: '已安排面谈时间', done: true },
-  { title: '面谈处理中', time: '', note: '预约时间：4月7日 15:00', done: false }
-])
+import { ref, computed } from 'vue'
+import { onLoad, onShow } from '@dcloudio/uni-app'
+import { storeToRefs } from 'pinia'
+import { useUserStore } from '@/stores/user'
+import { isAdmin as checkIsAdmin } from '@/constants/roles'
+import { getPsychDetail, handlePsychApplication, PSYCH_STATUS_LABEL } from '@/api/psychological'
+
+const userStore = useUserStore()
+const { profile } = storeToRefs(userStore)
+const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
+
+const id = ref(null)
+const application = ref(null)
+
+function extractType(c) {
+  if (!c) return '心理干预申请'
+  const m = String(c).match(/^\[(.+?)\]/)
+  return m ? m[1] : '心理干预申请'
+}
+function extractDetail(c) {
+  if (!c) return ''
+  return String(c).replace(/^\[.+?\]\s*/, '')
+}
+function formatDate(s) {
+  if (!s) return ''
+  const d = new Date(s)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+function statusClass(s) {
+  if (s === 0) return 'pending'
+  if (s === 1) return 'processing'
+  return 'completed'
+}
+
+async function fetch() {
+  if (!id.value) return
+  try {
+    const res = await getPsychDetail(id.value)
+    application.value = res.application
+  } catch (_) {}
+}
+
+async function handleStatus(status) {
+  uni.showModal({
+    title: '处理',
+    editable: true,
+    placeholderText: '请输入处理备注（可选）',
+    success: async (r) => {
+      if (!r.confirm) return
+      try {
+        await handlePsychApplication(id.value, { status, handler_notes: r.content || '' })
+        uni.showToast({ title: '已更新', icon: 'success' })
+        fetch()
+      } catch (_) {}
+    }
+  })
+}
+
+onLoad((opts) => { id.value = Number(opts?.id) || null })
+onShow(() => fetch())
 </script>
 
-<style lang="scss" scoped
-> .status-page { min-height: 100vh; background-color: #f7f9fc; }
+<style lang="scss" scoped>
+.status-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
-.timeline-card {
-  margin: 24rpx 32rpx; background: #fff; border-radius: 20rpx; padding: 32rpx 24rpx;
-}
-.timeline-item { display: flex; gap: 20rpx; &:last-child .step-line { display: none; } }
+.info-card { margin: 24rpx 32rpx; background: #fff; border-radius: 20rpx; padding: 28rpx 24rpx; }
+.title { font-size: 32rpx; font-weight: 700; color: #191c1e; display: block; margin-bottom: 12rpx; }
+.desc { font-size: 26rpx; color: #43474f; line-height: 1.6; display: block; margin-bottom: 18rpx; }
 
-.step-dot-wrap { display: flex; flex-direction: column; align-items: center; width: 36rpx; flex-shrink: 0; }
-.step-dot {
-  width: 36rpx; height: 36rpx; border-radius: 50%; display: flex; align-items: center;
-  justify-content: center; font-size: 20rpx; font-weight: 700;
-  &.done { background: linear-gradient(135deg, #001e40, #003366); color: #fff; }
-  &.pending { background: #f2f4f7; color: #c3c6d1; }
+.meta-row { display: flex; justify-content: space-between; padding: 12rpx 0; }
+.label { font-size: 24rpx; color: #c3c6d1; }
+.value { font-size: 24rpx; color: #191c1e; font-weight: 500;
+  &.pending { color: #43474f; }
+  &.processing { color: #466270; }
+  &.completed { color: #001e40; }
 }
-.step-line { flex: 1; width: 2rpx; background: #e6e8eb; margin-top: 8rpx; }
 
-.step-content { flex: 1; padding-bottom: 32rpx; }
-.step-title { font-size: 27rpx; font-weight: 500; color: #c3c6d1; &.active { color: #191c1e; } }
-.step-time { font-size: 22rpx; color: #c3c6d1; display: block; margin-top: 4rpx; }
-.step-note { font-size: 23rpx; color: #466270; margin-top: 6rpx; display: block; }
+.section-label { font-size: 25rpx; font-weight: 600; color: #43474f; text-transform: uppercase; letter-spacing: 3rpx; display: block; margin-bottom: 14rpx; }
+.desc-section { margin-top: 18rpx; }
+.desc-text { font-size: 26rpx; color: #191c1e; line-height: 1.6; }
+
+.btn-row { display: flex; gap: 16rpx; }
+.action-btn { flex: 1; height: 80rpx; line-height: 80rpx; background: #f2f4f7; color: #001e40; font-size: 26rpx; border-radius: 14rpx; border: none; }
+.action-btn.primary { background: #001e40; color: #fff; }
 </style>

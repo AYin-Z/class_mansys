@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS leaves (
   approval_notes TEXT,
   is_cancelled BOOLEAN NOT NULL DEFAULT false,
   cancelled_time DATETIME,
+  cancel_time DATETIME,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id),
@@ -48,6 +49,8 @@ CREATE TABLE IF NOT EXISTS notices (
   title VARCHAR(100) NOT NULL,
   content TEXT NOT NULL,
   type VARCHAR(20) NOT NULL,
+  priority INT NOT NULL DEFAULT 0,
+  is_pinned BOOLEAN NOT NULL DEFAULT false,
   creator_id INT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -332,13 +335,31 @@ CREATE TABLE IF NOT EXISTS classes (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- 操作记录表（用于管理员查看成员最近系统内操作）
+CREATE TABLE IF NOT EXISTS operation_logs (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id INT,
+  action VARCHAR(50) NOT NULL,
+  resource_type VARCHAR(30),
+  resource_id VARCHAR(64),
+  method VARCHAR(10),
+  path VARCHAR(200),
+  status_code INT,
+  ip VARCHAR(60),
+  detail TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_op_user (user_id, created_at),
+  INDEX idx_op_created (created_at)
+);
+
 -- 插入默认班级数据
 INSERT IGNORE INTO classes (id, name) VALUES
 ('class001', '一区队'),
 ('class002', '二区队'),
 ('class003', '三区队'),
 ('class004', '四区队'),
-('class005', '五区队');
+('class005', '五区队'),
+('class006', '六区队');
 
 -- 插入默认管理员用户
 INSERT IGNORE INTO users (openid, nickName, avatarUrl, gender, student_id, name, class_id, role, phone, email) VALUES

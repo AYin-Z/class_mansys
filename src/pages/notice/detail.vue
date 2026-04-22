@@ -33,26 +33,76 @@
         </view>
       </view>
 
-      <view style="height: 40rpx;"></view>
+      <view v-if="canDelete && notice.id" class="action-row">
+        <view class="btn-danger" @tap="onDelete">删除该通知</view>
+      </view>
+
+      <view style="height: 80rpx;"></view>
     </scroll-view>
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { getNoticeDetail, deleteNotice } from '@/api/notice'
+import { canPublishNotice } from '@/utils/auth.js'
 
 const notice = ref({
-  id: 1,
-  title: '关于期末考试安排的重要通知',
-  priority: 1,
-  author: '区队长',
-  time: '2026-04-09 10:00',
-  content: '<p style="font-size:28rpx;color:#191c1e;line-height:1.8;">各位同学：</p><p style="font-size:28rpx;color:#43474f;line-height:1.8;margin-top:16rpx;">根据学校教学安排，本学期期末考试将于6月中旬开始进行。现将有关事项通知如下：</p><p style="font-size:28rpx;color:#43474f;line-height:1.8;margin-top:16rpx;"><strong>一、考试时间</strong></p><p style="font-size:28rpx;color:#43474f;line-height:1.8;margin-top:12rpx;">2026年6月15日 - 6月25日</p><p style="font-size:28rpx;color:#43474f;line-height:1.8;margin-top:16rpx;"><strong>二、注意事项</strong></p><p style="font-size:28rpx;color:#43474f;line-height:1.8;margin-top:12rpx;">1. 请携带学生证和身份证参加考试<br/>2. 提前30分钟到达考场<br/>3. 考试期间关闭手机等电子设备</p>',
-  attachments: [
-    { name: '期末考试安排表.pdf', size: '2.3MB', url: '' },
-    { name: '考场分布图.png', size: '1.1MB', url: '' }
-  ]
+  id: null,
+  title: '加载中…',
+  priority: 0,
+  type: '',
+  author: '',
+  time: '',
+  content: '',
+  attachments: []
 })
+const noticeId = ref(null)
+const canDelete = ref(false)
+
+onLoad((opts) => {
+  noticeId.value = Number(opts?.id)
+  canDelete.value = canPublishNotice()
+  if (noticeId.value) fetchDetail()
+})
+
+function formatTime(ts) {
+  if (!ts) return ''
+  return String(ts).substring(0, 16).replace('T', ' ')
+}
+
+function renderContent(text) {
+  if (!text) return ''
+  // 简单把换行渲染成 <br>，并裹一层段落样式
+  const safe = String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br/>')
+  return `<p style="font-size:28rpx;color:#43474f;line-height:1.8;">${safe}</p>`
+}
+
+async function fetchDetail() {
+  try {
+    const res = await getNoticeDetail(noticeId.value)
+    if (res?.success && res.notice) {
+      const n = res.notice
+      notice.value = {
+        id: n.id,
+        title: n.title,
+        priority: Number(n.priority || 0),
+        type: n.type || '',
+        author: n.creator_name || n.creator_nickname || '管理员',
+        time: formatTime(n.created_at),
+        content: renderContent(n.content),
+        attachments: []
+      }
+    }
+  } catch (e) {
+    console.error('获取通知详情失败:', e)
+  }
+}
 
 function priorityClass(p) {
   if (p === 2) return 'urgent'
@@ -68,6 +118,24 @@ function priorityLabel(p) {
 
 function downloadFile(file) {
   uni.showToast({ title: `下载：${file.name}`, icon: 'none' })
+}
+
+function onDelete() {
+  if (!noticeId.value) return
+  uni.showModal({
+    title: '删除通知',
+    content: '确定删除该通知？此操作不可撤销。',
+    success: async (r) => {
+      if (!r.confirm) return
+      try {
+        await deleteNotice(noticeId.value)
+        uni.showToast({ title: '已删除', icon: 'success' })
+        setTimeout(() => uni.navigateBack(), 600)
+      } catch (e) {
+        // request 已 toast
+      }
+    }
+  })
 }
 </script>
 
@@ -191,5 +259,25 @@ function downloadFile(file) {
   font-size: 22rpx;
   color: #c3c6d1;
   flex-shrink: 0;
+}
+
+.action-row {
+  padding: 32rpx;
+}
+
+.btn-danger {
+  height: 88rpx;
+  border-radius: 14rpx;
+  background: #460002;
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:active {
+    opacity: 0.85;
+  }
 }
 </style>

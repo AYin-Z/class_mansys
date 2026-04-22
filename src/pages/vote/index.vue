@@ -24,7 +24,7 @@
         <view v-if="votes.length === 0" class="empty-state"><text class="empty-text">暂无投票</text></view>
       </view>
 
-      <button class="create-btn" @tap="goCreate"><text class="create-text">+ 创建投票</text></button>
+      <button v-if="canCreate" class="create-btn" @tap="goCreate"><text class="create-text">+ 创建投票</text></button>
 
       <view style="height: 40rpx;"></view>
     </scroll-view>
@@ -33,14 +33,49 @@
 
 <script setup>
 import { ref } from 'vue'
-const votes = ref([
-  { id: 1, title: '下学期班委选举', desc: '请为新一届班委成员投票', type: 'multiple', total: 25, deadline: '2026-04-15', status: 'active' },
-  { id: 2, title: '春游地点选择', desc: '选择本学期春游目的地', type: 'single', total: 30, deadline: '2026-04-10', status: 'active' },
-  { id: 3, title: '班级口号征集', desc: '选择你最喜欢的班级口号', type: 'single', total: 32, deadline: '2026-03-28', status: 'ended' }
-])
-function statusText(s) { return s === 'active' ? '进行中' : '已结束' }
+import { onShow } from '@dcloudio/uni-app'
+import { getVotes, isVoteSingle, getVoteStatus } from '@/api/vote'
+import { isAdmin } from '@/utils/auth.js'
+
+const votes = ref([])
+const canCreate = ref(false)
+
+function statusText(s) {
+  if (s === 'pending') return '未开始'
+  if (s === 'active') return '进行中'
+  return '已结束'
+}
+
+function formatDate(ts) {
+  if (!ts) return ''
+  return String(ts).substring(0, 10)
+}
+
+async function fetchData() {
+  try {
+    const res = await getVotes()
+    if (res?.success) {
+      votes.value = (res.votes || []).map(v => ({
+        id: v.id,
+        title: v.title,
+        desc: v.description || '',
+        type: isVoteSingle(v) ? 'single' : 'multiple',
+        total: Number(v.participant_count || 0),
+        deadline: formatDate(v.end_time),
+        status: getVoteStatus(v)
+      }))
+    }
+  } catch (e) {}
+}
+
+function statusText2(s) { return statusText(s) }
 function goDetail(item) { uni.navigateTo({ url: `/pages/vote/detail?id=${item.id}` }) }
 function goCreate() { uni.navigateTo({ url: '/pages/vote/create' }) }
+
+onShow(() => {
+  canCreate.value = isAdmin()
+  fetchData()
+})
 </script>
 
 <style lang="scss" scoped
@@ -52,7 +87,8 @@ function goCreate() { uni.navigateTo({ url: '/pages/vote/create' }) }
 .vote-card { position: relative; display: flex; background: #fff; border-radius: 20rpx; overflow: hidden; margin-bottom: 16rpx; &:active { opacity: 0.85; } }
 .card-accent {
   width: 10rpx; flex-shrink: 0;
-  &.active { background: #466270; }
+  &.pending { background: #466270; }
+  &.active { background: #001e40; }
   &.ended { background: #c3c6d1; }
 }
 .card-body { flex: 1; padding: 24rpx; }
@@ -60,7 +96,8 @@ function goCreate() { uni.navigateTo({ url: '/pages/vote/create' }) }
 .vote-title { font-family: 'PingFang SC'; font-size: 29rpx; font-weight: 600; color: #191c1e; flex: 1; }
 .status-badge {
   padding: 6rpx 18rpx; border-radius: 999rpx; font-size: 20rpx; font-weight: 600;
-  &.active { background: rgba(70,98,112,0.08); color: #466270; }
+  &.pending { background: rgba(70,98,112,0.08); color: #466270; }
+  &.active { background: rgba(0,30,64,0.06); color: #001e40; }
   &.ended { background: rgba(195,198,209,0.2); color: #c3c6d1; }
 }
 .vote-desc { font-size: 25rpx; color: #43474f; margin-bottom: 16rpx; display: block; line-height: 1.5; }

@@ -11,6 +11,23 @@
           <picker mode="selector" :range="['单选', '多选']" @change="(e) => form.type = e.detail.value === 0 ? 'single' : 'multiple'">
             <view class="form-row"><text class="row-label">投票类型</text><view class="row-value"><text class="value-text">{{ form.type === 'single' ? '单选' : '多选' }}</text><text class="arrow">›</text></view></view>
           </picker>
+          <view class="divider"></view>
+
+          <picker mode="date" :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
+            <view class="form-row"><text class="row-label">开始日期</text><view class="row-value"><text class="value-text">{{ form.startDate }}</text><text class="arrow">›</text></view></view>
+          </picker>
+          <view class="divider"></view>
+          <picker mode="time" :value="form.startTime" @change="(e) => form.startTime = e.detail.value">
+            <view class="form-row"><text class="row-label">开始时间</text><view class="row-value"><text class="value-text">{{ form.startTime }}</text><text class="arrow">›</text></view></view>
+          </picker>
+          <view class="divider"></view>
+          <picker mode="date" :value="form.endDate" @change="(e) => form.endDate = e.detail.value">
+            <view class="form-row"><text class="row-label">结束日期</text><view class="row-value"><text class="value-text">{{ form.endDate }}</text><text class="arrow">›</text></view></view>
+          </picker>
+          <view class="divider"></view>
+          <picker mode="time" :value="form.endTime" @change="(e) => form.endTime = e.detail.value">
+            <view class="form-row"><text class="row-label">结束时间</text><view class="row-value"><text class="value-text">{{ form.endTime }}</text><text class="arrow">›</text></view></view>
+          </picker>
 
           <!-- Options -->
           <view class="options-area">
@@ -30,16 +47,64 @@
 
 <script setup>
 import { reactive } from 'vue'
-const form = reactive({ title: '', desc: '', type: 'single' })
+import { createVote } from '@/api/vote'
+
+function pad(n) { return String(n).padStart(2, '0') }
+
+function todayStr() {
+  const d = new Date()
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+function tomorrowStr() {
+  const d = new Date()
+  d.setDate(d.getDate() + 7)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+const form = reactive({
+  title: '',
+  desc: '',
+  type: 'single',
+  startDate: todayStr(),
+  startTime: '09:00',
+  endDate: tomorrowStr(),
+  endTime: '23:59'
+})
 const options = reactive(['', ''])
+
 function addOption() { if (options.length < 8) options.push('') }
 function removeOption(idx) { if (options.length > 2) options.splice(idx, 1) }
-function submit() {
-  if (!form.title) { uni.showToast({ title: '请输入标题', icon: 'none' }); return }
+
+function buildDateTime(date, time) {
+  return `${date} ${time}:00`
+}
+
+async function submit() {
+  if (!form.title.trim()) { uni.showToast({ title: '请输入标题', icon: 'none' }); return }
   const validOpts = options.filter(o => o.trim())
-  if (validOpts.length < 2) { uni.showToast({ title: '至少需要2个选项', icon: 'none' }); return }
+  if (validOpts.length < 2) { uni.showToast({ title: '至少需要 2 个选项', icon: 'none' }); return }
+  const start = buildDateTime(form.startDate, form.startTime)
+  const end = buildDateTime(form.endDate, form.endTime)
+  if (new Date(end) <= new Date(start)) {
+    uni.showToast({ title: '结束时间需晚于开始时间', icon: 'none' })
+    return
+  }
   uni.showLoading({ title: '发布中...' })
-  setTimeout(() => { uni.hideLoading(); uni.showToast({ title: '发布成功', icon: 'success' }); setTimeout(() => uni.navigateBack(), 1500) }, 1000)
+  try {
+    await createVote({
+      title: form.title.trim(),
+      description: form.desc.trim(),
+      type: form.type,
+      start_time: start,
+      end_time: end,
+      options: validOpts
+    })
+    uni.hideLoading()
+    uni.showToast({ title: '发布成功', icon: 'success' })
+    setTimeout(() => uni.navigateBack(), 800)
+  } catch (e) {
+    uni.hideLoading()
+  }
 }
 </script>
 

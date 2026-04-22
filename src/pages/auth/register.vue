@@ -58,31 +58,37 @@
         </view>
 
         <view class="form-group">
-          <view class="picker-row" @click="showGenderPicker = true">
-            <text class="input-label">性别</text>
-            <view class="picker-value">
-              <text :class="['value-text', { placeholder: !formData.genderLabel }]">{{ formData.genderLabel || '请选择性别' }}</text>
-              <text class="arrow">›</text>
+          <picker mode="selector" :range="genderOptions" @change="onGenderChange" :value="genderIndex">
+            <view class="picker-row">
+              <text class="input-label">性别</text>
+              <view class="picker-value">
+                <text :class="['value-text', { placeholder: !formData.genderLabel }]">{{ formData.genderLabel || '请选择性别' }}</text>
+                <text class="arrow">›</text>
+              </view>
             </view>
-          </view>
+          </picker>
           <view class="input-divider"></view>
 
-          <view class="picker-row" @click="showPoliticalPicker = true">
-            <text class="input-label">政治面貌</text>
-            <view class="picker-value">
-              <text :class="['value-text', { placeholder: !formData.politicalStatus }]">{{ formData.politicalStatus || '请选择政治面貌' }}</text>
-              <text class="arrow">›</text>
+          <picker mode="selector" :range="politicalStatuses" @change="onPoliticalStatusChange" :value="politicalIndex">
+            <view class="picker-row">
+              <text class="input-label">政治面貌</text>
+              <view class="picker-value">
+                <text :class="['value-text', { placeholder: !formData.politicalStatus }]">{{ formData.politicalStatus || '请选择政治面貌' }}</text>
+                <text class="arrow">›</text>
+              </view>
             </view>
-          </view>
+          </picker>
           <view class="input-divider"></view>
 
-          <view class="picker-row" @click="showClassPositionPicker = true">
-            <text class="input-label">班级职务</text>
-            <view class="picker-value">
-              <text :class="['value-text', { placeholder: !formData.classPosition }]">{{ formData.classPosition || '请选择班级职务' }}</text>
-              <text class="arrow">›</text>
+          <picker mode="selector" :range="classPositions" @change="onClassPositionChange" :value="classPositionIndex">
+            <view class="picker-row">
+              <text class="input-label">班级职务</text>
+              <view class="picker-value">
+                <text :class="['value-text', { placeholder: !formData.classPosition }]">{{ formData.classPosition || '请选择班级职务' }}</text>
+                <text class="arrow">›</text>
+              </view>
             </view>
-          </view>
+          </picker>
           <view class="input-divider"></view>
 
           <view class="input-wrapper">
@@ -91,13 +97,15 @@
           </view>
           <view class="input-divider"></view>
 
-          <view class="picker-row" @click="showClassPicker = true">
-            <text class="input-label">班级</text>
-            <view class="picker-value">
-              <text :class="['value-text', { placeholder: !formData.className }]">{{ formData.className || '请选择班级' }}</text>
-              <text class="arrow">›</text>
+          <picker mode="selector" :range="classes" range-key="name" @change="onClassChange" :value="classIndex">
+            <view class="picker-row">
+              <text class="input-label">班级</text>
+              <view class="picker-value">
+                <text :class="['value-text', { placeholder: !formData.className }]">{{ formData.className || '请选择班级' }}</text>
+                <text class="arrow">›</text>
+              </view>
             </view>
-          </view>
+          </picker>
         </view>
 
         <view class="admin-card" v-if="!showAdminRoleSelector">
@@ -115,13 +123,15 @@
             <text class="status-dot"></text>
             <text class="admin-title">身份验证通过</text>
           </view>
-          <view class="picker-row mt-md" @click="showAdminRolePicker = true">
-            <text class="input-label">选择管理员角色</text>
-            <view class="picker-value">
-              <text :class="['value-text highlight', { placeholder: !formData.adminRole }]">{{ formData.adminRole || '请选择角色' }}</text>
-              <text class="arrow">›</text>
+          <picker mode="selector" :range="adminRoles" @change="onAdminRoleChange" :value="adminRoleIndex">
+            <view class="picker-row mt-md">
+              <text class="input-label">选择管理员角色</text>
+              <view class="picker-value">
+                <text :class="['value-text highlight', { placeholder: !formData.adminRole }]">{{ formData.adminRole || '请选择角色' }}</text>
+                <text class="arrow">›</text>
+              </view>
             </view>
-          </view>
+          </picker>
         </view>
       </view>
     </scroll-view>
@@ -132,96 +142,99 @@
       </button>
     </view>
 
-    <picker mode="selector" :range="genderOptions" @change="onGenderChange" v-if="showGenderPicker" :value="genderIndex"></picker>
-    <picker mode="selector" :range="politicalStatuses" @change="onPoliticalStatusChange" v-if="showPoliticalPicker" :value="politicalIndex"></picker>
-    <picker mode="selector" :range="classPositions" @change="onClassPositionChange" v-if="showClassPositionPicker" :value="classPositionIndex"></picker>
-    <picker mode="selector" :range="classes" range-key="name" @change="onClassChange" v-if="showClassPicker" :value="classIndex"></picker>
-    <picker mode="selector" :range="adminRoles" @change="onAdminRoleChange" v-if="showAdminRolePicker && showAdminRoleSelector" :value="adminRoleIndex"></picker>
   </view>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
-import { encodeBase64 } from '@/utils/auth.js'
+import { ref, reactive, onMounted } from 'vue'
+import { useUserStore } from '@/stores/user'
+import { loginAndStoreToken, registerAndStoreToken } from '@/api/auth'
+import { getClasses } from '@/api/classes'
 
-// 微信登录函数
-function wechatLogin() {
-  uni.showLoading({ title: '登录中...' })
-  
-  // 调用微信登录接口
-  uni.login({
-    success: (loginRes) => {
-      if (loginRes.code) {
-        // 获取用户信息
-        uni.getUserProfile({
-          desc: '用于完善用户信息',
-          success: (userInfoRes) => {
-            // 调用云函数进行登录
-            if (typeof wx !== 'undefined' && wx.cloud) {
-              wx.cloud.callFunction({
-                name: 'login',
-                data: {
-                  code: loginRes.code,
-                  userInfo: userInfoRes.userInfo
-                },
-                success: (res) => {
-                  uni.hideLoading()
-                  if (res.result.success) {
-                    const user = res.result.user
-                    // 保存用户信息
-                    uni.setStorageSync('userInfo', JSON.stringify(user))
-                    uni.setStorageSync('isRegistered', true)
-                    
-                    uni.showToast({ title: '登录成功', icon: 'success' })
-                    
-                    setTimeout(() => {
-                      uni.switchTab({ url: '/pages/index/index' })
-                    }, 1500)
-                  } else {
-                    uni.showToast({ title: res.result.message || '登录失败', icon: 'none' })
-                  }
-                },
-                fail: (err) => {
-                  uni.hideLoading()
-                  console.error('云函数调用失败:', err)
-                  uni.showToast({ title: '登录失败，请重试', icon: 'none' })
-                }
-              })
-            } else {
-              uni.hideLoading()
-              uni.showToast({ title: '云开发未初始化', icon: 'none' })
-            }
-          },
-          fail: (err) => {
-            uni.hideLoading()
-            console.error('获取用户信息失败:', err)
-            uni.showToast({ title: '获取用户信息失败', icon: 'none' })
-          }
-        })
-      } else {
-        uni.hideLoading()
-        uni.showToast({ title: '登录失败，请重试', icon: 'none' })
-      }
-    },
-    fail: (err) => {
-      uni.hideLoading()
-      console.error('登录失败:', err)
-      uni.showToast({ title: '登录失败，请重试', icon: 'none' })
-    }
+const userStore = useUserStore()
+const openid = ref('')
+
+function persistProfileFromBackend(token, user) {
+  userStore.setTokenAndProfile(token, {
+    id: user.id,
+    name: user.name || user.nickName || '未命名',
+    nickName: user.nickName,
+    student_id: user.student_id,
+    class_id: user.class_id,
+    role: typeof user.role === 'number' ? user.role : 0,
+    phone: user.phone,
+    email: user.email,
+    avatarUrl: user.avatarUrl
   })
+  uni.setStorageSync('isRegistered', true)
+}
+
+async function wechatLogin() {
+  uni.showLoading({ title: '登录中...' })
+  try {
+    const loginRes = await new Promise((resolve, reject) => {
+      uni.login({ success: resolve, fail: reject })
+    })
+
+    if (!loginRes.code) {
+      uni.hideLoading()
+      uni.showToast({ title: '登录失败，请重试', icon: 'none' })
+      return
+    }
+
+    try {
+      const result = await loginAndStoreToken({ code: loginRes.code })
+      uni.hideLoading()
+
+      if (result.success && result.token) {
+        if (result.user && result.user.name) {
+          persistProfileFromBackend(result.token, result.user)
+          uni.showToast({ title: '登录成功', icon: 'success' })
+          setTimeout(() => {
+            uni.switchTab({ url: '/pages/index/index' })
+          }, 1200)
+        } else {
+          openid.value = result.user?.id || ''
+          uni.showToast({ title: '请完善信息完成注册', icon: 'none' })
+        }
+      } else {
+        uni.showToast({ title: result.message || '登录失败', icon: 'none' })
+      }
+    } catch (apiErr) {
+      uni.hideLoading()
+      console.error('后端登录失败:', apiErr)
+      uni.showToast({ title: '登录失败，请手动填写注册', icon: 'none' })
+    }
+  } catch (err) {
+    uni.hideLoading()
+    console.error('微信登录失败:', err)
+    uni.showToast({ title: '登录失败，请重试', icon: 'none' })
+  }
 }
 
 const genderOptions = ['男', '女']
 const politicalStatuses = ['群众', '共青团员', '中共预备党员', '中共党员']
 const classPositions = ['无', '区队长', '生活副区', '学习副区', '心理副区', '团支书', '组织委员', '宣传委员']
 const adminRoles = ['区队长', '生活副区', '学习副区', '心理副区', '团支书', '组织委员', '宣传委员']
-const classes = [{ id: '202306', name: '数据警务技术六区' }]
+// 班级列表改为后端动态加载，失败时回退到默认值（保证离线可用）
+const classes = ref([
+  { id: 'class001', name: '一区队' },
+  { id: 'class002', name: '二区队' },
+  { id: 'class003', name: '三区队' },
+  { id: 'class004', name: '四区队' },
+  { id: 'class005', name: '五区队' },
+  { id: 'class006', name: '六区队' }
+])
 
-const showGenderPicker = ref(false)
-const showPoliticalPicker = ref(false)
-const showClassPositionPicker = ref(false)
-const showClassPicker = ref(false)
-const showAdminRolePicker = ref(false)
+onMounted(async () => {
+  try {
+    const res = await getClasses()
+    if (res?.success && Array.isArray(res.classes) && res.classes.length) {
+      classes.value = res.classes
+    }
+  } catch (_) { /* 静默失败，使用本地回退 */ }
+})
+
 const showAdminRoleSelector = ref(false)
 const superAdminPassword = ref('')
 const currentAdminCount = ref(0)
@@ -266,107 +279,129 @@ function onGenderChange(e) {
   genderIndex.value = idx
   formData.gender = parseInt(idx) + 1
   formData.genderLabel = genderOptions[idx]
-  showGenderPicker.value = false
 }
 
 function onPoliticalStatusChange(e) {
   const idx = e.detail.value
   politicalIndex.value = idx
   formData.politicalStatus = politicalStatuses[idx]
-  showPoliticalPicker.value = false
 }
 
 function onClassPositionChange(e) {
   const idx = e.detail.value
   classPositionIndex.value = idx
   formData.classPosition = classPositions[idx]
-  showClassPositionPicker.value = false
 }
 
 function onClassChange(e) {
   const idx = e.detail.value
   classIndex.value = idx
-  const selected = classes[idx]
+  const selected = classes.value[idx]
+  if (!selected) return
   formData.classId = selected.id
   formData.className = selected.name
-  showClassPicker.value = false
 }
 
 function onAdminRoleChange(e) {
   const idx = e.detail.value
   adminRoleIndex.value = idx
   formData.adminRole = adminRoles[idx]
-  showAdminRolePicker.value = false
 }
 
-function onSubmit() {
-  if (!formData.studentId) {
-    uni.showToast({ title: '请输入学号', icon: 'none' })
-    return
-  }
-  if (!formData.name) {
-    uni.showToast({ title: '请输入真实姓名', icon: 'none' })
-    return
-  }
-  if (!formData.phone) {
-    uni.showToast({ title: '请输入手机号码', icon: 'none' })
-    return
-  }
-  if (!formData.email) {
-    uni.showToast({ title: '请输入邮箱', icon: 'none' })
-    return
-  }
-  if (!formData.classId) {
-    uni.showToast({ title: '请选择班级', icon: 'none' })
-    return
-  }
-  if (!formData.politicalStatus) {
-    uni.showToast({ title: '请选择政治面貌', icon: 'none' })
-    return
-  }
-  if (!formData.classPosition) {
-    uni.showToast({ title: '请选择班级职务', icon: 'none' })
+// --- 有效性校验工具 ---
+const STUDENT_ID_RE = /^[A-Za-z0-9]{4,20}$/          // 学号：4-20 位字母数字
+const NAME_RE       = /^[\u4e00-\u9fa5A-Za-z·•\s]{2,20}$/ // 姓名：2-20 中英文
+const PHONE_RE      = /^1[3-9]\d{9}$/                  // 大陆手机号
+const EMAIL_RE      = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
+
+function validateForm() {
+  // trim
+  formData.studentId      = String(formData.studentId || '').trim()
+  formData.name           = String(formData.name || '').trim()
+  formData.phone          = String(formData.phone || '').trim()
+  formData.email          = String(formData.email || '').trim()
+  formData.schoolPosition = String(formData.schoolPosition || '').trim()
+
+  if (!formData.studentId)            return '请输入学号'
+  if (!STUDENT_ID_RE.test(formData.studentId)) return '学号应为 4-20 位字母或数字'
+  if (!formData.name)                 return '请输入真实姓名'
+  if (!NAME_RE.test(formData.name))   return '姓名只能包含中英文，2-20 位'
+  if (!formData.phone)                return '请输入手机号码'
+  if (!PHONE_RE.test(formData.phone)) return '手机号码格式不正确'
+  if (!formData.email)                return '请输入邮箱'
+  if (!EMAIL_RE.test(formData.email)) return '邮箱格式不正确'
+  if (!formData.genderLabel)          return '请选择性别'
+  if (!formData.politicalStatus)      return '请选择政治面貌'
+  if (!formData.classPosition)        return '请选择班级职务'
+  if (!formData.classId)              return '请选择班级'
+  if (showAdminRoleSelector.value && !formData.adminRole) return '请选择管理员角色'
+  return ''
+}
+
+function isDomainWhitelistError(err) {
+  const msg = String(err?.message || err?.errMsg || '')
+  return msg.includes('url not in domain list') || msg.includes('not in domain list')
+}
+
+async function onSubmit() {
+  const invalidMsg = validateForm()
+  if (invalidMsg) {
+    uni.showToast({ title: invalidMsg, icon: 'none' })
     return
   }
 
   uni.showLoading({ title: '注册中...' })
 
-  setTimeout(() => {
-    uni.hideLoading()
-
-    const userInfo = {
-      studentId: formData.studentId,
+  try {
+    const result = await registerAndStoreToken({
+      openid: openid.value || undefined,   // 微信登录链路给的 openid 优先
+      student_id: formData.studentId,
       name: formData.name,
       phone: formData.phone,
       email: formData.email,
       gender: formData.gender,
-      politicalStatus: formData.politicalStatus,
-      classPosition: formData.classPosition,
-      schoolPosition: formData.schoolPosition,
-      classId: formData.classId,
-      className: formData.className,
-      isAdmin: !!formData.adminRole,
+      class_id: formData.classId,
+      role: formData.adminRole || 0,        // 后端识别中文角色名 → INT
       adminRole: formData.adminRole,
-      openid: 'o6zAJs7FCMRWfy6FW1sLtk3J7c2M',
-      registeredAt: new Date().toISOString()
+      nickName: formData.name
+    })
+
+    uni.hideLoading()
+
+    if (result?.success && result.token && result.user) {
+      persistProfileFromBackend(result.token, result.user)
+      uni.showToast({
+        title: result.reused ? '已识别已有账号，已登录' : '注册成功',
+        icon: 'success'
+      })
+      setTimeout(() => {
+        uni.switchTab({ url: '/pages/index/index' })
+      }, 1200)
+    } else {
+      uni.showToast({ title: result?.error || result?.message || '注册失败', icon: 'none' })
+    }
+  } catch (err) {
+    uni.hideLoading()
+    console.error('注册失败:', err)
+
+    // 小程序域名白名单错误：给出专门的指引文案
+    if (isDomainWhitelistError(err)) {
+      uni.showModal({
+        title: '后端域名未加入白名单',
+        content: '当前小程序的 request 合法域名中不包含后端服务地址。请联系管理员在「微信公众平台 → 开发管理 → 开发设置 → 服务器域名」中添加 HTTPS 域名；开发期可在微信开发者工具「详情 → 本地设置」勾选「不校验合法域名」临时解除。',
+        showCancel: false,
+        confirmText: '我知道了'
+      })
+      return
     }
 
-    const encryptedUserInfo = {
-      ...userInfo,
-      studentId: encodeBase64(userInfo.studentId),
-      phone: encodeBase64(userInfo.phone),
-      email: encodeBase64(userInfo.email)
-    }
-
-    uni.setStorageSync('userInfo', encryptedUserInfo)
-    uni.setStorageSync('isRegistered', true)
-
-    uni.showToast({ title: '注册成功', icon: 'success' })
-
-    setTimeout(() => {
-      uni.switchTab({ url: '/pages/index/index' })
-    }, 1500)
-  }, 1000)
+    // request 已在非 silent 模式下弹过 toast，这里只兜底一次模态，方便用户感知
+    uni.showModal({
+      title: '注册失败',
+      content: err?.message || '请检查网络或稍后再试',
+      showCancel: false
+    })
+  }
 }
 </script>
 

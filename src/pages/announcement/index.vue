@@ -43,38 +43,130 @@
       <view style="height: 40rpx;"></view>
     </scroll-view>
 
-    <view class="fab-btn" @tap="goPublish">
+    <view v-if="canPublish" class="fab-btn" @tap="onFabTap">
       <text class="fab-icon">+</text>
     </view>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { getAnnouncements, getResources, deleteAnnouncement, deleteResource } from '@/api/announcement'
+import { canPublishNotice, isAdmin } from '@/utils/auth.js'
 
 const currentTab = ref('notice')
-
-const notices = ref([
-  { id: 1, title: '区队规章制度更新', summary: '关于考勤、卫生、纪律等方面的最新规定', time: '2026-04-03', author: '区队长' },
-  { id: 2, title: '奖学金评选通知', summary: '本学期奖学金评选工作正式启动，请符合条件的同学准备材料', time: '2026-04-02', author: '辅导员' },
-  { id: 3, title: '运动会报名通知', summary: '校运会将于下月举行，请有意参加的同学及时报名', time: '2026-04-01', author: '体育委员' }
-])
-
-const resources = ref([
-  { id: 1, name: '期末复习资料合集.pdf', type: 'pdf', size: '12.5MB', uploader: '学习副区' },
-  { id: 2, name: '课程表2026春季.xlsx', type: 'excel', size: '45KB', uploader: '学习副区' },
-  { id: 3, name: '班级通讯录.xlsx', type: 'excel', size: '28KB', uploader: '团支书' },
-  { id: 4, name: '区队规章制度.pdf', type: 'pdf', size: '2.1MB', uploader: '区队长' }
-])
+const notices = ref([])
+const resources = ref([])
+const canPublish = ref(false)
 
 function fileIcon(type) {
-  const map = { pdf: 'PDF', excel: 'XLS', word: 'DOC', image: 'IMG' }
-  return map[type] || 'FILE'
+  const t = String(type || '').toLowerCase()
+  if (t.includes('pdf')) return 'PDF'
+  if (t.includes('xls') || t.includes('excel')) return 'XLS'
+  if (t.includes('doc') || t.includes('word')) return 'DOC'
+  if (t.includes('image') || t.includes('png') || t.includes('jpg')) return 'IMG'
+  return 'FILE'
 }
 
-function goDetail(item) { console.log('查看公告详情', item) }
-function downloadResource(item) { uni.showToast({ title: `下载：${item.name}`, icon: 'none' }) }
-function goPublish() { uni.navigateTo({ url: '/pages/announcement/publish' }) }
+function fileTypeClass(type) {
+  const t = String(type || '').toLowerCase()
+  if (t.includes('pdf')) return 'pdf'
+  if (t.includes('xls') || t.includes('excel')) return 'excel'
+  if (t.includes('doc') || t.includes('word')) return 'word'
+  if (t.includes('image') || t.includes('png') || t.includes('jpg')) return 'image'
+  return 'word'
+}
+
+function formatSize(bytes) {
+  const n = Number(bytes || 0)
+  if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + 'MB'
+  if (n >= 1024) return (n / 1024).toFixed(0) + 'KB'
+  return n + 'B'
+}
+
+function formatTime(ts) {
+  if (!ts) return ''
+  return String(ts).substring(0, 10).replace('T', ' ')
+}
+
+async function fetchNotices() {
+  try {
+    const res = await getAnnouncements()
+    if (res?.success) {
+      notices.value = (res.announcements || []).map(a => ({
+        id: a.id,
+        title: a.title,
+        summary: (a.content || '').substring(0, 60),
+        time: formatTime(a.created_at),
+        author: a.creator_name || '管理员',
+        raw: a
+      }))
+    }
+  } catch (e) { /* request 已 toast */ }
+}
+
+async function fetchResources() {
+  try {
+    const res = await getResources()
+    if (res?.success) {
+      resources.value = (res.resources || []).map(r => ({
+        id: r.id,
+        name: r.name,
+        type: fileTypeClass(r.type),
+        size: formatSize(r.size),
+        uploader: r.uploader_name || '管理员',
+        url: r.url
+      }))
+    }
+  } catch (e) { /* request 已 toast */ }
+}
+
+function goDetail(item) {
+  uni.showModal({
+    title: item.title,
+    content: item.raw?.content || item.summary,
+    showCancel: canPublish.value,
+    cancelText: '删除',
+    confirmText: '关闭',
+    success: async (r) => {
+      if (r.cancel && canPublish.value) {
+        try {
+          await deleteAnnouncement(item.id)
+          uni.showToast({ title: '已删除', icon: 'success' })
+          fetchNotices()
+        } catch (e) {}
+      }
+    }
+  })
+}
+
+function downloadResource(item) {
+  if (!item.url) {
+    uni.showToast({ title: '资源链接为空', icon: 'none' })
+    return
+  }
+  uni.setClipboardData({
+    data: item.url,
+    success: () => uni.showToast({ title: '链接已复制', icon: 'success' })
+  })
+}
+
+function onFabTap() {
+  if (currentTab.value === 'notice') {
+    uni.navigateTo({ url: '/pages/announcement/publish' })
+  } else {
+    uni.navigateTo({ url: '/pages/announcement/upload' })
+  }
+}
+
+function refresh() {
+  canPublish.value = canPublishNotice() || isAdmin()
+  fetchNotices()
+  fetchResources()
+}
+
+onShow(() => refresh())
 </script>
 
 <style lang="scss" scoped

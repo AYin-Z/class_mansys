@@ -1,28 +1,111 @@
 <template>
   <view class="upload-page">
-    <custom-nav-bar title="上传照片" :showBack="true" />
+    <custom-nav-bar :title="navTitle" :showBack="true" />
     <scroll-view scroll-y class="main-scroll">
-      <view class="photo-grid">
-        <view v-for="(img, idx) in photos" :key="idx" class="photo-item">
-          <image :src="img" mode="aspectFill" class="photo-img" />
-          <view class="remove-btn" @tap.stop="removePhoto(idx)"><text class="remove-x">×</text></view>
+
+      <view v-if="existingPhotos.length" class="section">
+        <text class="section-title">已上传 ({{ existingPhotos.length }})</text>
+        <view class="photo-grid">
+          <view v-for="p in existingPhotos" :key="p.id" class="photo-item">
+            <image :src="p.url" mode="aspectFill" class="photo-img" />
+            <view v-if="!p.is_approved" class="pending-badge">待审核</view>
+          </view>
         </view>
-        <view class="add-photo" @tap="choosePhoto"><text class="add-icon">+</text></view>
       </view>
-      <view class="bottom-action"><button class="primary-btn" @click="submit"><text class="btn-text">上传 ({{ photos.length }}张)</text></button></view>
+
+      <view class="section">
+        <text class="section-title">本次上传</text>
+        <view class="photo-grid">
+          <view v-for="(img, idx) in photos" :key="idx" class="photo-item">
+            <image :src="img" mode="aspectFill" class="photo-img" />
+            <view class="remove-btn" @tap.stop="removePhoto(idx)"><text class="remove-x">×</text></view>
+          </view>
+          <view class="add-photo" @tap="choosePhoto"><text class="add-icon">+</text></view>
+        </view>
+      </view>
+
+      <view style="height: 200rpx;"></view>
     </scroll-view>
+    <view class="bottom-action">
+      <button class="primary-btn" :disabled="loading || photos.length === 0" @click="submit">
+        <text class="btn-text">{{ loading ? '上传中…' : `上传 (${photos.length}张)` }}</text>
+      </button>
+    </view>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { app as cloudbaseApp } from '@/utils/cloudbase'
+import { getAlbumDetail, uploadPhotos } from '@/api/album'
+
+const albumId = ref(null)
+const albumName = ref('')
 const photos = ref([])
-function choosePhoto() { uni.chooseImage({ count: 9, success: (res) => { photos.value.push(...res.tempFilePaths) } }) }
+const existingPhotos = ref([])
+const loading = ref(false)
+
+const navTitle = computed(() => albumName.value ? `${albumName.value}` : '上传照片')
+
+onLoad((opts) => {
+  albumId.value = Number(opts?.id)
+  albumName.value = opts?.name ? decodeURIComponent(opts.name) : ''
+  if (albumId.value) fetchAlbum()
+})
+
+async function fetchAlbum() {
+  try {
+    const res = await getAlbumDetail(albumId.value)
+    if (res?.success) {
+      albumName.value = res.album?.name || albumName.value
+      existingPhotos.value = res.photos || []
+    }
+  } catch (e) {}
+}
+
+function choosePhoto() {
+  uni.chooseImage({
+    count: 9 - photos.value.length,
+    success: (res) => { photos.value.push(...res.tempFilePaths) }
+  })
+}
+
 function removePhoto(idx) { photos.value.splice(idx, 1) }
-function submit() {
+
+async function submit() {
+  if (!albumId.value) { uni.showToast({ title: '相册 ID 缺失', icon: 'none' }); return }
   if (photos.value.length === 0) { uni.showToast({ title: '请选择照片', icon: 'none' }); return }
-  uni.showLoading({ title: '上传中...' })
-  setTimeout(() => { uni.hideLoading(); uni.showToast({ title: `上传${photos.value.length}张成功`, icon: 'success' }); setTimeout(() => uni.navigateBack(), 1500) }, 1500)
+
+  loading.value = true
+  uni.showLoading({ title: `上传中 0/${photos.value.length}` })
+  try {
+    const urls = []
+    for (let i = 0; i < photos.value.length; i++) {
+      const path = photos.value[i]
+      const cloudPath = `albums/${albumId.value}/${Date.now()}_${i}.${(path.split('.').pop() || 'jpg').split('?')[0]}`
+      const r = await cloudbaseApp.uploadFile({ cloudPath, filePath: path })
+      const u = r.download_url || r.fileID || r.tempFilePath
+      if (u) urls.push(u)
+      uni.showLoading({ title: `上传中 ${i + 1}/${photos.value.length}` })
+    }
+    if (urls.length === 0) throw new Error('无可上传文件')
+
+    const res = await uploadPhotos({ album_id: albumId.value, urls })
+    uni.hideLoading()
+    if (res?.auto_approved) {
+      uni.showToast({ title: `上传 ${urls.length} 张成功`, icon: 'success' })
+    } else {
+      uni.showToast({ title: '上传成功，等待审核', icon: 'none' })
+    }
+    photos.value = []
+    fetchAlbum()
+  } catch (e) {
+    uni.hideLoading()
+    uni.showToast({ title: e.message || '上传失败', icon: 'none' })
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -46,6 +129,9 @@ function submit() {
   display: flex; align-items: center; justify-content: center;
 }
 .add-icon { font-size: 56rpx; color: #c3c6d1; }
+.section { padding: 24rpx 32rpx 0; }
+.section-title { font-size: 24rpx; font-weight: 600; color: #43474f; letter-spacing: 4rpx; text-transform: uppercase; display: block; margin-bottom: 16rpx; }
+.pending-badge { position: absolute; top: 6rpx; left: 6rpx; padding: 4rpx 10rpx; background: rgba(70,98,112,0.85); color: #fff; border-radius: 6rpx; font-size: 18rpx; }
 
 .bottom-action { position: fixed; bottom: 0; left: 0; right: 0; padding: 24rpx 32rpx; padding-bottom: calc(24rpx + env(safe-area-inset-bottom)); background: rgba(255,255,255,0.85); backdrop-filter: blur(40rpx); z-index: 100; }
 .primary-btn { width: 100%; height: 96rpx; background: linear-gradient(135deg, #001e40, #003366); border-radius: 20rpx; border: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 8rpx 32rpx rgba(0,30,64,0.25); &:active { transform: scale(0.98); } }
