@@ -11,7 +11,8 @@
 ## 文档导航
 
 - **完整项目说明**: [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) — 面向接手工程师的全景文档（技术栈、架构、模块、权限、认证、DB、部署、发版、已知债务，共 16 章 + 2 附录）
-- **Android 打包指南**: [`docs/android-build-guide.md`](docs/android-build-guide.md)
+- **当前进度快照**: [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) — 已完成项、阻塞与下一步（含 Capacitor APK 路线）
+- **Android 打包指南（历史）**: [`docs/android-build-guide.md`](docs/android-build-guide.md) — HBuilderX 云打包已弃用，详见文内说明
 - **App 内更新模块**: [`docs/in-app-update-guide.md`](docs/in-app-update-guide.md)
 - **部署手册**: [`docs/deployment/`](docs/deployment/)
 - **开发日志**: [`docs/devlog/`](docs/devlog/)

@@ -1,5 +1,22 @@
 # Android APK 打包与分发指南
 
+> ⚠️ **本文档已弃用**（2026-04-22）。
+>
+> 原 HBuilderX 云打包方案在 uni-app Vue3 + Vite CLI 项目上存在已知兼容性问题
+> （`TypeError: Cannot read properties of undefined (reading 'plus')`），
+> 无法在当前项目结构下走通。
+>
+> 现行打包方案已切换为 **Capacitor + 本地 Gradle 构建**：
+> - H5 产物 (`npm run build:h5`) → 作为 Capacitor WebView 资源
+> - Capacitor 提供原生 Android 壳 → `./gradlew assembleRelease` 出 APK
+> - 完全不依赖 DCloud 云打包服务
+>
+> 详见新指南：`docs/capacitor-build-guide.md`（APK 跑通后补齐）
+>
+> 下方原文保留，仅作迁移背景参考。
+
+---
+
 > 适用于本项目（uni-app + Vue3 + CloudBase）打包成 Android 安装包并自助分发，无需任何企业资质审核。
 
 ## 目录
@@ -113,7 +130,7 @@ App 端可用的登录方式：
 ### 步骤
 
 - HBuilderX 菜单：**发行 → 原生 App-云打包**
-- **包名**：`com.yinzheng.classmanage`（域名反写格式，唯一标识；以后**不要再改**，否则用户无法升级覆盖安装）
+- **包名**：`com.clamansys`（与云开发环境 ID 前缀一致；唯一标识；以后**不要再改**，否则用户无法升级覆盖安装）
 - **证书**：
   - **自己分发** / 内测：选 **「使用公共测试证书」** 即可
   - **上应用商店**（小米、华为、应用宝、酷安）：必须 **「使用自有证书」**

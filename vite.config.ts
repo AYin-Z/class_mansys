@@ -23,9 +23,9 @@ export default defineConfig({
           .replace(decRe, (_, pre, num) => `${pre}BigInt(${num})`);
       }
     },
-    // App 平台专用：uni-app CLI + Vite 模式下，构建产物 (dist/*/app) 不会自带
-    // manifest.json / pages.json，导致 HBuilderX 无法识别为 uni-app 项目、
-    // 无法推送到手机基座。这里在 writeBundle 阶段自动拷贝一份过去。
+    // App 平台专用：uni-app CLI + Vite 模式下，构建产物不会自带 manifest.json / pages.json，
+    // 导致 HBuilderX 无法识别为 uni-app 项目、无法推送到手机基座。
+    // 这里在 closeBundle 阶段自动拷贝一份到实际产物目录（dist/<mode>/<platform>）。
     {
       name: 'copy-uni-config-to-app-output',
       apply: 'build',
@@ -34,7 +34,7 @@ export default defineConfig({
         console.log(`[copy-uni-config] UNI_PLATFORM=${platform} NODE_ENV=${process.env.NODE_ENV}`);
         if (!platform.startsWith('app')) return;
         const mode = process.env.NODE_ENV === 'production' ? 'build' : 'dev';
-        const outDir = path.resolve(__dirname, `dist/${mode}/app`);
+        const outDir = path.resolve(__dirname, `dist/${mode}/${platform}`);
         const src = path.resolve(__dirname, 'src');
         for (const f of ['manifest.json', 'pages.json']) {
           const from = path.join(src, f);

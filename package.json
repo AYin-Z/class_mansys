@@ -2,16 +2,20 @@
   "name": "class_manage_sys",
   "version": "1.0.0",
   "description": "区队管理系统 - 基于 uni-app 框架",
-  "main": "src/main.js",
+  "main": "src/main.ts",
   "scripts": {
     "dev:mp-weixin": "uni build --watch --platform mp-weixin",
     "build:mp-weixin": "uni build --platform mp-weixin",
     "dev:h5": "uni build --watch --platform h5",
     "build:h5": "uni build --platform h5",
-    "dev:app": "uni build --watch --platform app",
-    "build:app": "uni build --platform app",
-    "build": "uni build --platform app",
-    "dev": "uni build --watch --platform app"
+    "dev:app": "uni build --watch --platform app-plus",
+    "build:app": "uni build --platform app-plus",
+    "build": "uni build --platform app-plus",
+    "dev": "uni build --watch --platform app-plus",
+    "cap:sync": "npm run build:h5 && npx cap sync android",
+    "cap:open": "npx cap open android",
+    "apk:debug": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
+    "apk:release": "npm run cap:sync && cd android && gradlew.bat assembleRelease"
   },
   "keywords": [
     "uni-app",
@@ -22,6 +26,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
     "@cloudbase/adapter-uni-app": "^1.1.0",
     "@cloudbase/js-sdk": "^3.3.3",
     "@dcloudio/uni-app": "^3.0.0-alpha-5000720260416001",

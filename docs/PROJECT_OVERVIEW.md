@@ -868,7 +868,7 @@ npm run build:mp-weixin   # 小程序构建 → dist/build/mp-weixin
 
 1. 改 `src/manifest.json`：`versionName` 和 `versionCode` 递增
 2. `npm run build:app`
-3. HBuilderX → 发行 → 原生 App-云打包（选 Android，填包名 `com.yinzheng.classmanage`）
+3. HBuilderX → 发行 → 原生 App-云打包（选 Android，填包名 `com.clamansys`）
 4. 等 5-10 分钟，下载 `.apk`
 5. 上传到 CDN（推荐腾讯云 COS，成本 ~2 元/月）
 6. 改 `backend/data/app-version.json`：
