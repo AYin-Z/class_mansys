@@ -24,7 +24,6 @@ dist
 # 默认忽略所有 .env 文件，但显式白名单 .env.example / .env.development，
 # 方便多人协作时共享无密的默认配置
 **/.env
-.env.production
 .env.*.local
 .env.local
 !.env.example

@@ -88,6 +88,17 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// H5 前端静态文件托管（构建产物在 dist/build/h5/）
+const h5DistPath = path.join(__dirname, '..', 'dist', 'build', 'h5');
+app.use(express.static(h5DistPath));
+// SPA 历史模式：非 API/文件路径的请求都返回 index.html
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/') || req.path.startsWith('/health') || req.path.startsWith('/uploads')) {
+    return next();
+  }
+  res.sendFile(path.join(h5DistPath, 'index.html'));
+});
+
 // 404处理
 app.use((req, res) => {
   res.status(404).json({ error: '接口不存在' });
