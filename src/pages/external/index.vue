@@ -21,11 +21,11 @@
 import { ref } from 'vue'
 
 const systems = ref([
-  { id: 1, name: '教务管理系统', icon: '📖', desc: '选课/成绩查询', color: 'linear-gradient(135deg, #001e40, #003366)' },
-  { id: 2, name: '图书馆系统', icon: '📚', desc: '借阅/预约', color: 'linear-gradient(135deg, #466270, #5a7a8c)' },
-  { id: 3, name: '一卡通中心', icon: '💳', desc: '充值/消费记录', color: 'linear-gradient(135deg, #003366, #004d99)' },
-  { id: 4, name: '校园网服务', icon: '🌐', desc: '网络认证/报修', color: 'linear-gradient(135deg, #1a3a52, #2d5570)' },
-  { id: 5, name: '后勤服务平台', icon: '🏠', desc: '宿舍报修/投诉', color: 'linear-gradient(135deg, #0d2137, #1a3854)' }
+  { id: 1, name: '教务管理系统', icon: '📖', desc: '选课/成绩查询', url: 'https://jwxt.ppsuc.edu.cn/', color: 'linear-gradient(135deg, #001e40, #003366)' },
+  { id: 2, name: '图书馆系统', icon: '📚', desc: '借阅/预约', url: 'https://lib.ppsuc.edu.cn/', color: 'linear-gradient(135deg, #466270, #5a7a8c)' },
+  { id: 3, name: '一卡通中心', icon: '💳', desc: '充值/消费记录', url: 'https://ecard.ppsuc.edu.cn/', color: 'linear-gradient(135deg, #003366, #004d99)' },
+  { id: 4, name: '校园网服务', icon: '🌐', desc: '网络认证/报修', url: 'http://10.1.1.1/', color: 'linear-gradient(135deg, #1a3a52, #2d5570)' },
+  { id: 5, name: '后勤服务平台', icon: '🏠', desc: '宿舍报修/投诉', url: 'http://hq.ppsuc.edu.cn/', color: 'linear-gradient(135deg, #0d2137, #1a3854)' }
 ])
 
 function openSystem(item) {

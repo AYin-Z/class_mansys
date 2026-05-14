@@ -6,7 +6,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onLoad } from 'vue'
 const url = ref('about:blank')
 
 onLoad((options) => {
