@@ -84,6 +84,14 @@ export { shallowRef, ref, getCurrentInstance, isInSSRComponentSetup, injectHook 
           }
         }
       }
+    },
+    // 移除 script/link 标签的 crossorigin 属性（防止某些浏览器对同域模块脚本的 CORS 检查失败）
+    {
+      name: 'remove-crossorigin',
+      enforce: 'post',
+      transformIndexHtml(html) {
+        return html.replace(/\s+crossorigin(=["'][^"']*["'])?/g, '');
+      }
     }
   ],
   build: {
