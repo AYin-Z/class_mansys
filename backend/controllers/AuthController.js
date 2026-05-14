@@ -1,6 +1,29 @@
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const axios = require('axios');
+
+// 内存验证码存储（开发/小规模使用；生产环境应换 Redis）
+const VERIFICATION_CODES = new Map();
+const CODE_EXPIRE_MS = 5 * 60 * 1000; // 5 分钟
+
+function generateCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function storeCode(phoneOrEmail, code) {
+  VERIFICATION_CODES.set(phoneOrEmail, { code, expiresAt: Date.now() + CODE_EXPIRE_MS });
+}
+
+function verifyCode(phoneOrEmail, inputCode) {
+  const entry = VERIFICATION_CODES.get(phoneOrEmail);
+  if (!entry) return false;
+  if (Date.now() > entry.expiresAt) {
+    VERIFICATION_CODES.delete(phoneOrEmail);
+    return false;
+  }
+  return entry.code === inputCode;
+}
 
 class AuthController {
   static async login(req, res) {
@@ -47,16 +70,7 @@ class AuthController {
       }
 
       // 生成JWT令牌
-      const token = jwt.sign(
-        {
-          id: user.id,
-          openid: user.openid,
-          role: user.role,
-          isAdmin: user.role > 0
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN }
-      );
+      const token = AuthController._signToken(user);
 
       res.json({
         success: true,
@@ -118,17 +132,7 @@ class AuthController {
         }
       }
 
-      // 生成JWT令牌
-      const token = jwt.sign(
-        {
-          id: user.id,
-          openid: user.openid,
-          role: user.role,
-          isAdmin: user.role > 0
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN }
-      );
+      const token = AuthController._signToken(user);
 
       res.json({
         success: true,
@@ -153,21 +157,10 @@ class AuthController {
 
   /**
    * 注册：写入用户 + 直接签发 JWT，前端无需再走一次 login
-   *
-   * 入参（兼容老结构 { openid, userData } 与新结构 { ...userData, openid }）：
-   *   - openid?:        任意客户端生成的唯一标识（手动注册可传 manual_<studentId>_<ts>）
-   *   - student_id*     学号（手动注册唯一识别）
-   *   - name*           真实姓名
-   *   - phone, email, gender, class_id, nickName, avatarUrl
-   *   - role:           可以是 INT (0-8) 或中文角色名（区队长/生活副区/...）
-   *   - politicalStatus, classPosition, schoolPosition  目前不入库，预留扩展
-   *
-   * 返回：{ success, token, user }
    */
   static async register(req, res) {
     try {
       const body = req.body || {};
-      // 兼容旧调用 { openid, userData }
       const data = body.userData ? { openid: body.openid, ...body.userData } : { ...body };
 
       const studentId = String(data.student_id || data.studentId || '').trim();
@@ -176,11 +169,9 @@ class AuthController {
       const email = String(data.email || '').trim();
       const classId = String(data.class_id || data.classId || '').trim();
 
-      // 基础必填
       if (!studentId || !name) {
         return res.status(400).json({ success: false, error: '学号与姓名不能为空' });
       }
-      // 字段有效性校验（与前端一致，防御性再做一次）
       const STUDENT_ID_RE = /^[A-Za-z0-9]{4,20}$/;
       const NAME_RE       = /^[\u4e00-\u9fa5A-Za-z·•\s]{2,20}$/;
       const PHONE_RE      = /^1[3-9]\d{9}$/;
@@ -207,7 +198,6 @@ class AuthController {
         } catch (_) { /* 班级表异常不阻断注册，由后续逻辑兜底 */ }
       }
 
-      // 中文角色名 → INT
       const ROLE_MAP = {
         '学员': 0, '区队长': 1, '生活副区': 2, '学习副区': 3,
         '心理副区': 4, '团支书': 5, '组织委员': 6, '宣传委员': 7,
@@ -218,23 +208,11 @@ class AuthController {
       else if (typeof data.role === 'string') roleId = ROLE_MAP[data.role] ?? 0;
       else if (data.adminRole) roleId = ROLE_MAP[data.adminRole] ?? 0;
 
-      // openid 兜底
       const openid = data.openid || `manual_${studentId}_${Date.now()}`;
 
-      // 学号唯一性检查
       const existingByStudentId = await User.findByStudentId(studentId);
       if (existingByStudentId) {
-        // 已有同学号用户，直接复用并签发 token（让重复注册等价于登录）
-        const token = jwt.sign(
-          {
-            id: existingByStudentId.id,
-            openid: existingByStudentId.openid,
-            role: existingByStudentId.role,
-            isAdmin: existingByStudentId.role > 0
-          },
-          process.env.JWT_SECRET,
-          { expiresIn: process.env.JWT_EXPIRES_IN }
-        );
+        const token = AuthController._signToken(existingByStudentId);
         return res.json({
           success: true,
           token,
@@ -245,16 +223,7 @@ class AuthController {
 
       const existingByOpenid = await User.findByOpenid(openid);
       if (existingByOpenid) {
-        const token = jwt.sign(
-          {
-            id: existingByOpenid.id,
-            openid: existingByOpenid.openid,
-            role: existingByOpenid.role,
-            isAdmin: existingByOpenid.role > 0
-          },
-          process.env.JWT_SECRET,
-          { expiresIn: process.env.JWT_EXPIRES_IN }
-        );
+        const token = AuthController._signToken(existingByOpenid);
         return res.json({
           success: true,
           token,
@@ -277,16 +246,7 @@ class AuthController {
       });
       const user = await User.findById(userId);
 
-      const token = jwt.sign(
-        {
-          id: user.id,
-          openid: user.openid,
-          role: user.role,
-          isAdmin: user.role > 0
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN }
-      );
+      const token = AuthController._signToken(user);
 
       res.json({
         success: true,
@@ -321,23 +281,12 @@ class AuthController {
 
     try {
       const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
-
       const user = await User.findById(decoded.id);
       if (!user) {
         return res.status(401).json({ success: false, error: '用户不存在' });
       }
 
-      const newToken = jwt.sign(
-        {
-          id: user.id,
-          openid: user.openid,
-          role: user.role,
-          isAdmin: user.role > 0
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN }
-      );
-
+      const newToken = AuthController._signToken(user);
       res.json({ success: true, token: newToken });
     } catch (error) {
       res.status(401).json({ success: false, error: '无效的刷新令牌' });
@@ -345,11 +294,10 @@ class AuthController {
   }
 
   static async logout(req, res) {
-    // 客户端处理登出，服务端无需特殊处理
     res.json({ success: true, message: '登出成功' });
   }
 
-  /** 按学号查询用户（用于积分加扣分等场景） */
+  /** 按学号查询用户 */
   static async findByStudent(req, res) {
     try {
       const { student_id } = req.body || {};
@@ -386,6 +334,228 @@ class AuthController {
     } catch (error) {
       res.status(500).json({ success: false, error: '获取用户信息失败' });
     }
+  }
+
+  /**
+   * 学号+密码登录（主要登录方式）
+   */
+  static async loginWithPassword(req, res) {
+    try {
+      const { student_id, password } = req.body;
+      if (!student_id || !password) {
+        return res.status(400).json({ success: false, error: '学号和密码不能为空' });
+      }
+
+      const user = await User.findByStudentId(student_id);
+      if (!user) {
+        return res.status(401).json({ success: false, error: '学号不存在' });
+      }
+
+      if (!user.password_hash) {
+        return res.status(401).json({ success: false, error: '该账号未设置密码，请使用其他方式登录或设置密码' });
+      }
+
+      const valid = await bcrypt.compare(password, user.password_hash);
+      if (!valid) {
+        return res.status(401).json({ success: false, error: '密码错误' });
+      }
+
+      const token = AuthController._signToken(user);
+      res.json({ success: true, token, user: AuthController._publicUser(user) });
+    } catch (error) {
+      console.error('学号密码登录失败:', error);
+      res.status(500).json({ success: false, error: '登录失败' });
+    }
+  }
+
+  /**
+   * 手机号+密码登录
+   */
+  static async loginWithPhone(req, res) {
+    try {
+      const { phone, password } = req.body;
+      if (!phone || !password) {
+        return res.status(400).json({ success: false, error: '手机号和密码不能为空' });
+      }
+
+      const user = await User.findByPhone(phone);
+      if (!user) {
+        return res.status(401).json({ success: false, error: '该手机号未注册' });
+      }
+
+      if (!user.password_hash) {
+        return res.status(401).json({ success: false, error: '该账号未设置密码' });
+      }
+
+      const valid = await bcrypt.compare(password, user.password_hash);
+      if (!valid) {
+        return res.status(401).json({ success: false, error: '密码错误' });
+      }
+
+      const token = AuthController._signToken(user);
+      res.json({ success: true, token, user: AuthController._publicUser(user) });
+    } catch (error) {
+      console.error('手机号登录失败:', error);
+      res.status(500).json({ success: false, error: '登录失败' });
+    }
+  }
+
+  /**
+   * 发送验证码（手机号/邮箱）
+   * 开发环境直接返回验证码
+   */
+  static async sendCode(req, res) {
+    try {
+      const { phone, email } = req.body;
+      const target = phone || email;
+      if (!target) {
+        return res.status(400).json({ success: false, error: '手机号或邮箱不能为空' });
+      }
+
+      const code = generateCode();
+      storeCode(target, code);
+
+      console.log(`[DEV] 验证码 [${code}] 已发送至 ${target}`);
+      res.json({ success: true, code, message: '验证码已发送' });
+      // TODO: 生产环境对接短信/邮件服务商后，上述行改为验证码仅打印日志不返回
+    } catch (error) {
+      console.error('发送验证码失败:', error);
+      res.status(500).json({ success: false, error: '发送验证码失败' });
+    }
+  }
+
+  /**
+   * 手机号+验证码注册/登录
+   */
+  static async phoneCodeLogin(req, res) {
+    try {
+      const { phone, code, name, student_id } = req.body;
+      if (!phone || !code) {
+        return res.status(400).json({ success: false, error: '手机号和验证码不能为空' });
+      }
+
+      if (!verifyCode(phone, code)) {
+        return res.status(400).json({ success: false, error: '验证码错误或已过期' });
+      }
+      VERIFICATION_CODES.delete(phone);
+
+      let user = await User.findByPhone(phone);
+      if (user) {
+        const token = AuthController._signToken(user);
+        return res.json({ success: true, token, user: AuthController._publicUser(user) });
+      }
+
+      const openid = `phone_${phone}_${Date.now()}`;
+      const userId = await User.create({
+        openid,
+        nickName: name || phone,
+        avatarUrl: '',
+        gender: 0,
+        student_id: student_id || '',
+        name: name || phone,
+        class_id: '',
+        role: 0,
+        phone,
+        email: ''
+      });
+      await User.verifyPhone(userId);
+      user = await User.findById(userId);
+
+      const token = AuthController._signToken(user);
+      res.json({ success: true, token, user: AuthController._publicUser(user) });
+    } catch (error) {
+      console.error('手机号验证码登录失败:', error);
+      res.status(500).json({ success: false, error: '登录失败' });
+    }
+  }
+
+  /**
+   * 邮箱+验证码登录
+   */
+  static async emailCodeLogin(req, res) {
+    try {
+      const { email, code } = req.body;
+      if (!email || !code) {
+        return res.status(400).json({ success: false, error: '邮箱和验证码不能为空' });
+      }
+
+      if (!verifyCode(email, code)) {
+        return res.status(400).json({ success: false, error: '验证码错误或已过期' });
+      }
+      VERIFICATION_CODES.delete(email);
+
+      let user = await User.findByEmail(email);
+      if (!user) {
+        const openid = `email_${email}_${Date.now()}`;
+        const userId = await User.create({
+          openid,
+          nickName: email,
+          avatarUrl: '',
+          gender: 0,
+          student_id: '',
+          name: email,
+          class_id: '',
+          role: 0,
+          phone: '',
+          email
+        });
+        user = await User.findById(userId);
+      }
+
+      const token = AuthController._signToken(user);
+      res.json({ success: true, token, user: AuthController._publicUser(user) });
+    } catch (error) {
+      console.error('邮箱验证码登录失败:', error);
+      res.status(500).json({ success: false, error: '登录失败' });
+    }
+  }
+
+  /**
+   * 设置/重置密码
+   */
+  static async setPassword(req, res) {
+    try {
+      const { student_id, phone, code, password } = req.body;
+      if (!password || password.length < 6) {
+        return res.status(400).json({ success: false, error: '密码至少 6 位' });
+      }
+
+      let user = null;
+      if (student_id) {
+        user = await User.findByStudentId(student_id);
+      } else if (phone) {
+        if (!code && !req.user) {
+          return res.status(400).json({ success: false, error: '手机验证码不能为空' });
+        }
+        if (code && !verifyCode(phone, code)) {
+          return res.status(400).json({ success: false, error: '验证码错误或已过期' });
+        }
+        if (code) VERIFICATION_CODES.delete(phone);
+        user = await User.findByPhone(phone);
+      }
+
+      if (!user) {
+        return res.status(404).json({ success: false, error: '用户不存在' });
+      }
+
+      const hash = await bcrypt.hash(password, 10);
+      await User.updatePassword(user.id, hash);
+
+      const token = AuthController._signToken(user);
+      res.json({ success: true, token, user: AuthController._publicUser(user) });
+    } catch (error) {
+      console.error('设置密码失败:', error);
+      res.status(500).json({ success: false, error: '设置密码失败' });
+    }
+  }
+
+  /** JWT 签名辅助 */
+  static _signToken(user) {
+    return jwt.sign(
+      { id: user.id, openid: user.openid, role: user.role, isAdmin: user.role > 0 },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
   }
 }
 

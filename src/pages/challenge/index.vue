@@ -78,7 +78,7 @@ async function fetchList() {
 }
 
 function goDetail(item) { uni.navigateTo({ url: `/pages/challenge/detail?id=${item.id}` }) }
-function goCreate() { uni.navigateTo({ url: '/pages/challenge/apply' }) }
+function goCreate() { uni.navigateTo({ url: '/pages/challenge/create' }) }
 
 onShow(() => fetchList())
 </script>

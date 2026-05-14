@@ -24,4 +24,24 @@ router.get('/userinfo', authenticateToken, AuthController.getUserInfo);
 // 按学号查找用户（受认证保护）
 router.post('/find-by-student', authenticateToken, AuthController.findByStudent);
 
+// --- 新增认证方式 ---
+
+// 学号+密码登录
+router.post('/login-with-password', AuthController.loginWithPassword);
+
+// 手机号+密码登录
+router.post('/login-with-phone', AuthController.loginWithPhone);
+
+// 发送验证码（手机号/邮箱）
+router.post('/send-code', AuthController.sendCode);
+
+// 手机号+验证码登录/注册
+router.post('/phone-code-login', AuthController.phoneCodeLogin);
+
+// 邮箱+验证码登录
+router.post('/email-code-login', AuthController.emailCodeLogin);
+
+// 设置/重置密码
+router.post('/set-password', AuthController.setPassword);
+
 module.exports = router;

@@ -144,6 +144,16 @@
       </button>
     </view>
 
+    <!-- 登录入口 -->
+    <view class="login-entry">
+      <text class="login-hint">已有账号？</text>
+      <text class="login-link" @click="goToPasswordLogin">学号密码登录</text>
+      <text class="login-sep">|</text>
+      <text class="login-link" @click="goToPhoneLogin">手机号登录</text>
+      <text class="login-sep">|</text>
+      <text class="login-link" @click="goToEmailLogin">邮箱登录</text>
+    </view>
+
   </view>
 </template>
 
@@ -408,6 +418,17 @@ async function onSubmit() {
       showCancel: false
     })
   }
+}
+
+// --- 登录导航 ---
+function goToPasswordLogin() {
+  uni.navigateTo({ url: '/pages/login/password-login' })
+}
+function goToPhoneLogin() {
+  uni.navigateTo({ url: '/pages/login/phone-login' })
+}
+function goToEmailLogin() {
+  uni.navigateTo({ url: '/pages/login/email-login' })
 }
 </script>
 
@@ -680,5 +701,31 @@ async function onSubmit() {
   font-size: 32rpx;
   font-weight: 700;
   color: #ffffff;
+}
+
+/* 登录入口 */
+.login-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 24rpx 32rpx 48rpx;
+}
+
+.login-hint {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.login-link {
+  font-size: 26rpx;
+  color: #001e40;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.login-sep {
+  font-size: 24rpx;
+  color: #ccc;
 }
 </style>

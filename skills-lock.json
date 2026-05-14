@@ -4,7 +4,8 @@
     "cloudbase": {
       "source": "tencentcloudbase/cloudbase-skills",
       "sourceType": "github",
-      "computedHash": "e2c7d3da753f122803624ae85cb0f3babafcad3455e1c134c927ec05bca2479d"
+      "skillPath": "skills/cloudbase/SKILL.md",
+      "computedHash": "df59cf1494763303053577fe6cef3490a5f9a61c44de063588e88ee880da212f"
     }
   }
 }

@@ -1,124 +1,117 @@
 <template>
   <view class="login-container">
     <view class="login-header">
-      <text class="title">密码登录</text>
-      <text class="subtitle">支持手机号/邮箱/用户名 + 密码登录</text>
+      <text class="title">学号密码登录</text>
+      <text class="subtitle">请输入学号和密码进行登录</text>
     </view>
-    
+
     <view class="login-form">
-      <!-- 用户名输入提示 -->
-      <view class="input-hint">
-        <text class="hint-text">{{ getInputHint() }}</text>
-      </view>
-      
-      <!-- 账号输入 -->
+      <!-- 学号输入 -->
       <view class="input-group">
-        <text class="label">账号</text>
-        <input 
+        <text class="label">学号</text>
+        <input
           class="input-field"
           type="text"
-          placeholder="请输入手机号/邮箱/用户名"
-          v-model="username"
-          @input="onUsernameInput"
+          placeholder="请输入学号"
+          v-model="studentId"
+          maxlength="20"
+          @input="onStudentIdInput"
         />
-        <view v-if="usernameType" class="input-type-indicator">
-          <text class="type-text">{{ usernameType }}</text>
-        </view>
+        <text v-if="studentIdError" class="error-text">{{ studentIdError }}</text>
       </view>
-      
+
       <!-- 密码输入 -->
       <view class="input-group">
         <text class="label">密码</text>
         <view class="password-input-container">
-          <input 
+          <input
             class="input-field password-input"
             :type="showPassword ? 'text' : 'password'"
             placeholder="请输入密码"
             v-model="password"
           />
           <button class="toggle-password-btn" @click="togglePassword">
-            {{ showPassword ? '🙈' : '👁️' }}
+            <text>{{ showPassword ? '🙈' : '👁️' }}</text>
           </button>
         </view>
+        <text v-if="passwordError" class="error-text">{{ passwordError }}</text>
       </view>
-      
+
       <!-- 登录按钮 -->
-      <button 
+      <button
         class="login-btn"
-        :disabled="!canLogin"
+        :disabled="!canLogin || loading"
         @click="handleLogin"
       >
         {{ loading ? '登录中...' : '登录' }}
       </button>
-      
-      <!-- 快捷链接 -->
-      <view class="quick-links">
-        <text @click="goToCodeLogin" class="link-text">验证码登录</text>
-        <text @click="goBack" class="link-text">返回</text>
+
+      <!-- 底部链接 -->
+      <view class="bottom-links">
+        <text class="link-text" @click="goToRegister">没有账号？去注册</text>
+        <text class="link-text" @click="goBack">返回登录方式选择</text>
       </view>
     </view>
   </view>
-  <show-captcha />
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { signInWithPassword } from '../../utils/cloudbase'
+import { post } from '@/utils/request'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
 
 // 响应式数据
-const username = ref('')
+const studentId = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
-const usernameType = ref('')
+const studentIdError = ref('')
+const passwordError = ref('')
+const touched = ref(false)
+
+// 学号正则：4-20 位字母或数字
+const STUDENT_ID_REGEX = /^[a-zA-Z0-9]{4,20}$/
 
 // 计算属性
-const canLogin = computed(() => {
-  return username.value.trim().length >= 3 && password.value.length >= 6
-})
+const isStudentIdValid = computed(() => STUDENT_ID_REGEX.test(studentId.value))
+const isPasswordValid = computed(() => password.value.length > 0)
+const canLogin = computed(() => isStudentIdValid.value && isPasswordValid.value)
 
-// 判断用户名类型
-const detectUsernameType = (value: string) => {
-  if (!value) return ''
-  
-  if (/^1[3-9]\d{9}$/.test(value)) {
-    return '手机号'
-  } else if (/^\+\d{1,3}\s\d{4,20}$/.test(value)) {
-    return '国际手机号'
-  } else if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)) {
-    return '邮箱'
-  } else if (/^[a-zA-Z0-9_]{3,20}$/.test(value)) {
-    return '用户名'
-  } else if (value.length >= 3) {
-    return '用户名'
-  }
-  
-  return ''
-}
-
-// 获取输入提示
-const getInputHint = () => {
-  if (!username.value) {
-    return '支持以下格式：手机号、邮箱地址、用户名'
-  }
-  
-  switch (usernameType.value) {
-    case '手机号':
-      return '✅ 识别为手机号'
-    case '国际手机号':
-      return '✅ 识别为国际手机号'
-    case '邮箱':
-      return '✅ 识别为邮箱地址'
-    case '用户名':
-      return '✅ 识别为用户名'
-    default:
-      return '请输入有效的手机号、邮箱或用户名'
+// 学号输入时实时校验
+const onStudentIdInput = () => {
+  if (!touched.value) return
+  if (studentId.value.length > 0 && !STUDENT_ID_REGEX.test(studentId.value)) {
+    studentIdError.value = '学号格式不正确，请输入4-20位字母或数字'
+  } else {
+    studentIdError.value = ''
   }
 }
 
-// 用户名输入事件
-const onUsernameInput = () => {
-  usernameType.value = detectUsernameType(username.value.trim())
+// 本地表单校验
+const validate = (): boolean => {
+  touched.value = true
+  let valid = true
+
+  if (!studentId.value.trim()) {
+    studentIdError.value = '请输入学号'
+    valid = false
+  } else if (!STUDENT_ID_REGEX.test(studentId.value.trim())) {
+    studentIdError.value = '学号格式不正确，请输入4-20位字母或数字'
+    valid = false
+  } else {
+    studentIdError.value = ''
+  }
+
+  if (!password.value) {
+    passwordError.value = '请输入密码'
+    valid = false
+  } else {
+    passwordError.value = ''
+  }
+
+  return valid
 }
 
 // 切换密码显示
@@ -128,82 +121,70 @@ const togglePassword = () => {
 
 // 处理登录
 const handleLogin = async () => {
-  if (!canLogin.value) {
-    uni.showToast({
-      title: '请完善登录信息',
-      icon: 'none'
-    })
-    return
-  }
-  
+  if (!validate()) return
+
   try {
     loading.value = true
-    uni.showLoading({
-      title: '登录中...'
-    })
-    
-    const loginResult = await signInWithPassword(username.value.trim(), password.value)
-    
-    uni.showToast({
-      title: '登录成功',
-      icon: 'success'
-    })
-    
-    // 延迟跳转到首页
-    setTimeout(() => {
-      uni.reLaunch({
-        url: '/pages/index/index'
-      })
-    }, 1500)
-    
-  } catch (error: any) {
-    console.error('登录失败:', error)
-    
-    // 显示友好的错误信息
-    let errorMessage = '登录失败'
-    if (error.message) {
-      errorMessage = error.message
+    uni.showLoading({ title: '登录中...' })
+
+    const result = await post(
+      '/api/auth/login-with-password',
+      { student_id: studentId.value.trim(), password: password.value },
+      false
+    )
+
+    if (!result.success) {
+      throw new Error(result.error || '登录失败')
     }
-    
-    uni.showToast({
-      title: errorMessage,
-      icon: 'none',
-      duration: 3000
-    })
+
+    userStore.setTokenAndProfile(result.token, result.user)
+
+    uni.hideLoading()
+    uni.showToast({ title: '登录成功', icon: 'success' })
+
+    setTimeout(() => {
+      uni.reLaunch({ url: '/pages/index/index' })
+    }, 800)
+  } catch (error: any) {
+    uni.hideLoading()
+    const message = error.message || '登录失败，请稍后重试'
+    uni.showToast({ title: message, icon: 'none', duration: 3000 })
   } finally {
     loading.value = false
-    uni.hideLoading()
   }
 }
 
-// 跳转到验证码登录
-const goToCodeLogin = () => {
-  uni.navigateBack()
+// 跳转到注册
+const goToRegister = () => {
+  uni.navigateTo({ url: '/pages/auth/register' })
 }
 
-// 返回
+// 返回登录方式选择
 const goBack = () => {
   uni.navigateBack()
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .login-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
   padding: 60rpx 40rpx;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .login-header {
   text-align: center;
   margin-bottom: 80rpx;
+  padding-top: 40rpx;
 }
 
 .title {
   font-size: 48rpx;
   font-weight: bold;
-  color: white;
+  color: #ffffff;
   display: block;
   margin-bottom: 20rpx;
 }
@@ -216,24 +197,10 @@ const goBack = () => {
 }
 
 .login-form {
-  background: white;
+  background: #ffffff;
   border-radius: 20rpx;
   padding: 60rpx 40rpx;
-  box-shadow: 0 20rpx 40rpx rgba(0, 0, 0, 0.1);
-}
-
-.input-hint {
-  margin-bottom: 30rpx;
-  padding: 20rpx;
-  background: #f8f9fa;
-  border-radius: 12rpx;
-  border-left: 6rpx solid #667eea;
-}
-
-.hint-text {
-  font-size: 24rpx;
-  color: #666;
-  line-height: 1.4;
+  box-shadow: 0 20rpx 40rpx rgba(0, 0, 0, 0.15);
 }
 
 .input-group {
@@ -243,7 +210,7 @@ const goBack = () => {
 
 .label {
   font-size: 28rpx;
-  color: #333;
+  color: #333333;
   display: block;
   margin-bottom: 20rpx;
   font-weight: 500;
@@ -258,30 +225,20 @@ const goBack = () => {
   font-size: 32rpx;
   box-sizing: border-box;
   background: #fafafa;
-  transition: all 0.3s ease;
 }
 
 .input-field:focus {
-  border-color: #667eea;
-  background: white;
-  box-shadow: 0 0 0 4rpx rgba(102, 126, 234, 0.1);
+  border-color: #003366;
+  background: #ffffff;
+  box-shadow: 0 0 0 4rpx rgba(0, 51, 102, 0.08);
 }
 
-.input-type-indicator {
-  position: absolute;
-  right: 20rpx;
-  top: 50%;
-  transform: translateY(-50%);
-  margin-top: 14rpx;
-}
-
-.type-text {
-  font-size: 20rpx;
-  color: #667eea;
-  background: rgba(102, 126, 234, 0.1);
-  padding: 8rpx 16rpx;
-  border-radius: 20rpx;
-  font-weight: 500;
+.error-text {
+  font-size: 22rpx;
+  color: #e74c3c;
+  display: block;
+  margin-top: 10rpx;
+  padding-left: 4rpx;
 }
 
 .password-input-container {
@@ -306,33 +263,34 @@ const goBack = () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  line-height: 1;
 }
 
 .login-btn {
   width: 100%;
   height: 88rpx;
   line-height: 88rpx;
-  background: #667eea;
-  color: white;
+  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  color: #ffffff;
   border: none;
   border-radius: 12rpx;
   font-size: 32rpx;
   font-weight: bold;
   margin-top: 40rpx;
-  transition: all 0.3s ease;
 }
 
 .login-btn:disabled {
-  background: #ccc;
-  color: #999;
+  background: #cccccc;
+  color: #999999;
 }
 
 .login-btn:not(:disabled):active {
-  background: #5a6fd8;
+  opacity: 0.9;
   transform: translateY(2rpx);
 }
 
-.quick-links {
+.bottom-links {
   display: flex;
   justify-content: space-between;
   margin-top: 40rpx;
@@ -340,32 +298,7 @@ const goBack = () => {
 
 .link-text {
   font-size: 28rpx;
-  color: #667eea;
+  color: #003366;
   text-decoration: underline;
-}
-
-.loading-mask {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.loading-content {
-  background: white;
-  padding: 40rpx 60rpx;
-  border-radius: 12rpx;
-  text-align: center;
-}
-
-.loading-content text {
-  font-size: 28rpx;
-  color: #333;
 }
 </style>

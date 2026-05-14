@@ -438,5 +438,104 @@ SELECT
   SUM(CASE WHEN type = '支出' AND status = 1 THEN amount ELSE 0 END) as balance
 FROM expenses;
 
+-- 增强 expenses 表：支持三级审批流
+ALTER TABLE expenses
+  ADD COLUMN approval_step TINYINT DEFAULT 0 COMMENT '当前审批步骤: 0=未提交 1=待区队长 2=待辅导员 3=待投票',
+  ADD COLUMN tier VARCHAR(10) DEFAULT 'small' COMMENT '金额档: small(≤100) / medium(100-500) / large(>500)',
+  ADD COLUMN proof_url VARCHAR(500) COMMENT '凭证图片URL',
+  ADD COLUMN details JSON COMMENT '明细项JSON数组',
+  ADD COLUMN semester VARCHAR(20) COMMENT '所属学期';
+
+-- 班费收缴批次表
+CREATE TABLE IF NOT EXISTS fee_collections (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  title VARCHAR(100) NOT NULL,
+  amount_per_person DECIMAL(10,2) NOT NULL,
+  total_expected DECIMAL(10,2) DEFAULT 0,
+  collected_amount DECIMAL(10,2) DEFAULT 0,
+  semester VARCHAR(20) NOT NULL,
+  status TINYINT DEFAULT 0 COMMENT '0=收集中 1=已截止 2=已结清',
+  created_by INT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- 收缴记录表（每人每条）
+CREATE TABLE IF NOT EXISTS fee_collection_records (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  collection_id INT NOT NULL,
+  user_id INT NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  paid_at TIMESTAMP NULL,
+  is_exempt BOOLEAN DEFAULT FALSE COMMENT '是否减免',
+  remark VARCHAR(200),
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (collection_id) REFERENCES fee_collections(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  UNIQUE KEY uk_collection_user (collection_id, user_id)
+);
+
+-- 审批流节点跟踪表
+CREATE TABLE IF NOT EXISTS expense_approvals (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  expense_id INT NOT NULL,
+  step TINYINT NOT NULL COMMENT '1=区队长审批 2=辅导员审批 3=匿名投票',
+  approver_role TINYINT COMMENT '预期审批人角色',
+  approver_id INT,
+  status TINYINT DEFAULT 0 COMMENT '0=待审批 1=已通过 2=已驳回',
+  notes TEXT,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
+  FOREIGN KEY (approver_id) REFERENCES users(id)
+);
+
+-- 投票记录表（大额审批专用）
+CREATE TABLE IF NOT EXISTS expense_approval_votes (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  expense_id INT NOT NULL,
+  user_id INT NOT NULL,
+  vote TINYINT NOT NULL COMMENT '1=同意 2=反对',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  UNIQUE KEY uk_vote_user (expense_id, user_id)
+);
+
+-- 月度公示表
+CREATE TABLE IF NOT EXISTS fee_publications (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  title VARCHAR(100) NOT NULL,
+  period VARCHAR(7) NOT NULL COMMENT '月份 YYYY-MM',
+  total_income DECIMAL(10,2) DEFAULT 0,
+  total_expense DECIMAL(10,2) DEFAULT 0,
+  balance DECIMAL(10,2) DEFAULT 0,
+  details_json JSON COMMENT '收支明细快照',
+  published_by INT NOT NULL,
+  published_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (published_by) REFERENCES users(id)
+);
+
+-- 新表索引
+CREATE INDEX idx_fee_collections_semester ON fee_collections(semester);
+CREATE INDEX idx_fee_collection_records_collection ON fee_collection_records(collection_id);
+CREATE INDEX idx_expense_approvals_expense ON expense_approvals(expense_id);
+CREATE INDEX idx_expense_approval_votes_expense ON expense_approval_votes(expense_id);
+CREATE INDEX idx_fee_publications_period ON fee_publications(period);
+
+-- 更新视图：反映 expenses 扩展字段
+DROP VIEW IF EXISTS fee_summary;
+CREATE OR REPLACE VIEW fee_summary AS
+SELECT 
+  SUM(CASE WHEN type = '收入' AND status = 1 THEN amount ELSE 0 END) as total_income,
+  SUM(CASE WHEN type = '支出' AND status = 1 THEN amount ELSE 0 END) as total_expense,
+  SUM(CASE WHEN type = '收入' AND status = 1 THEN amount ELSE 0 END) - 
+  SUM(CASE WHEN type = '支出' AND status = 1 THEN amount ELSE 0 END) as balance,
+  COUNT(CASE WHEN tier = 'small' AND status = 0 THEN 1 END) as pending_small,
+  COUNT(CASE WHEN tier = 'medium' AND status = 0 THEN 1 END) as pending_medium,
+  COUNT(CASE WHEN tier = 'large' AND status = 0 THEN 1 END) as pending_large
+FROM expenses;
+
 -- 显示创建成功信息
 SELECT '数据库初始化完成' as message;

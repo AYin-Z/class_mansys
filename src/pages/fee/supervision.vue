@@ -1,7 +1,7 @@
 <template>
   <view class="supervision-page">
     <custom-nav-bar title="财务监督" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
+    <scroll-view scroll-y class="main-scroll" @refresh="loadData" refresher-enabled :refresher-triggered="refreshing">
       <!-- Overview -->
       <view class="overview-card">
         <view class="overview-header">
@@ -10,16 +10,16 @@
         </view>
         <view class="overview-grid">
           <view class="overview-item">
-            <text class="overview-value">¥{{ totalBalance }}</text>
+            <text class="overview-value">¥{{ summary.balance.toFixed(2) }}</text>
             <text class="overview-label">当前余额</text>
           </view>
           <view class="overview-item">
-            <text class="overview-value">{{ memberCount }}人</text>
-            <text class="overview-label">在册人数</text>
+            <text class="overview-value">{{ summary.totalIncome.toFixed(2) }}</text>
+            <text class="overview-label">总收入</text>
           </view>
           <view class="overview-item">
-            <text class="overview-value">{{ transactionCount }}笔</text>
-            <text class="overview-label">交易记录</text>
+            <text class="overview-value">{{ summary.totalExpense.toFixed(2) }}</text>
+            <text class="overview-label">总支出</text>
           </view>
         </view>
       </view>
@@ -27,22 +27,27 @@
       <!-- Recent Transactions -->
       <view class="section-block">
         <text class="block-title">最近交易</text>
-        <view class="trans-list">
-          <view v-for="t in transactions" :key="t.id" class="trans-item">
-            <view :class="['trans-dot', t.type]"></view>
+        <view class="trans-list" v-if="transactions.length > 0">
+          <view v-for="e in transactions" :key="e.id" class="trans-item">
+            <view :class="['trans-dot', e.amount >= 0 ? 'in' : 'out']"></view>
             <view class="trans-info">
-              <text class="trans-title">{{ t.title }}</text>
-              <text class="trans-meta">{{ t.handler }} · {{ t.time }}</text>
+              <text class="trans-title">{{ e.purpose || e.type }}</text>
+              <text class="trans-meta">{{ e.applicant_name || e.student_id || '未知' }} · {{ formatDate(e.created_at) }}</text>
             </view>
-            <text :class="['trans-amount', t.type]">{{ t.type === 'in' ? '+' : '-' }}¥{{ t.amount }}</text>
+            <text :class="['trans-amount', e.amount >= 0 ? 'in' : 'out']">
+              {{ e.amount >= 0 ? '+' : '-' }}¥{{ Math.abs(e.amount).toFixed(2) }}
+            </text>
           </view>
+        </view>
+        <view class="empty-block" v-else-if="!loading">
+          <text class="empty-text">暂无交易记录</text>
         </view>
       </view>
 
-      <!-- Audit Log -->
+      <!-- Audit Trail -->
       <view class="section-block">
         <text class="block-title">审批轨迹</text>
-        <view class="audit-list">
+        <view class="audit-list" v-if="auditLogs.length > 0">
           <view v-for="(log, idx) in auditLogs" :key="idx" class="audit-item">
             <view class="audit-step">
               <view class="step-num">{{ idx + 1 }}</view>
@@ -56,38 +61,124 @@
             </view>
           </view>
         </view>
+        <view class="empty-block" v-else-if="!loading">
+          <text class="empty-text">暂无审批记录</text>
+        </view>
       </view>
 
+      <view class="loading-bar" v-if="loading" style="text-align: center; padding: 40rpx;">
+        <text style="font-size: 24rpx; color: #c3c6d1;">加载中...</text>
+      </view>
       <view style="height: 40rpx;"></view>
     </scroll-view>
   </view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { getSummary, getAllExpenses, getExpenseDetail } from '@/api/fee'
 
-const updateTime = ref('2026-04-09 14:30')
-const totalBalance = ref('3,580.00')
-const memberCount = ref(32)
-const transactionCount = ref(47)
+const loading = ref(true)
+const refreshing = ref(false)
+const summary = ref({ balance: 0, totalIncome: 0, totalExpense: 0 })
+const transactions = ref([])
+const auditLogs = ref([])
+const updateTime = ref('')
 
-const transactions = ref([
-  { id: 1, title: '班费收缴 - 四月', handler: '生活副区', time: '2026-04-09', amount: '1600.00', type: 'in' },
-  { id: 2, title: '团建活动支出', handler: '张三', time: '2026-04-08', amount: '680.00', type: 'out' },
-  { id: 3, title: '清洁用品采购', handler: '李四', time: '2026-04-05', amount: '186.50', type: 'out' },
-  { id: 4, title: '报销 - 学习资料', handler: '王五', time: '2026-03-28', amount: '45.00', type: 'out' }
-])
+function formatDate(t) {
+  if (!t) return ''
+  return t.replace('T', ' ').slice(0, 16)
+}
 
-const auditLogs = ref([
-  { action: '提交使用申请', person: '李四', time: '2026-04-07 10:20', note: '团建活动经费 ¥680.00' },
-  { action: '区队长初审通过', person: '区队长', time: '2026-04-07 15:30', note: '' },
-  { action: '投票表决通过 (5/7)', person: '班干部集体', time: '2026-04-08 11:00', note: '同意率71%' },
-  { action: '资金划拨完成', person: '生活副区', time: '2026-04-08 16:00', note: '' }
-])
+function buildAuditTrail(expenses) {
+  const logs = []
+  for (const e of expenses) {
+    // Step-based audit trail
+    const baseLog = {
+      action: `提交使用申请 - ${e.purpose || e.type || '无描述'}`,
+      person: e.applicant_name || e.student_id || '未知',
+      time: formatDate(e.created_at),
+      note: `¥${Number(e.amount).toFixed(2)}`
+    }
+    logs.push(baseLog)
+
+    if (e.approval_chain && e.approval_chain.length > 0) {
+      for (const step of e.approval_chain) {
+        const stepLabels = ['', '区队长审批', '辅导员审批', '投票表决']
+        const stepName = stepLabels[step.step] || `第${step.step}步`
+        const statusLabel = step.status === 1 ? '通过' : step.status === 2 ? '驳回' : '待审'
+
+        logs.push({
+          action: step.status === 1 ? `${stepName}通过` : step.status === 2 ? `${stepName}驳回` : `${stepName}待审`,
+          person: step.approver_name || (step.status === 1 ? '系统' : '待审批'),
+          time: step.status === 1 ? e.approval_time || e.created_at : '',
+          note: step.notes || statusLabel
+        })
+      }
+    }
+
+    if (e.status === 1) {
+      logs.push({
+        action: '资金已划拨',
+        person: '系统',
+        time: e.approval_time ? formatDate(e.approval_time) : '',
+        note: '已办结'
+      })
+    }
+  }
+  return logs
+}
+
+async function loadData() {
+  loading.value = true
+  updateTime.value = formatDate(new Date().toISOString())
+  try {
+    const [summaryRes, expenseRes] = await Promise.all([
+      getSummary(),
+      getAllExpenses()
+    ])
+
+    if (summaryRes.success) {
+      summary.value = summaryRes.summary
+    }
+
+    if (expenseRes.success) {
+      // Sort by date desc
+      const sorted = (expenseRes.expenses || []).sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      )
+      transactions.value = sorted.slice(0, 20)
+
+      // Build audit trail (last 10 expenses with details)
+      const recent = sorted.slice(0, 5)
+      const detailPromises = recent.map(e =>
+        getExpenseDetail(e.id).catch(() => null)
+      )
+      const details = (await Promise.all(detailPromises))
+        .filter(d => d && d.success)
+        .map(d => ({ ...d.expense, approval_chain: d.expense.approval_chain || [] }))
+
+      if (details.length > 0) {
+        // Also add expenses with status that have no approval_chain but have basic info
+        auditLogs.value = buildAuditTrail(details)
+      } else {
+        // Fallback: build trail from basic expense info
+        const fallbackExpenses = sorted.filter(e => e.status !== undefined).slice(0, 3)
+        auditLogs.value = buildAuditTrail(fallbackExpenses)
+      }
+    }
+  } catch (e) {
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  } finally {
+    loading.value = false
+    refreshing.value = false
+  }
+}
+
+onMounted(() => loadData())
 </script>
 
-<style lang="scss" scoped
->
+<style lang="scss" scoped>
 .supervision-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
@@ -102,7 +193,7 @@ const auditLogs = ref([
 .overview-grid { display: flex; gap: 0; }
 .overview-item { flex: 1; text-align: center; }
 .overview-value {
-  font-family: 'PingFang SC'; font-size: 32rpx; font-weight: 700; color: #fff; display: block; margin-bottom: 8rpx;
+  font-family: 'PingFang SC'; font-size: 30rpx; font-weight: 700; color: #fff; display: block; margin-bottom: 8rpx;
 }
 .overview-label { font-size: 22rpx; color: rgba(255,255,255,0.55); }
 
@@ -127,7 +218,6 @@ const auditLogs = ref([
 
 .audit-list { display: flex; flex-direction: column; }
 .audit-item { display: flex; gap: 16rpx; padding-bottom: 28rpx;
-
   &:last-child { padding-bottom: 0; }
 }
 .audit-step { display: flex; flex-direction: column; align-items: center; width: 36rpx; flex-shrink: 0; }
@@ -136,10 +226,11 @@ const auditLogs = ref([
   justify-content: center; font-size: 20rpx; font-weight: 700; color: #43474f;
 }
 .step-line { flex: 1; width: 2rpx; background: #e6e8eb; margin-top: 8rpx; }
-
 .audit-content { display: flex; flex-direction: column; gap: 4rpx; padding-top: 2rpx; }
 .audit-action { font-size: 26rpx; font-weight: 500; color: #191c1e; }
 .audit-person { font-size: 23rpx; color: #43474f; }
 .audit-time { font-size: 21rpx; color: #c3c6d1; }
 .audit-note { font-size: 23rpx; color: #466270; font-style: italic; }
+.empty-block { padding: 40rpx 0; text-align: center; }
+.empty-text { font-size: 24rpx; color: #c3c6d1; }
 </style>

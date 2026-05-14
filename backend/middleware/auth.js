@@ -18,7 +18,8 @@ function authenticateToken(req, res, next) {
 }
 
 function authorizeAdmin(req, res, next) {
-  if (!req.user || !req.user.isAdmin) {
+  // role > 0 即干部（1-8为各级干部/管理员）
+  if (!req.user || !req.user.role || req.user.role < 1) {
     return res.status(403).json({ error: '需要管理员权限' });
   }
   next();

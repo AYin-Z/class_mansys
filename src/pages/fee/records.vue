@@ -12,14 +12,16 @@
         <view v-for="(group, gIdx) in groupedRecords" :key="gIdx" class="record-group">
           <text class="group-date">{{ group.date }}</text>
           <view v-for="item in group.items" :key="item.id" class="record-card">
-            <view :class="['type-dot', item.type]"></view>
+            <view :class="['type-dot', item.type === '收入' ? 'income' : 'expense']"></view>
             <view class="record-main">
-              <text class="record-title">{{ item.title }}</text>
-              <text class="record-category">{{ item.category }}</text>
+              <text class="record-title">{{ item.purpose || item.title }}</text>
+              <text class="record-category">{{ item.type === '收入' ? '收缴' : (item.tier === 'small' ? '小额支出' : item.tier === 'medium' ? '中额支出' : '大额支出') }}</text>
             </view>
             <view class="record-right">
-              <text :class="['record-amount', item.type]">{{ item.type === 'income' ? '+' : '-' }}¥{{ item.amount }}</text>
-              <text class="record-time">{{ item.time }}</text>
+              <text :class="['record-amount', item.type === '收入' ? 'income' : 'expense']">
+                {{ item.type === '收入' ? '+' : '-' }}¥{{ Number(item.amount).toFixed(2) }}
+              </text>
+              <text class="record-time">{{ formatTime(item.created_at) }}</text>
             </view>
           </view>
         </view>
@@ -35,77 +37,64 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { getAllExpenses } from '@/api/fee'
 
 const filter = ref('all')
+const expenses = ref([])
 
-const allRecords = ref([
-  { id: 1, date: '2026-04-09', title: '班费收缴 - 四月', category: '收缴', amount: '1600.00', type: 'income', time: '09:00' },
-  { id: 2, date: '2026-04-08', title: '团建活动经费', category: '活动支出', amount: '680.00', type: 'expense', time: '18:30' },
-  { id: 3, date: '2026-04-05', title: '购买清洁用品', category: '物资采购', amount: '186.50', type: 'expense', time: '14:20' },
-  { id: 4, date: '2026-04-01', title: '班费收缴 - 三月', category: '收缴', amount: '1600.00', type: 'income', time: '10:00' },
-  { id: 5, date: '2026-03-28', title: '购买体育器材', category: '物资采购', amount: '320.00', type: 'expense', time: '16:45' },
-  { id: 6, date: '2026-03-20', title: '打印学习资料', category: '报销', amount: '45.00', type: 'expense', time: '11:30' }
-])
+function formatTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
 
 const filteredRecords = computed(() => {
-  if (filter.value === 'all') return allRecords.value
-  return allRecords.value.filter(r => r.type === filter.value)
+  let list = expenses.value
+  if (filter.value === 'income') return list.filter(r => r.type === '收入')
+  if (filter.value === 'expense') return list.filter(r => r.type === '支出')
+  return list
 })
 
 const groupedRecords = computed(() => {
   const map = {}
   filteredRecords.value.forEach(r => {
-    if (!map[r.date]) map[r.date] = []
-    map[r.date].push(r)
+    const date = r.created_at ? r.created_at.slice(0, 10) : '未知日期'
+    if (!map[date]) map[date] = []
+    map[date].push(r)
   })
   return Object.keys(map).map(date => ({ date, items: map[date] }))
+})
+
+onMounted(async () => {
+  uni.showLoading({ title: '加载中...' })
+  try {
+    const res = await getAllExpenses()
+    if (res.success) expenses.value = res.expenses
+  } catch (err) {
+    uni.showToast({ title: '加载失败', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
 })
 </script>
 
 <style lang="scss" scoped>
 .records-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
-
-.filter-row {
-  display: flex; gap: 12rpx; padding: 20rpx 32rpx;
-}
-.filter-chip {
-  height: 60rpx; padding: 0 28rpx; border-radius: 30rpx; display: flex; align-items: center;
-  justify-content: center; background: #fff; font-size: 26rpx; font-weight: 500; color: #43474f;
-  &.active { background: #001e40; color: #fff; }
-}
-
+.filter-row { display: flex; gap: 12rpx; padding: 20rpx 32rpx; }
+.filter-chip { height: 60rpx; padding: 0 28rpx; border-radius: 30rpx; display: flex; align-items: center; justify-content: center; background: #fff; font-size: 26rpx; font-weight: 500; color: #43474f; &.active { background: #001e40; color: #fff; } }
 .record-list { padding: 0 32rpx; }
-
 .record-group { margin-bottom: 24rpx; }
-.group-date {
-  font-size: 24rpx; font-weight: 600; color: #c3c6d1; display: block; margin-bottom: 12rpx;
-  padding-left: 4rpx;
-}
-
-.record-card {
-  display: flex; align-items: center; gap: 16rpx; padding: 22rpx 0;
-  border-bottom: 1rpx solid transparent;
-
-  &:not(:last-child) { border-bottom-color: #f2f4f7; }
-}
-.type-dot {
-  width: 10rpx; height: 10rpx; border-radius: 50%; flex-shrink: 0;
-  &.income { background: #003366; }
-  &.expense { background: #460002; }
-}
+.group-date { font-size: 24rpx; font-weight: 600; color: #c3c6d1; display: block; margin-bottom: 12rpx; padding-left: 4rpx; }
+.record-card { display: flex; align-items: center; gap: 16rpx; padding: 22rpx 0; border-bottom: 1rpx solid transparent; &:not(:last-child) { border-bottom-color: #f2f4f7; } }
+.type-dot { width: 10rpx; height: 10rpx; border-radius: 50%; flex-shrink: 0; &.income { background: #003366; } &.expense { background: #460002; } }
 .record-main { flex: 1; min-width: 0; }
 .record-title { font-size: 27rpx; font-weight: 500; color: #191c1e; display: block; }
 .record-category { font-size: 22rpx; color: #c3c6d1; display: block; margin-top: 4rpx; }
 .record-right { text-align: right; flex-shrink: 0; }
-.record-amount {
-  font-family: 'PingFang SC'; font-size: 28rpx; font-weight: 600; display: block;
-  &.income { color: #003366; }
-  &.expense { color: #460002; }
-}
+.record-amount { font-family: 'PingFang SC'; font-size: 28rpx; font-weight: 600; display: block; &.income { color: #003366; } &.expense { color: #460002; } }
 .record-time { font-size: 21rpx; color: #c3c6d1; display: block; margin-top: 4rpx; }
-
 .empty-state { padding: 80rpx 0; text-align: center; }
 .empty-text { font-size: 26rpx; color: #c3c6d1; }
 </style>

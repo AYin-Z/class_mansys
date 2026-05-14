@@ -2,11 +2,15 @@ const db = require('../config/database');
 
 class Leave {
   static async create(leaveData) {
-    const { user_id, type, start_time, end_time, reason } = leaveData;
+    const { user_id, leave_type, type, start_time, end_time, reason } = leaveData;
+    const finalType = leave_type || type;
+    // 兼容 ISO 8601 格式（前端可能发 "2026-05-15T08:00:00.000Z"）
+    const fmtStart = start_time ? start_time.replace('T', ' ').replace(/\.\d+Z$/, '') : null;
+    const fmtEnd = end_time ? end_time.replace('T', ' ').replace(/\.\d+Z$/, '') : null;
     
     const [result] = await db.query(
       'INSERT INTO leaves (user_id, leave_type, start_time, end_time, reason) VALUES (?, ?, ?, ?, ?)',
-      [user_id, type, start_time, end_time, reason]
+      [user_id, finalType, fmtStart, fmtEnd, reason]
     );
     
     return result.insertId;

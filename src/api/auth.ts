@@ -56,6 +56,52 @@ export interface UserInfoResult {
   }
 }
 
+// --- 新增认证方式 ---
+
+/**
+ * 学号+密码登录
+ */
+export function loginWithPassword(params: { student_id: string; password: string }): Promise<LoginResult> {
+  return post<LoginResult>('/api/auth/login-with-password', params, false)
+}
+
+/**
+ * 手机号+密码登录
+ */
+export function loginWithPhone(params: { phone: string; password: string }): Promise<LoginResult> {
+  return post<LoginResult>('/api/auth/login-with-phone', params, false)
+}
+
+/**
+ * 发送验证码（手机号/邮箱）
+ */
+export function sendCode(params: { phone?: string; email?: string }): Promise<{ success: boolean; code?: string; message: string }> {
+  return post('/api/auth/send-code', params, false)
+}
+
+/**
+ * 手机号+验证码登录/注册
+ */
+export function phoneCodeLogin(params: { phone: string; code: string; name?: string; student_id?: string }): Promise<LoginResult> {
+  return post<LoginResult>('/api/auth/phone-code-login', params, false)
+}
+
+/**
+ * 邮箱+验证码登录
+ */
+export function emailCodeLogin(params: { email: string; code: string }): Promise<LoginResult> {
+  return post<LoginResult>('/api/auth/email-code-login', params, false)
+}
+
+/**
+ * 设置/重置密码
+ */
+export function setPassword(params: { student_id?: string; phone?: string; code?: string; password: string }): Promise<LoginResult> {
+  return post<LoginResult>('/api/auth/set-password', params, false)
+}
+
+// --- 原有认证方式 ---
+
 /**
  * 微信小程序登录 - 用 code 换取后端 JWT
  */
@@ -65,7 +111,6 @@ export function loginWithCode(params: LoginParams): Promise<LoginResult> {
 
 /**
  * CloudBase UID 登录 - H5/Web 端使用
- * 用 CloudBase 认证后的 UID 在后端创建/查找用户
  */
 export function loginWithCloudBase(params: CloudBaseLoginParams): Promise<LoginResult> {
   return post<LoginResult>('/api/auth/cloudbase-login', params, false)
@@ -92,7 +137,7 @@ export interface RegisterResult extends LoginResult {
 }
 
 /**
- * 注册并直接拿到 JWT，由调用方写入 store
+ * 注册并直接拿到 JWT
  */
 export function register(params: RegisterParams): Promise<RegisterResult> {
   return post<RegisterResult>('/api/auth/register', params, false)

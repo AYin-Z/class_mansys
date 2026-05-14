@@ -2,6 +2,9 @@
   "pages": [
     { "path": "pages/index/index", "style": { "navigationBarTitleText": "首页", "navigationStyle": "custom" } },
     { "path": "pages/auth/register", "style": { "navigationBarTitleText": "用户注册", "navigationStyle": "custom" } },
+    { "path": "pages/login/password-login", "style": { "navigationBarTitleText": "学号密码登录", "navigationStyle": "custom" } },
+    { "path": "pages/login/phone-login", "style": { "navigationBarTitleText": "手机号登录", "navigationStyle": "custom" } },
+    { "path": "pages/login/email-login", "style": { "navigationBarTitleText": "邮箱登录", "navigationStyle": "custom" } },
     { "path": "pages/leave/index", "style": { "navigationBarTitleText": "请假销假", "navigationStyle": "custom" } },
     { "path": "pages/leave/apply", "style": { "navigationBarTitleText": "申请请假", "navigationStyle": "custom" } },
     { "path": "pages/leave/approve", "style": { "navigationBarTitleText": "审批请假", "navigationStyle": "custom" } },
@@ -30,7 +33,7 @@
     { "path": "pages/psychological/status", "style": { "navigationBarTitleText": "处理状态", "navigationStyle": "custom" } },
     { "path": "pages/challenge/index", "style": { "navigationBarTitleText": "擂台挑战", "navigationStyle": "custom" } },
     { "path": "pages/challenge/detail", "style": { "navigationBarTitleText": "挑战详情", "navigationStyle": "custom" } },
-    { "path": "pages/challenge/apply", "style": { "navigationBarTitleText": "发起挑战", "navigationStyle": "custom" } },
+    { "path": "pages/challenge/create", "style": { "navigationBarTitleText": "发起挑战", "navigationStyle": "custom" } },
     { "path": "pages/vote/index", "style": { "navigationBarTitleText": "投票", "navigationStyle": "custom" } },
     { "path": "pages/vote/detail", "style": { "navigationBarTitleText": "投票详情", "navigationStyle": "custom" } },
     { "path": "pages/vote/create", "style": { "navigationBarTitleText": "创建投票", "navigationStyle": "custom" } },

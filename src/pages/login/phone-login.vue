@@ -1,181 +1,272 @@
 <template>
-  <view class="login-container">
-    <view class="login-header">
-      <text class="title">手机验证码登录</text>
-      <text class="subtitle">请输入手机号获取验证码</text>
-    </view>
-    
-    <view class="login-form">
-      <!-- 手机号输入 -->
-      <view class="input-group">
-        <text class="label">手机号</text>
-        <input 
-          class="input-field"
-          type="number"
-          placeholder="请输入手机号"
-          v-model="phoneNumber"
-          maxlength="11"
-        />
-      </view>
-      <show-captcha />
-      <!-- 验证码输入 -->
-      <view class="input-group">
-        <text class="label">验证码</text>
-        <view class="verification-row">
-          <input 
-            class="input-field verification-input"
-            type="number"
-            placeholder="请输入验证码"
-            v-model="verificationCode"
-            maxlength="6"
-          />
-          <button 
-            class="get-code-btn"
-            :disabled="!isPhoneValid || countdown > 0"
-            @click="getVerificationCode"
-          >
-            {{ countdown > 0 ? `${countdown}s后重试` : '获取验证码' }}
-          </button>
+  <view class="page">
+    <scroll-view scroll-y class="scroll-area">
+      <!-- 头部 -->
+      <view class="header-section">
+        <view class="brand-bar"></view>
+        <view class="header-content">
+          <text class="title">手机号登录</text>
+          <text class="subtitle">使用手机号验证码快捷登录或注册</text>
         </view>
       </view>
-      
-      <!-- 登录按钮 -->
-      <button 
-        class="login-btn"
-        :disabled="!canLogin"
-        @click="handleLogin"
-      >
-        登录
-      </button>
-      
-      <!-- 返回链接 -->
-      <view class="back-login">
-        <text @click="goBack" class="link-text">返回登录方式选择</text>
+
+      <view class="form-container">
+        <!-- 手机号 -->
+        <view class="form-group">
+          <view class="input-wrapper">
+            <text class="input-label">手机号码</text>
+            <input
+              class="ghost-input"
+              type="number"
+              placeholder="请输入手机号码"
+              v-model="phone"
+              maxlength="11"
+              :disabled="codeSent"
+            />
+          </view>
+        </view>
+
+        <!-- 验证码 -->
+        <view class="form-group">
+          <view class="input-wrapper">
+            <text class="input-label">验证码</text>
+            <view class="code-row">
+              <input
+                class="ghost-input code-input"
+                type="number"
+                placeholder="请输入 6 位验证码"
+                v-model="code"
+                maxlength="6"
+                :disabled="!codeSent"
+              />
+              <button
+                class="code-btn"
+                :disabled="!phoneValid || countdown > 0"
+                @click="sendCode"
+              >
+                {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
+              </button>
+            </view>
+          </view>
+        </view>
+
+        <!-- 新用户补全信息（验证码验证通过后展示） -->
+        <view v-if="needProfile" class="form-group">
+          <view class="input-wrapper">
+            <text class="input-label">真实姓名</text>
+            <input
+              class="ghost-input"
+              placeholder="请输入真实姓名"
+              v-model="name"
+            />
+          </view>
+          <view class="input-divider"></view>
+          <view class="input-wrapper">
+            <text class="input-label">学号</text>
+            <input
+              class="ghost-input"
+              placeholder="请输入学号"
+              v-model="studentId"
+            />
+          </view>
+        </view>
+
+        <!-- 提示文字 -->
+        <view class="tip-text" v-if="!codeSent && !needProfile">
+          验证码将发送至您的手机，请注意查收
+        </view>
+        <view class="tip-text" v-if="codeSent && !needProfile">
+          请输入您收到的 6 位验证码
+        </view>
+        <view class="tip-text" v-if="needProfile">
+          新用户请补全姓名和学号完成注册
+        </view>
+
+        <!-- 登录 / 注册 按钮 -->
+        <button
+          class="primary-btn"
+          :disabled="!canSubmit || submitting"
+          @click="handleSubmit"
+        >
+          <text v-if="!submitting">{{ needProfile ? '完成注册' : '登录' }}</text>
+          <text v-else>处理中...</text>
+        </button>
+
+        <!-- 返回链接 -->
+        <view class="back-link">
+          <text class="link-text" @click="goBack">返回登录方式选择</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- loading 遮罩 -->
+    <view class="loading-mask" v-if="submitting">
+      <view class="loading-box">
+        <text class="loading-text">{{ loadingText }}</text>
       </view>
     </view>
-  
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted, onMounted } from 'vue'
-import { signInWithOtp } from '../../utils/cloudbase'
+import { ref, computed, onUnmounted } from 'vue'
+import { post } from '@/utils/request'
+import { useUserStore } from '@/stores/user'
 
-// 响应式数据
-const phoneNumber = ref('')
-const verificationCode = ref('')
-const verifyOtp = ref<any>(null)
+const userStore = useUserStore()
+
+// ---------- data ----------
+const phone = ref('')
+const code = ref('')
+const name = ref('')
+const studentId = ref('')
+
 const countdown = ref(0)
-const loading = ref(false)
+const submitting = ref(false)
 const loadingText = ref('')
+const codeSent = ref(false)       // 验证码已成功发送
+const needProfile = ref(false)    // 新用户，需要补全姓名 + 学号
 
-// 计时器
-let timer: any = null
+let timer: ReturnType<typeof setInterval> | null = null
 
-// 计算属性
-const isPhoneValid = computed(() => {
-  return /^1[3-9]\d{9}$/.test(phoneNumber.value)
+// ---------- computed ----------
+const phoneValid = computed(() => /^1[3-9]\d{9}$/.test(phone.value))
+
+const canSubmit = computed(() => {
+  if (!codeSent && !needProfile.value) {
+    // 第一步：手机号有效 + 验证码 6 位
+    return phoneValid.value && code.value.length === 6
+  }
+  if (needProfile.value) {
+    // 新用户补全：姓名 + 学号必填
+    return name.value.trim() !== '' && studentId.value.trim() !== ''
+  }
+  return false
 })
 
-const canLogin = computed(() => {
-  return isPhoneValid.value && verificationCode.value.length === 6 && verifyOtp.value
-})
-
-// 获取验证码
-const getVerificationCode = async () => {
-  if (!isPhoneValid.value) {
-    uni.showToast({
-      title: '请输入正确的手机号',
-      icon: 'none'
-    })
+// ---------- methods ----------
+async function sendCode() {
+  if (!phoneValid.value) {
+    uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
     return
   }
-  
+
+  submitting.value = true
+  loadingText.value = '发送验证码...'
+
   try {
-    loading.value = true
-    loadingText.value = '发送验证码中...'
-    
-    const result = await signInWithOtp({ phone: phoneNumber.value })
-    verifyOtp.value = result
-    
-    uni.showToast({
-      title: '验证码发送成功',
-      icon: 'success'
-    })
-    
-    // 开始倒计时
-    startCountdown()
-    
-  } catch (error: any) {
-    console.error('获取验证码失败:', error)
-    uni.showToast({
-      title: error.message || '获取验证码失败',
-      icon: 'none'
-    })
+    const res = await post('/api/auth/send-code', { phone: phone.value }, false)
+    if (res?.success) {
+      uni.showToast({ title: '验证码已发送', icon: 'success' })
+      codeSent.value = true
+      startCountdown()
+    } else {
+      uni.showToast({ title: res?.message || res?.error || '发送失败', icon: 'none' })
+    }
+  } catch (err: any) {
+    uni.showToast({ title: err?.message || '发送失败，请重试', icon: 'none' })
   } finally {
-    loading.value = false
+    submitting.value = false
   }
 }
 
-// 开始倒计时
-const startCountdown = () => {
+function startCountdown() {
   countdown.value = 60
   timer = setInterval(() => {
     countdown.value--
     if (countdown.value <= 0) {
-      clearInterval(timer)
-      timer = null
+      if (timer) {
+        clearInterval(timer)
+        timer = null
+      }
     }
   }, 1000)
 }
 
-// 手机验证码登录
-const handleLogin = async () => {
-  if (!canLogin.value) {
-    uni.showToast({
-      title: '请完善登录信息',
-      icon: 'none'
-    })
-    return
-  }
-  
-  try {
-    loading.value = true
+async function handleSubmit() {
+  if (!canSubmit.value) return
+
+  submitting.value = true
+
+  if (!needProfile.value) {
+    // ---------- 第一步：验证码登录 ----------
     loadingText.value = '登录中...'
+    try {
+      const res = await post('/api/auth/phone-code-login', {
+        phone: phone.value,
+        code: code.value
+      }, false)
 
-    const { error } = await verifyOtp.value({ token: verificationCode.value })
-    
-    if (error) {
-      throw error
+      if (res?.success && res.token && res.user) {
+        // 登录成功
+        userStore.setTokenAndProfile(res.token, {
+          id: res.user.id,
+          name: res.user.name || res.user.nickName || '未命名',
+          nickName: res.user.nickName,
+          student_id: res.user.student_id,
+          class_id: res.user.class_id,
+          role: typeof res.user.role === 'number' ? res.user.role : 0,
+          phone: res.user.phone,
+          email: res.user.email,
+          avatarUrl: res.user.avatarUrl
+        })
+        uni.showToast({ title: '登录成功', icon: 'success' })
+        setTimeout(() => {
+          uni.reLaunch({ url: '/pages/index/index' })
+        }, 1000)
+      } else if (res?.success === false && res?.code === 404) {
+        // 用户未注册，展示补全信息
+        needProfile.value = true
+        uni.showToast({ title: '新用户，请补全信息', icon: 'none' })
+      } else {
+        uni.showToast({ title: res?.message || res?.error || '登录失败', icon: 'none' })
+      }
+    } catch (err: any) {
+      uni.showToast({ title: err?.message || '登录失败', icon: 'none' })
     }
+  } else {
+    // ---------- 第二步：新用户补全信息后注册 ----------
+    loadingText.value = '注册中...'
+    try {
+      const res = await post('/api/auth/phone-code-login', {
+        phone: phone.value,
+        code: code.value,
+        name: name.value.trim(),
+        student_id: studentId.value.trim()
+      }, false)
 
-    uni.showToast({
-      title: '登录成功',
-      icon: 'success'
-    })
-    
-    setTimeout(() => {
-      uni.navigateTo({
-        url: '/pages/index/index'
-      })
-    }, 1000)   
-  } catch (error: any) {
-    console.error('登录失败:', error)
-    uni.showToast({
-      title: error.message || '登录失败',
-      icon: 'none'
-    })
-  } finally {
-    loading.value = false
+      if (res?.success && res.token && res.user) {
+        userStore.setTokenAndProfile(res.token, {
+          id: res.user.id,
+          name: res.user.name || name.value.trim(),
+          nickName: res.user.nickName,
+          student_id: res.user.student_id || studentId.value.trim(),
+          class_id: res.user.class_id,
+          role: typeof res.user.role === 'number' ? res.user.role : 0,
+          phone: res.user.phone,
+          email: res.user.email,
+          avatarUrl: res.user.avatarUrl
+        })
+        uni.showToast({ title: '注册成功', icon: 'success' })
+        setTimeout(() => {
+          uni.reLaunch({ url: '/pages/index/index' })
+        }, 1000)
+      } else {
+        uni.showToast({ title: res?.message || res?.error || '注册失败', icon: 'none' })
+      }
+    } catch (err: any) {
+      uni.showToast({ title: err?.message || '注册失败', icon: 'none' })
+    }
   }
+
+  submitting.value = false
 }
 
-// 返回登录方式选择
-const goBack = () => {
+function goBack() {
   uni.navigateBack()
 }
 
-// 清理定时器
+// ---------- lifecycle ----------
 onUnmounted(() => {
   if (timer) {
     clearInterval(timer)
@@ -184,146 +275,213 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
-.login-container {
+<style lang="scss" scoped>
+.page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 60rpx 40rpx;
-  box-sizing: border-box;
+  background: #f7f9fc;
 }
 
-.login-header {
-  text-align: center;
-  margin-bottom: 80rpx;
+.scroll-area {
+  height: 100vh;
+}
+
+/* ========== 头部 ========== */
+.header-section {
+  position: relative;
+  padding: 48rpx 32rpx 40rpx;
+  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+}
+
+.brand-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 12rpx;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.header-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
 }
 
 .title {
-  font-size: 48rpx;
-  font-weight: bold;
-  color: white;
-  display: block;
-  margin-bottom: 20rpx;
+  font-family: 'PingFang SC', sans-serif;
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.5rpx;
 }
 
 .subtitle {
-  font-size: 28rpx;
-  color: rgba(255, 255, 255, 0.8);
-  display: block;
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 400;
 }
 
-.login-form {
-  background: white;
+/* ========== 表单 ========== */
+.form-container {
+  padding: 32rpx;
+}
+
+.form-group {
+  background: #ffffff;
   border-radius: 20rpx;
-  padding: 60rpx 40rpx;
-  box-shadow: 0 20rpx 40rpx rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-bottom: 24rpx;
 }
 
-.input-group {
-  margin-bottom: 40rpx;
+.input-wrapper {
+  padding: 28rpx 24rpx;
 }
 
-.label {
-  font-size: 28rpx;
-  color: #333;
+.input-label {
   display: block;
-  margin-bottom: 20rpx;
+  font-size: 24rpx;
   font-weight: 500;
+  color: #191c1e;
+  margin-bottom: 12rpx;
 }
 
-.input-field {
+.ghost-input {
   width: 100%;
-  height: 88rpx;
-  border: 2rpx solid #e0e0e0;
-  border-radius: 12rpx;
-  padding: 0 24rpx;
-  font-size: 32rpx;
+  height: 52rpx;
+  font-size: 30rpx;
+  color: #191c1e;
+  border: none;
+  border-bottom: 2rpx solid rgba(195, 198, 209, 0.2);
+  background: transparent;
+  padding: 0;
   box-sizing: border-box;
-  background: #fafafa;
+
+  &:focus {
+    border-bottom-color: #001e40;
+  }
+
+  &::placeholder {
+    color: #c3c6d1;
+  }
+
+  &[disabled] {
+    opacity: 0.5;
+  }
 }
 
-.input-field:focus {
-  border-color: #667eea;
-  background: white;
+.input-divider {
+  height: 1rpx;
+  margin-left: 24rpx;
+  margin-right: 24rpx;
+  background: transparent;
 }
 
-.verification-row {
+/* 验证码行 */
+.code-row {
   display: flex;
   align-items: center;
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
-.verification-input {
+.code-input {
   flex: 1;
 }
 
-.get-code-btn {
-  width: 200rpx;
-  height: 88rpx;
-  line-height: 88rpx;
-  background: #667eea;
-  color: white;
-  border: none;
+.code-btn {
+  flex-shrink: 0;
+  width: 180rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  text-align: center;
+  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
   border-radius: 12rpx;
+  border: none;
+  font-family: 'PingFang SC', sans-serif;
   font-size: 24rpx;
-  white-space: nowrap;
+  font-weight: 600;
+  color: #ffffff;
+  padding: 0;
+
+  &[disabled] {
+    background: #c3c6d1;
+    color: #ffffff;
+  }
+
+  &:active:not([disabled]) {
+    transform: scale(0.96);
+  }
 }
 
-.get-code-btn:disabled {
-  background: #ccc;
-  color: #999;
+/* ========== 提示文字 ========== */
+.tip-text {
+  font-size: 24rpx;
+  color: #999999;
+  margin-bottom: 24rpx;
+  padding-left: 8rpx;
 }
 
-.login-btn {
+/* ========== 按钮 ========== */
+.primary-btn {
   width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
-  background: #667eea;
-  color: white;
+  height: 96rpx;
+  line-height: 96rpx;
+  text-align: center;
+  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  border-radius: 20rpx;
   border: none;
-  border-radius: 12rpx;
+  font-family: 'PingFang SC', sans-serif;
   font-size: 32rpx;
-  font-weight: bold;
-  margin-top: 40rpx;
+  font-weight: 700;
+  color: #ffffff;
+  margin-top: 8rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 30, 64, 0.25);
+
+  &[disabled] {
+    background: #c3c6d1;
+    color: rgba(255, 255, 255, 0.6);
+    box-shadow: none;
+  }
+
+  &:active:not([disabled]) {
+    transform: scale(0.98);
+  }
 }
 
-.login-btn:disabled {
-  background: #ccc;
-  color: #999;
-}
-
-.back-login {
+/* ========== 返回链接 ========== */
+.back-link {
   text-align: center;
   margin-top: 40rpx;
+  padding-bottom: 48rpx;
 }
 
 .link-text {
-  font-size: 28rpx;
-  color: #667eea;
+  font-size: 26rpx;
+  color: #001e40;
   text-decoration: underline;
 }
 
+/* ========== loading 遮罩 ========== */
 .loading-mask {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
 }
 
-.loading-content {
-  background: white;
+.loading-box {
+  background: #ffffff;
   padding: 40rpx 60rpx;
-  border-radius: 12rpx;
-  text-align: center;
+  border-radius: 16rpx;
 }
 
-.loading-content text {
+.loading-text {
   font-size: 28rpx;
-  color: #333;
+  color: #191c1e;
 }
 </style>

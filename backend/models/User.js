@@ -27,6 +27,26 @@ class User {
     return rows[0];
   }
 
+  static async findByPhone(phone) {
+    const [rows] = await db.query('SELECT * FROM users WHERE phone = ?', [phone]);
+    return rows[0];
+  }
+
+  static async findByEmail(email) {
+    const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+    return rows[0];
+  }
+
+  static async updatePassword(id, passwordHash) {
+    const [result] = await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, id]);
+    return result.affectedRows > 0;
+  }
+
+  static async verifyPhone(id) {
+    const [result] = await db.query('UPDATE users SET phone_verified = 1 WHERE id = ?', [id]);
+    return result.affectedRows > 0;
+  }
+
   static async getAll() {
     const [rows] = await db.query('SELECT * FROM users');
     return rows;

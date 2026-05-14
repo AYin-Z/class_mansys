@@ -55,7 +55,7 @@ function routeGuard(userStore: ReturnType<typeof useUserStore>) {
   const pages = getCurrentPages();
   const current = pages[pages.length - 1];
   const route = current?.route || current?.$page?.fullPath || "";
-  if (route.includes("auth/register") || route.includes("auth/login")) return;
+  if (route.includes("auth/register") || route.includes("auth/login") || route.includes("login/password") || route.includes("login/phone") || route.includes("login/email")) return;
 
   uni.reLaunch({ url: "/pages/auth/register" });
 }
