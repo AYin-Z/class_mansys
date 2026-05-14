@@ -44,4 +44,7 @@ router.post('/email-code-login', AuthController.emailCodeLogin);
 // 设置/重置密码
 router.post('/set-password', AuthController.setPassword);
 
+// 已登录用户修改密码
+router.post('/change-password', authenticateToken, AuthController.changePassword);
+
 module.exports = router;

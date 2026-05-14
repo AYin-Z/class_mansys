@@ -52,6 +52,7 @@
     { "path": "pages/points/rank", "style": { "navigationBarTitleText": "积分排行榜", "navigationStyle": "custom" } },
     { "path": "pages/points/rate", "style": { "navigationBarTitleText": "评分标准", "navigationStyle": "custom" } },
     { "path": "pages/profile/index", "style": { "navigationBarTitleText": "我的", "navigationStyle": "custom" } },
+    { "path": "pages/profile/settings", "style": { "navigationBarTitleText": "系统设置", "navigationStyle": "custom" } },
     { "path": "pages/admin/members/index", "style": { "navigationBarTitleText": "成员管理", "navigationStyle": "custom" } },
     { "path": "pages/admin/members/detail", "style": { "navigationBarTitleText": "成员详情", "navigationStyle": "custom" } }
   ],

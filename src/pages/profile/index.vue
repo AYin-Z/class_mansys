@@ -148,7 +148,7 @@ function goPage(item) {
 }
 
 function goToSettings() {
-  uni.showToast({ title: '系统设置开发中', icon: 'none' })
+  uni.navigateTo({ url: '/pages/profile/settings' })
 }
 
 function goToAbout() {

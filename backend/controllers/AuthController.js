@@ -515,7 +515,27 @@ class AuthController {
    */
   static async setPassword(req, res) {
     try {
-      const { student_id, phone, code, password } = req.body;
+      const { student_id, phone, code, password, oldPassword, newPassword } = req.body;
+
+      // 已登录用户改密码：校验旧密码
+      if (req.user && oldPassword && newPassword) {
+        if (newPassword.length < 6) {
+          return res.status(400).json({ success: false, error: '新密码至少 6 位' });
+        }
+        const user = await User.findById(req.user.id);
+        if (!user) return res.status(404).json({ success: false, error: '用户不存在' });
+        if (!user.password_hash) {
+          return res.status(400).json({ success: false, error: '该账号未设置密码，请先设置密码' });
+        }
+        const valid = await bcrypt.compare(oldPassword, user.password_hash);
+        if (!valid) {
+          return res.status(400).json({ success: false, error: '旧密码错误' });
+        }
+        const hash = await bcrypt.hash(newPassword, 10);
+        await User.updatePassword(user.id, hash);
+        const token = AuthController._signToken(user);
+        return res.json({ success: true, token, user: AuthController._publicUser(user), message: '密码修改成功' });
+      }
       if (!password || password.length < 6) {
         return res.status(400).json({ success: false, error: '密码至少 6 位' });
       }
@@ -550,6 +570,30 @@ class AuthController {
   }
 
   /** JWT 签名辅助 */
+  static async changePassword(req, res) {
+    try {
+      const { oldPassword, newPassword } = req.body;
+      if (!oldPassword) return res.status(400).json({ success: false, error: '请输入旧密码' });
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ success: false, error: '新密码至少 6 位' });
+      }
+      const user = await User.findById(req.user.id);
+      if (!user) return res.status(404).json({ success: false, error: '用户不存在' });
+      if (!user.password_hash) {
+        return res.status(400).json({ success: false, error: '该账号未设置密码' });
+      }
+      const valid = await bcrypt.compare(oldPassword, user.password_hash);
+      if (!valid) return res.status(400).json({ success: false, error: '旧密码错误' });
+      const hash = await bcrypt.hash(newPassword, 10);
+      await User.updatePassword(user.id, hash);
+      const token = AuthController._signToken(user);
+      res.json({ success: true, token, user: AuthController._publicUser(user), message: '密码修改成功' });
+    } catch (error) {
+      console.error('修改密码失败:', error);
+      res.status(500).json({ success: false, error: '修改密码失败' });
+    }
+  }
+
   static _signToken(user) {
     return jwt.sign(
       { id: user.id, openid: user.openid, role: user.role, isAdmin: user.role > 0 },
