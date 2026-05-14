@@ -30,7 +30,10 @@ jobs:
           VITE_API_BASE_URL: https://cls.ayinserver.xin
 
       - name: Restart backend
-        run: systemctl --user restart class-mansys.service
+        run: |
+          export XDG_RUNTIME_DIR=/run/user/1000
+          export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+          systemctl --user restart class-mansys.service
 
       - name: Verify deployment
         run: |
