@@ -3,14 +3,55 @@ import uni from "@dcloudio/vite-plugin-uni";
 import fs from "node:fs";
 import path from "node:path";
 
+const VUE_PATCH_MODULE = '\0vue-internal-fix';
+
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: './',
   plugins: [
     uni(),
+    // Fix @dcloudio/uni-app importing Vue internal symbols (injectHook,
+    // isInSSRComponentSetup) that aren't exported by any published Vue ESM build.
+    // Provides a virtual module that re-exports Vue plus these missing symbols.
+    {
+      name: 'fix-vue-ssr-export',
+      enforce: 'pre',
+      resolveId(source, importer) {
+        if (source === 'vue' && importer && importer.includes('@dcloudio/uni-app')) {
+          return VUE_PATCH_MODULE;
+        }
+        return null;
+      },
+      load(id) {
+        if (id === VUE_PATCH_MODULE) {
+          return `
+import { shallowRef, ref, getCurrentInstance } from 'vue/dist/vue.runtime.esm-browser.js';
+const isInSSRComponentSetup = false;
+function injectHook(type, hook, target, prepend) {
+  if (target) {
+    const hooks = target[type] || (target[type] = []);
+    const wrappedHook = hook.__weh || (hook.__weh = (...args) => {
+      if (target.isUnmounted) return;
+      const prev = currentRenderingInstance;
+      setCurrentRenderingInstance(target);
+      const res = hook(...args);
+      setCurrentRenderingInstance(prev);
+      return res;
+    });
+    if (prepend) hooks.unshift(wrappedHook);
+    else hooks.push(wrappedHook);
+    return wrappedHook;
+  }
+}
+const currentRenderingInstance = null;
+function setCurrentRenderingInstance(instance) {}
+export { shallowRef, ref, getCurrentInstance, isInSSRComponentSetup, injectHook };
+          `;
+        }
+        return null;
+      }
+    },
     // Fix BigInt literals in cloudbase SDK protobuf that esbuild can't transpile with low target.
-    // 历史 bug：旧版正则 `(\d+)n(?=[^a-zA-Z0-9_])` 会误伤 `i18n` / `uni-i18n` 等标识符
-    // （把 `18n(` 转成 `BigInt(18)(`）。这里补充"前向约束"：前一个字符必须是
-    // 非标识符字符（或行首），且跳过 node_modules 里我们不关心的 vue 文件。
     {
       name: 'fix-bigint-literals',
       transform(code, id) {
@@ -23,9 +64,7 @@ export default defineConfig({
           .replace(decRe, (_, pre, num) => `${pre}BigInt(${num})`);
       }
     },
-    // App 平台专用：uni-app CLI + Vite 模式下，构建产物不会自带 manifest.json / pages.json，
-    // 导致 HBuilderX 无法识别为 uni-app 项目、无法推送到手机基座。
-    // 这里在 closeBundle 阶段自动拷贝一份到实际产物目录（dist/<mode>/<platform>）。
+    // App 平台专用：复制 manifest.json / pages.json 到产物目录
     {
       name: 'copy-uni-config-to-app-output',
       apply: 'build',
@@ -47,15 +86,11 @@ export default defineConfig({
       }
     }
   ],
-  base: './',
   build: {
     target: 'esnext',
   },
-  // optimizeDeps: {
-  //   exclude: ['@cloudbase/adapter-uni-app'],  // 排除 @cloudbase/adapter-uni-app 依赖
-  // },
   server: {
-    host: '0.0.0.0',  // 使用IP地址代替localhost
+    host: '0.0.0.0',
     proxy: {
       '/__auth': {
         target: 'https://envId-appid.tcloudbaseapp.com/',

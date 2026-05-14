@@ -34,14 +34,14 @@
     "@dcloudio/uni-app": "^3.0.0-alpha-5000720260416001",
     "@dcloudio/uni-mp-weixin": "^3.0.0-alpha-5000720260416001",
     "@dcloudio/uni-ui": "^1.5.12",
-    "@vue/shared": "^3.5.13",
-    "pinia": "^2.3.1",
-    "vue": "^3.5.13"
+    "@vue/shared": "~3.4.21",
+    "pinia": "^2.2.0",
+    "vue": "~3.4.21"
   },
   "devDependencies": {
     "@dcloudio/types": "3.4.28",
     "@dcloudio/vite-plugin-uni": "^3.0.0-alpha-5000720260416001",
-    "@vue/compiler-sfc": "^3.5.13",
+    "@vue/compiler-sfc": "~3.4.21",
     "sass": "^1.62.1",
     "vite": "5.2.8"
   }
