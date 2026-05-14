@@ -1,0 +1,42 @@
+name: Deploy class_mansys
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: /home/ayin/Current_Works/class_mansys
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build H5 (production)
+        run: npm run build:h5
+        env:
+          VITE_API_BASE_URL: https://cls.ayinserver.xin
+
+      - name: Restart backend
+        run: systemctl --user restart class-mansys.service
+
+      - name: Verify deployment
+        run: |
+          sleep 2
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3002/)
+          echo "Frontend status: $STATUS"
+          API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3002/api/auth/send-code -H 'Content-Type: application/json' -d '{"phone":"13800138000"}')
+          echo "Backend API status: $API_STATUS"
+          if [ "$STATUS" != "200" ]; then exit 1; fi
