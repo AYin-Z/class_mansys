@@ -106,7 +106,7 @@ async function loadData() {
 }
 
 async function doApprove(item) {
-  const [res] = await uni.showModal({
+  const res = await uni.showModal({
     title: '确认通过',
     content: `确定通过「${item.purpose}」（¥${Number(item.amount).toFixed(2)}）的审批？`
   })
@@ -129,7 +129,7 @@ async function doApprove(item) {
 }
 
 async function doReject(item) {
-  const [res] = await uni.showModal({
+  const res = await uni.showModal({
     title: '确认驳回',
     content: `确定驳回「${item.purpose}」？`
   })
