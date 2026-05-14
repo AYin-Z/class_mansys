@@ -94,7 +94,6 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
-import { logout as cloudbaseLogout } from '@/utils/cloudbase'
 import { getDefaultAvatar } from '@/utils/avatar'
 // #ifdef APP-PLUS
 import { checkAppUpdate, getCurrentAppVersion } from '@/utils/update-checker'
@@ -178,7 +177,6 @@ async function handleLogout() {
     content: '确定要退出当前账号吗？',
     success: async (res) => {
       if (!res.confirm) return
-      try { await cloudbaseLogout() } catch (e) {}
       userStore.logout()
       uni.reLaunch({ url: '/pages/auth/register' })
     }
