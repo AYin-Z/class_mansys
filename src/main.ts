@@ -18,21 +18,19 @@ export function createApp() {
   app.component("uni-load-more", UniLoadMore);
   app.component("uni-transition", UniTransition);
 
-  return {
-    app,
-  };
+  return { app };
 }
 
 // H5 standalone mount
-if (typeof document !== 'undefined') {
+if (typeof document !== "undefined") {
   const mountApp = () => {
-    const root = document.getElementById('app');
+    const root = document.getElementById("app");
     if (root) {
-      createApp().app.mount('#app');
+      createApp().app.mount("#app");
     }
   };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mountApp);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", mountApp);
   } else {
     mountApp();
   }
