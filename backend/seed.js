@@ -50,24 +50,33 @@ async function seed() {
   const defaultPw = await bcrypt.hash('123456', 10);
 
   // 干部（role: 1=区队长, 2=生活副区, 3=学习副区, 4=心理副区, 5=团支书, 6=组织委员, 7=宣传委员, 8=管理员）
+  // ⚠️ 干部姓名和对应学号需根据实际花名册调整
   const cadres = [
     { name: '殷政', sid: '202521760034', role: 6, phone: '13800000001' },   // 组织委员
-    { name: '生活副区', sid: '202521760035', role: 2, phone: '13800000002' },
-    { name: '学习副区', sid: '202521760036', role: 3, phone: '13800000003' },
-    { name: '心理副区', sid: '202521760037', role: 4, phone: '13800000004' },
-    { name: '团支书', sid: '202521760038', role: 5, phone: '13800000005' },
-    { name: '组织委员', sid: '202521760039', role: 6, phone: '13800000006' },
-    { name: '宣传委员', sid: '202521760040', role: 7, phone: '13800000007' },
+    { name: '未指定区队长', sid: '202521760035', role: 1, phone: '13800000002' },
+    { name: '未指定生活副区', sid: '202521760036', role: 2, phone: '13800000003' },
+    { name: '未指定学习副区', sid: '202521760037', role: 3, phone: '13800000004' },
+    { name: '未指定心理副区', sid: '202521760038', role: 4, phone: '13800000005' },
+    { name: '未指定团支书', sid: '202521760039', role: 5, phone: '13800000006' },
+    { name: '未指定宣传委员', sid: '202521760040', role: 7, phone: '13800000007' },
     { name: '系统管理员', sid: 'admin001', role: 8, phone: '13800000000' }
   ];
 
-  // 38 名学生（学号 202521760001 ~ 202521760038，干部占用 034~040，排除之）
+  // 38 名学生（实际姓名，来自六区队名单）
+  // 学号顺序: 202521760001 ~ 038，干部学号 034~040 被占用，跳过
+  const studentNames = [
+    '李旭','孙铭阳','王博睿','王崇睿','张铭','顾馨月','刘万宇','倪文',
+    '杨峻博','余钊华','张栋翔','周宇铮','陈泳杭','刘阳阳','王东昊','黄金钰',
+    '罗家琦','曹依铭','徐一鸣','费铭宇','姜天','周恩典','白昊阳','王译婕',
+    '闫圣非','王梓骁','李昊晨','王梓皓','张涵','张睿盈','李锦川','戴子淏',
+    '徐鑫鹏','殷政','张驭捷','刘相东','周之亨','阳雨函'
+  ];
   const cadreSids = new Set(cadres.map(c => c.sid));
   const students = [];
-  for (let i = 1; i <= 45; i++) {
-    const sid = `202521760${String(i).padStart(3, '0')}`;
-    if (!cadreSids.has(sid)) students.push({ name: `学生${i}`, sid, role: 0, phone: `1380000${String(100 + i).slice(1)}` });
-    if (students.length >= 38) break;
+  for (let i = 0; i < studentNames.length; i++) {
+    const sid = `202521760${String(i + 1).padStart(3, '0')}`;
+    if (cadreSids.has(sid)) continue; // 跳过干部学号（034~040 中的个人）
+    students.push({ name: studentNames[i], sid, role: 0, phone: `1380000${String(101 + i).slice(1)}` });
   }
 
   // 插入干部
