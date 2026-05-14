@@ -1,3 +1,4 @@
+const path = require('path');
 const Album = require('../models/Album');
 const Photo = require('../models/Photo');
 
@@ -91,6 +92,25 @@ class AlbumController {
     } catch (e) {
       console.error('上传照片失败:', e);
       res.status(500).json({ success: false, error: '上传照片失败' });
+    }
+  }
+
+  static async uploadPhotoFile(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: '请选择图片' });
+      }
+      const file = req.file;
+      const url = `/uploads/albums/${file.filename}`;
+      res.json({
+        success: true,
+        url,
+        filename: file.originalname,
+        size: file.size
+      });
+    } catch (e) {
+      console.error('图片上传失败:', e);
+      res.status(500).json({ success: false, error: '图片上传失败' });
     }
   }
 

@@ -1,3 +1,4 @@
+const path = require('path');
 const Announcement = require('../models/Announcement');
 const Resource = require('../models/Resource');
 
@@ -73,6 +74,27 @@ class AnnouncementController {
       res.json({ success: true, resources });
     } catch (e) {
       res.status(500).json({ success: false, error: '获取资源失败' });
+    }
+  }
+
+  static async uploadResource(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: '请选择文件' });
+      }
+      const file = req.file;
+      const ext = path.extname(file.originalname).slice(1).toLowerCase() || 'file';
+      const url = `/uploads/resources/${file.filename}`;
+      res.json({
+        success: true,
+        url,
+        filename: file.originalname,
+        size: file.size,
+        type: ext
+      });
+    } catch (e) {
+      console.error('文件上传失败:', e);
+      res.status(500).json({ success: false, error: '文件上传失败' });
     }
   }
 

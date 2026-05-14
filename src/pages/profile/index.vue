@@ -118,7 +118,9 @@ const menuGroups = ref([
       { key: 'leave', icon: '🏥', label: '请假记录', url: '/pages/leave/index' },
       { key: 'fee', icon: '💰', label: '班费记录', url: '/pages/fee/index' },
       { key: 'notice', icon: '📢', label: '通知中心', url: '/pages/notice/index' },
-      { key: 'announcement', icon: '📰', label: '公告资源', url: '/pages/announcement/index' }
+      { key: 'announcement', icon: '📰', label: '公告资源', url: '/pages/announcement/index' },
+      { key: 'homework', icon: '📚', label: '作业管理', url: '/pages/homework/index' },
+      { key: 'psychological', icon: '🧠', label: '心理干预', url: '/pages/psychological/index' }
     ]
   },
   {
@@ -126,7 +128,10 @@ const menuGroups = ref([
     items: [
       { key: 'album', icon: '📷', label: '区队相册', url: '/pages/album/index' },
       { key: 'vote', icon: '🗳️', label: '投票活动', url: '/pages/vote/index' },
-      { key: 'suggestion', icon: '💡', label: '建议箱', url: '/pages/suggestion/index' }
+      { key: 'suggestion', icon: '💡', label: '建议箱', url: '/pages/suggestion/index' },
+      { key: 'challenge', icon: '⚔️', label: '擂台挑战', url: '/pages/challenge/index' },
+      { key: 'lottery', icon: '🎲', label: '抽奖活动', url: '/pages/lottery/index' },
+      { key: 'points', icon: '⭐', label: '积分中心', url: '/pages/points/index' }
     ]
   }
 ])
@@ -149,7 +154,7 @@ function goToSettings() {
 function goToAbout() {
   uni.showModal({
     title: '关于',
-    content: '区队管理系统 v1.0\n基于 UniApp + Express + CloudBase',
+    content: '区队管理系统 v1.0\n基于 UniApp + Express',
     showCancel: false
   })
 }

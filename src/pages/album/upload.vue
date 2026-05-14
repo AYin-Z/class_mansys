@@ -37,8 +37,10 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { app as cloudbaseApp } from '@/utils/cloudbase'
+import { getToken } from '@/utils/request'
 import { getAlbumDetail, uploadPhotos } from '@/api/album'
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
 
 const albumId = ref(null)
 const albumName = ref('')
@@ -81,12 +83,34 @@ async function submit() {
   uni.showLoading({ title: `上传中 0/${photos.value.length}` })
   try {
     const urls = []
+    const token = getToken()
     for (let i = 0; i < photos.value.length; i++) {
       const path = photos.value[i]
-      const cloudPath = `albums/${albumId.value}/${Date.now()}_${i}.${(path.split('.').pop() || 'jpg').split('?')[0]}`
-      const r = await cloudbaseApp.uploadFile({ cloudPath, filePath: path })
-      const u = r.download_url || r.fileID || r.tempFilePath
-      if (u) urls.push(u)
+      // 上传单张图片到本地后端
+      const uploadResult = await new Promise((resolve, reject) => {
+        uni.uploadFile({
+          url: `${API_BASE_URL}/api/album/photos/upload`,
+          filePath: path,
+          name: 'file',
+          header: token ? { Authorization: `Bearer ${token}` } : {},
+          success: (res) => {
+            try {
+              const data = JSON.parse(res.data)
+              if (data.success) {
+                resolve(data)
+              } else {
+                reject(new Error(data.error || '上传失败'))
+              }
+            } catch (e) {
+              reject(new Error('解析响应失败'))
+            }
+          },
+          fail: (err) => {
+            reject(new Error(err.errMsg || '网络请求失败'))
+          }
+        })
+      })
+      if (uploadResult.url) urls.push(uploadResult.url)
       uni.showLoading({ title: `上传中 ${i + 1}/${photos.value.length}` })
     }
     if (urls.length === 0) throw new Error('无可上传文件')

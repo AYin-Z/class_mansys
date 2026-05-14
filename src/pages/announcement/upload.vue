@@ -30,8 +30,10 @@
 
 <script setup>
 import { ref } from 'vue'
-import { app as cloudbaseApp } from '@/utils/cloudbase'
+import { getToken } from '@/utils/request'
 import { createResource } from '@/api/announcement'
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
 
 const categories = ['学习', '生活', '体能', '通知', '其他']
 const name = ref('')
@@ -90,22 +92,42 @@ async function submit() {
   loading.value = true
   uni.showLoading({ title: '上传中...' })
   try {
-    const cloudPath = `resources/${Date.now()}_${fileName.value}`
-    const res = await cloudbaseApp.uploadFile({
-      cloudPath,
-      filePath: filePath.value
+    // 1. 上传文件到本地后端
+    const uploadResult = await new Promise((resolve, reject) => {
+      const token = getToken()
+      uni.uploadFile({
+        url: `${API_BASE_URL}/api/announcement/resources/upload`,
+        filePath: filePath.value,
+        name: 'file',
+        header: token ? { Authorization: `Bearer ${token}` } : {},
+        success: (res) => {
+          try {
+            const data = JSON.parse(res.data)
+            if (data.success) {
+              resolve(data)
+            } else {
+              reject(new Error(data.error || '上传失败'))
+            }
+          } catch (e) {
+            reject(new Error('解析响应失败'))
+          }
+        },
+        fail: (err) => {
+          reject(new Error(err.errMsg || '网络请求失败'))
+        }
+      })
     })
-    const fileUrl = res.download_url || res.fileID || res.tempFilePath || ''
-    if (!fileUrl) throw new Error('上传失败')
 
+    // 2. 保存资源记录
     await createResource({
       name: name.value.trim(),
-      type: fileType.value || 'file',
-      url: fileUrl,
-      size: fileSize.value,
+      type: uploadResult.type || fileType.value || 'file',
+      url: uploadResult.url,
+      size: uploadResult.size || fileSize.value,
       category: category.value,
       description: desc.value.trim()
     })
+
     uni.hideLoading()
     uni.showToast({ title: '上传成功', icon: 'success' })
     setTimeout(() => uni.navigateBack(), 800)
