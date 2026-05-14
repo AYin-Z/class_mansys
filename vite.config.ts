@@ -17,7 +17,7 @@ export default defineConfig({
       name: 'fix-vue-ssr-export',
       enforce: 'pre',
       resolveId(source, importer) {
-        if (source === 'vue' && importer && importer.includes('@dcloudio/uni-app')) {
+        if (source === 'vue' && importer && (importer.includes('@dcloudio/uni-app') || importer.includes('@dcloudio/uni-h5'))) {
           return VUE_PATCH_MODULE;
         }
         return null;
@@ -25,8 +25,11 @@ export default defineConfig({
       load(id) {
         if (id === VUE_PATCH_MODULE) {
           return `
-import { shallowRef, ref, getCurrentInstance } from 'vue/dist/vue.runtime.esm-browser.js';
+export * from 'vue/dist/vue.runtime.esm-bundler.js';
 const isInSSRComponentSetup = false;
+function logError(err, vm, type) {
+  console.error(err, vm, type);
+}
 function injectHook(type, hook, target, prepend) {
   if (target) {
     const hooks = target[type] || (target[type] = []);
@@ -45,7 +48,9 @@ function injectHook(type, hook, target, prepend) {
 }
 const currentRenderingInstance = null;
 function setCurrentRenderingInstance(instance) {}
-export { shallowRef, ref, getCurrentInstance, isInSSRComponentSetup, injectHook };
+function onBeforeActivate(hook, target) { return injectHook('ba', hook, target); }
+function onBeforeDeactivate(hook, target) { return injectHook('bd', hook, target); }
+export { isInSSRComponentSetup, injectHook, logError, onBeforeActivate, onBeforeDeactivate };
           `;
         }
         return null;
