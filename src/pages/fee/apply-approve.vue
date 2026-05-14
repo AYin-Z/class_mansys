@@ -1,42 +1,50 @@
 <template>
   <view class="approve-page">
     <custom-nav-bar title="申请审核" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
+    <scroll-view scroll-y class="main-scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="loadData">
       <view class="filter-tabs">
-        <view :class="['tab', { active: currentTab === 'pending' }]" @tap="currentTab = 'pending'">
+        <view :class="['tab', { active: currentTab === 'pending' }]" @tap="switchTab('pending')">
           <text class="tab-text">待审核</text>
           <text class="tab-count">{{ pendingList.length }}</text>
         </view>
-        <view :class="['tab', { active: currentTab === 'done' }]" @tap="currentTab = 'done'">
+        <view :class="['tab', { active: currentTab === 'done' }]" @tap="switchTab('done')">
           <text class="tab-text">已处理</text>
         </view>
       </view>
 
       <view class="app-list">
         <view v-for="item in displayList" :key="item.id" class="app-card">
-          <view class="card-accent" :class="item.amount >= 100 ? 'medium' : 'small'"></view>
+          <view class="card-accent" :class="tierClass(item.tier, item.amount)"></view>
           <view class="card-body">
             <view class="card-top">
               <text class="app-title">{{ item.purpose }}</text>
-              <text class="app-amount">¥{{ item.amount }}</text>
+              <text class="app-amount">¥{{ Number(item.amount).toFixed(2) }}</text>
             </view>
-            <text class="app-detail">{{ item.details }}</text>
+            <text class="app-detail" v-if="item.details">{{ item.details }}</text>
             <view class="meta-row">
-              <text class="meta-text">申请人：{{ item.applicant }}</text>
-              <text class="meta-text">{{ item.time }}</text>
+              <text class="meta-text">申请人：{{ item.applicant_name || item.student_id || '未知' }}</text>
+              <text class="meta-text">{{ formatTime(item.created_at) }}</text>
+              <text class="meta-text">{{ tierLabel(item.tier, item.amount) }}</text>
             </view>
 
-            <view class="action-area" v-if="currentTab === 'pending' && !item.processed">
-              <button class="action-btn reject" @click="reject(item)">驳回</button>
-              <button class="action-btn approve" @click="approve(item)">通过初审</button>
+            <view class="action-area" v-if="currentTab === 'pending'">
+              <button class="action-btn reject" @click="doReject(item)" :disabled="processingId === item.id">驳回</button>
+              <button class="action-btn approve" @click="doApprove(item)" :disabled="processingId === item.id">
+                {{ processingId === item.id ? '处理中...' : '通过' }}
+              </button>
             </view>
 
-            <view class="result-tag" v-else-if="item.processed">
-              <text :class="['result-text', item.approved ? 'yes' : 'no']">
-                {{ item.approved ? '✓ 已通过' : '✗ 已驳回' }}
+            <view class="result-tag" v-else>
+              <text :class="['result-text', item.status === 1 ? 'yes' : 'no']">
+                {{ item.status === 1 ? '✓ 已通过' : '✗ 已驳回' }}
               </text>
+              <text class="result-notes" v-if="item.approval_notes">（{{ item.approval_notes }}）</text>
             </view>
           </view>
+        </view>
+
+        <view v-if="allData.length === 0" class="empty-state">
+          <text class="empty-text">暂无记录</text>
         </view>
       </view>
 
@@ -46,33 +54,104 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { getPendingApprovals, approveExpense, rejectExpense } from '@/api/fee'
 
 const currentTab = ref('pending')
+const allData = ref([])
+const refreshing = ref(false)
+const processingId = ref(null)
 
-const pendingList = ref([
-  { id: 1, purpose: '购买班级清洁用品', amount: '186.50', details: '拖把×3、扫把×5、垃圾袋若干', applicant: '张三', time: '2026-04-09', processed: false },
-  { id: 2, purpose: '团建活动经费', amount: '680.00', details: '聚餐+活动物料', applicant: '李四', time: '2026-04-08', processed: false },
-  { id: 3, purpose: '打印学习资料', amount: '45.00', details: '复习资料打印30份', applicant: '王五', time: '2026-04-07', processed: true, approved: true }
-])
-
-const doneList = ref([
-  { id: 4, purpose: '购买体育器材', amount: '320.00', details: '篮球×2、羽毛球拍×4', applicant: '赵六', time: '2026-04-05', processed: true, approved: true }
-])
+const pendingList = computed(() => allData.value.filter(d => d.status === 0))
+const doneList = computed(() => allData.value.filter(d => d.status !== 0))
 
 const displayList = computed(() => currentTab.value === 'pending' ? pendingList.value : doneList.value)
 
-function approve(item) {
-  uni.showModal({ title: '确认通过', content: `确定通过「${item.purpose}」的初审？`, success: (res) => {
-    if (res.confirm) { item.processed = true; item.approved = true; uni.showToast({ title: '已通过，进入投票阶段', icon: 'success' }) }
-  }})
+function switchTab(tab) {
+  currentTab.value = tab
 }
 
-function reject(item) {
-  uni.showModal({ title: '确认驳回', content: `确定驳回「${item.purpose}」？`, success: (res) => {
-    if (res.confirm) { item.processed = true; item.approved = false; uni.showToast({ title: '已驳回', icon: 'none' }) }
-  }})
+function tierClass(tier, amount) {
+  const a = Number(amount)
+  if (tier === 'small' || a <= 100) return 'small'
+  if (tier === 'medium' || a <= 500) return 'medium'
+  return 'large'
 }
+
+function tierLabel(tier, amount) {
+  const a = Number(amount)
+  if (tier === 'small' || a <= 100) return '小额·区队长审批'
+  if (tier === 'medium' || a <= 500) return '中额·区队长→辅导员'
+  return '大额·区队长→全体投票'
+}
+
+function formatTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
+async function loadData() {
+  refreshing.value = true
+  try {
+    const res = await getPendingApprovals()
+    if (res.success) {
+      allData.value = res.approvals || []
+    }
+  } catch (e) {
+    console.error('加载待审批列表失败:', e)
+  } finally {
+    refreshing.value = false
+  }
+}
+
+async function doApprove(item) {
+  const [res] = await uni.showModal({
+    title: '确认通过',
+    content: `确定通过「${item.purpose}」（¥${Number(item.amount).toFixed(2)}）的审批？`
+  })
+  if (!res.confirm) return
+
+  processingId.value = item.id
+  try {
+    const result = await approveExpense(item.id)
+    if (result.success) {
+      uni.showToast({ title: '已通过', icon: 'success' })
+      item.status = 1
+    } else {
+      uni.showToast({ title: result.message || '操作失败', icon: 'none' })
+    }
+  } catch (e) {
+    uni.showToast({ title: '审批失败', icon: 'none' })
+  } finally {
+    processingId.value = null
+  }
+}
+
+async function doReject(item) {
+  const [res] = await uni.showModal({
+    title: '确认驳回',
+    content: `确定驳回「${item.purpose}」？`
+  })
+  if (!res.confirm) return
+
+  processingId.value = item.id
+  try {
+    const result = await rejectExpense(item.id)
+    if (result.success) {
+      uni.showToast({ title: '已驳回', icon: 'none' })
+      item.status = 2
+    } else {
+      uni.showToast({ title: result.message || '操作失败', icon: 'none' })
+    }
+  } catch (e) {
+    uni.showToast({ title: '驳回失败', icon: 'none' })
+  } finally {
+    processingId.value = null
+  }
+}
+
+onMounted(() => loadData())
 </script>
 
 <style lang="scss" scoped>
@@ -98,13 +177,14 @@ function reject(item) {
   width: 10rpx; flex-shrink: 0;
   &.small { background: #466270; }
   &.medium { background: #001e40; }
+  &.large { background: #800020; }
 }
 .card-body { flex: 1; padding: 24rpx; }
 .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12rpx; }
 .app-title { font-family: 'PingFang SC'; font-size: 28rpx; font-weight: 600; color: #191c1e; flex: 1; }
 .app-amount { font-family: 'PingFang SC'; font-size: 32rpx; font-weight: 700; color: #001e40; }
 .app-detail { font-size: 24rpx; color: #43474f; margin-bottom: 16rpx; display: block; line-height: 1.5; }
-.meta-row { display: flex; gap: 24rpx; margin-bottom: 20rpx; }
+.meta-row { display: flex; gap: 24rpx; margin-bottom: 20rpx; flex-wrap: wrap; }
 .meta-text { font-size: 22rpx; color: #c3c6d1; }
 
 .action-area { display: flex; gap: 12rpx; }
@@ -112,7 +192,12 @@ function reject(item) {
   flex: 1; height: 72rpx; border-radius: 14rpx; border: none; font-size: 26rpx; font-weight: 600;
   &.reject { background: #f2f4f7; color: #460002; }
   &.approve { background: linear-gradient(135deg, #001e40, #003366); color: #fff; }
+  &[disabled] { opacity: 0.5; }
 }
 .result-tag { text-align: center; padding-top: 8rpx; }
 .result-text { font-size: 26rpx; font-weight: 600; &.yes { color: #003366; } &.no { color: #460002; } }
+.result-notes { font-size: 22rpx; color: #c3c6d1; margin-left: 8rpx; }
+
+.empty-state { padding: 80rpx 0; text-align: center; }
+.empty-text { font-size: 26rpx; color: #c3c6d1; }
 </style>
