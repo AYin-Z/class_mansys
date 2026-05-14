@@ -183,7 +183,7 @@ async function handleLogout() {
     success: async (res) => {
       if (!res.confirm) return
       userStore.logout()
-      uni.reLaunch({ url: '/pages/auth/register' })
+      uni.reLaunch({ url: '/pages/login/password-login' })
     }
   })
 }
