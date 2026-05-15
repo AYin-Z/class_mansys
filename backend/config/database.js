@@ -12,7 +12,15 @@ const pool = mysql.createPool({
   queueLimit: 0,
   connectTimeout: 10000,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 10000
+  keepAliveInitialDelay: 10000,
+  timezone: '+08:00'
+});
+
+// 每个新连接自动设置时区为 +08:00
+pool.on('connection', (conn) => {
+  conn.query("SET time_zone = '+8:00'", (err) => {
+    if (err) console.error('设置时区失败:', err.message);
+  });
 });
 
 const promisePool = pool.promise();

@@ -23,6 +23,8 @@ export interface LeaveItem {
   /** 管理员列表 JOIN */
   applicant_name?: string
   applicant_student_id?: string
+  /** 审批人 JOIN */
+  approver_name?: string
 }
 
 export interface LeaveApplyParams {

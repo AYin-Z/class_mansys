@@ -26,6 +26,10 @@
 
       <view class="block card" v-if="leave.approval_time || leave.approval_notes">
         <text class="block-title">审批信息</text>
+        <view class="row" v-if="leave.approver_name">
+          <text class="k">审批人</text>
+          <text class="v">{{ leave.approver_name }}</text>
+        </view>
         <view class="row" v-if="leave.approval_time">
           <text class="k">时间</text>
           <text class="v">{{ formatLeaveDateTime(leave.approval_time) }}</text>

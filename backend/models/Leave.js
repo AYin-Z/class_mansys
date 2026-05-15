@@ -34,20 +34,26 @@ class Leave {
   /** 管理员列表：附带申请人姓名、学号 */
   static async getAllWithApplicants() {
     const [rows] = await db.query(
-      `SELECT l.*, u.name AS applicant_name, u.student_id AS applicant_student_id
+      `SELECT l.*, 
+              u.name AS applicant_name, u.student_id AS applicant_student_id,
+              ap.name AS approver_name
        FROM leaves l
        LEFT JOIN users u ON l.user_id = u.id
+       LEFT JOIN users ap ON l.approver_id = ap.id
        ORDER BY l.created_at DESC`
     );
     return rows;
   }
 
-  /** 单条详情：附带申请人信息（管理员查看他人申请时用） */
+  /** 单条详情：附带申请人信息和审批人信息 */
   static async findByIdWithApplicant(id) {
     const [rows] = await db.query(
-      `SELECT l.*, u.name AS applicant_name, u.student_id AS applicant_student_id
+      `SELECT l.*, 
+              u.name AS applicant_name, u.student_id AS applicant_student_id,
+              ap.name AS approver_name
        FROM leaves l
        LEFT JOIN users u ON l.user_id = u.id
+       LEFT JOIN users ap ON l.approver_id = ap.id
        WHERE l.id = ?`,
       [id]
     );
