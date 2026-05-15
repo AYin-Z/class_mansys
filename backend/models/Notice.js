@@ -133,7 +133,7 @@ class Notice {
       [notice_id]
     );
     const [allUsers] = await db.query(
-      'SELECT id, name, student_id FROM users WHERE id > 1 ORDER BY student_id'
+      'SELECT id, name, student_id FROM users WHERE id > 1 AND role < 9 ORDER BY student_id'
     );
     const completedIds = new Set(completed.map(c => c.id));
     const pending = allUsers.filter(u => !completedIds.has(u.id));
