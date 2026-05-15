@@ -1,7 +1,6 @@
 {
   "pages": [
     { "path": "pages/index/index", "style": { "navigationBarTitleText": "首页", "navigationStyle": "custom" } },
-    { "path": "pages/auth/register", "style": { "navigationBarTitleText": "用户注册", "navigationStyle": "custom" } },
     { "path": "pages/login/password-login", "style": { "navigationBarTitleText": "学号密码登录", "navigationStyle": "custom" } },
     { "path": "pages/login/phone-login", "style": { "navigationBarTitleText": "手机号登录", "navigationStyle": "custom" } },
     { "path": "pages/login/email-login", "style": { "navigationBarTitleText": "邮箱登录", "navigationStyle": "custom" } },
@@ -10,6 +9,7 @@
     { "path": "pages/leave/approve", "style": { "navigationBarTitleText": "审批请假", "navigationStyle": "custom" } },
     { "path": "pages/leave/cancel", "style": { "navigationBarTitleText": "销假", "navigationStyle": "custom" } },
     { "path": "pages/leave/detail", "style": { "navigationBarTitleText": "请假详情", "navigationStyle": "custom" } },
+    { "path": "pages/leave/overview", "style": { "navigationBarTitleText": "请假概况", "navigationStyle": "custom" } },
     { "path": "pages/notice/index", "style": { "navigationBarTitleText": "通知管理", "navigationStyle": "custom" } },
     { "path": "pages/notice/detail", "style": { "navigationBarTitleText": "通知详情", "navigationStyle": "custom" } },
     { "path": "pages/notice/publish", "style": { "navigationBarTitleText": "发布通知", "navigationStyle": "custom" } },

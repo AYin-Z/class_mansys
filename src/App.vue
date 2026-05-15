@@ -69,7 +69,7 @@ page {
   color: $on-surface;
 }
 
-view, text, button, input, textarea {
+div, span, button, input, textarea {
   box-sizing: border-box;
 }
 

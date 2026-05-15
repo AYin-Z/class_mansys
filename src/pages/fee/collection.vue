@@ -47,7 +47,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getCollections, getCollectionDetail, getCollectionRecords, payCollection } from '@/api/fee'
+import { getCollections, getCollectionDetail, getCollectionRecords } from '@/api/fee'
 
 const currentCollection = ref(null)
 const memberRecords = ref([])
