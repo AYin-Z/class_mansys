@@ -87,13 +87,13 @@ const greeting = computed(() => {
 
 const actions = [
   { key: 'leave',        icon: '🏥', label: '请假销假',   url: '/pages/leave/index' },
-  { key: 'fee',          icon: '💰', label: '班费管理',   url: '/pages/fee/index' },
+  { key: 'homework',     icon: '📝', label: '作业管理',   url: '/pages/homework/index' },
   { key: 'notice',       icon: '📢', label: '通知中心',   url: '/pages/notice/index' },
+  { key: 'fee',          icon: '💰', label: '班费管理',   url: '/pages/fee/index' },
   { key: 'announcement', icon: '📰', label: '公告资源',   url: '/pages/announcement/index' },
   { key: 'album',        icon: '📷', label: '区队相册',   url: '/pages/album/index' },
   { key: 'vote',         icon: '🗳️', label: '投票表决',   url: '/pages/vote/index' },
-  { key: 'suggestion',   icon: '💡', label: '匿名建议',   url: '/pages/suggestion/index' },
-  { key: 'homework',     icon: '📝', label: '作业管理',   url: '/pages/homework/index' }
+  { key: 'suggestion',   icon: '💡', label: '匿名建议',   url: '/pages/suggestion/index' }
 ]
 
 const statusData = ref([
