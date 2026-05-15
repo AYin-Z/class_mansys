@@ -3,7 +3,6 @@ import type { Router } from 'vue-router'
 
 /** 无需登录的白名单路由前缀 */
 const PUBLIC_ROUTES = [
-  '/pages/auth/register',
   '/pages/login/password-login',
   '/pages/login/phone-login',
   '/pages/login/email-login',
@@ -11,8 +10,6 @@ const PUBLIC_ROUTES = [
 
 /** 登录兜底页面 */
 const DEFAULT_LOGIN = '/pages/login/password-login'
-/** 注册入口 */
-const DEFAULT_REGISTER = '/pages/auth/register'
 
 /**
  * 路由守卫 — 验证登录状态，未登录/过期时重定向。
@@ -58,9 +55,9 @@ export function routeGuard(router?: Router, forceRedirect = false) {
     })
   } else {
     if (router) {
-      router.replace(DEFAULT_REGISTER)
+      router.replace(DEFAULT_LOGIN)
     } else {
-      try { (window as any).uni?.reLaunch?.({ url: DEFAULT_REGISTER }) } catch {}
+      try { (window as any).uni?.reLaunch?.({ url: DEFAULT_LOGIN }) } catch {}
     }
   }
 }
