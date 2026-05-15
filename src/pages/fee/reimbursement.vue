@@ -81,10 +81,14 @@ async function onSubmit() {
   if (!formData.purpose) { uni.showToast({ title: '请填写事由', icon: 'none' }); return }
   if (!formData.amount) { uni.showToast({ title: '请输入金额', icon: 'none' }); return }
 
+  const amount = parseFloat(formData.amount)
+  if (isNaN(amount) || amount <= 0) { uni.showToast({ title: '请输入有效金额', icon: 'none' }); return }
+  if (amount > 100000) { uni.showToast({ title: '单笔申请不超过¥100,000', icon: 'none' }); return }
+
   submitting.value = true
   try {
     const res = await createExpense({
-      amount: parseFloat(formData.amount),
+      amount: amount,
       purpose: formData.purpose,
       details: formData.details ? formData.details.split('\n').filter(Boolean) : undefined
     })

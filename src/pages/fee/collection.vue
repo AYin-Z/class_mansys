@@ -22,7 +22,11 @@
 
       <view class="section-header">
         <text class="section-title">缴纳状态</text>
-        <button class="refresh-btn" @tap="loadCollections">刷新</button>
+        <view class="header-actions">
+          <button class="action-btn" v-if="canManage && !currentCollection" @tap="handleCreateCollection">发起收缴</button>
+          <button class="action-btn" v-if="canManage && currentCollection && !currentCollection.closed_at" @tap="handleClose">截止收缴</button>
+          <button class="refresh-btn" @tap="loadCollections">刷新</button>
+        </view>
       </view>
 
       <view class="member-list">
@@ -37,6 +41,10 @@
           <view :class="['status-tag', m.paid_at ? 'paid' : 'unpaid']">
             {{ m.paid_at ? '已缴纳' : (m.is_exempt ? '免缴' : '未缴纳') }}
           </view>
+          <view class="member-actions" v-if="!m.paid_at && !m.is_exempt">
+            <button class="pay-btn" @tap="handlePay(m)">缴纳</button>
+            <button class="exempt-btn" v-if="canManage" @tap="handleExempt(m)">免缴</button>
+          </view>
         </view>
       </view>
 
@@ -47,10 +55,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getCollections, getCollectionDetail, getCollectionRecords } from '@/api/fee'
+import { getCollections, getCollectionDetail, getCollectionRecords, createCollection, payCollection, exemptCollection, closeCollection } from '@/api/fee'
+import { useUserStore } from '@/stores/user'
 
+const userStore = useUserStore()
 const currentCollection = ref(null)
 const memberRecords = ref([])
+
+const canManage = computed(() => userStore.role >= 1)
 
 const progressPercent = computed(() => {
   if (!currentCollection.value || !currentCollection.value.total_count) return 0
@@ -80,6 +92,151 @@ async function loadCollections() {
 }
 
 onMounted(loadCollections)
+
+/** 金额校验：必须为正数且不超过 100,000 */
+function validateAmount(amountStr) {
+  const amount = parseFloat(amountStr)
+  if (isNaN(amount) || amount <= 0) {
+    uni.showToast({ title: '金额必须为正数', icon: 'none' })
+    return null
+  }
+  if (amount > 100000) {
+    uni.showToast({ title: '金额不能超过 100,000 元', icon: 'none' })
+    return null
+  }
+  return amount
+}
+
+/** 计算当前学期（用于创建收缴批次） */
+function deriveSemester() {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth() + 1
+  if (m >= 2 && m <= 7) return `${y}-${y + 1}-1`  // 春季学期
+  return `${y}-${y + 1}-2`                          // 秋季学期
+}
+
+/** 发起收缴（管理员） */
+async function handleCreateCollection() {
+  const titleRes = await uni.showModal({
+    title: '发起收缴',
+    content: '请输入收缴标题：',
+    editable: true,
+    placeholderText: '例如：2026年上学期班费'
+  })
+  if (!titleRes?.confirm || !titleRes.content?.trim()) return
+
+  const amountRes = await uni.showModal({
+    title: '输入金额',
+    content: '请输入每人应缴金额（元）：',
+    editable: true,
+    placeholderText: '例如：50'
+  })
+  if (!amountRes?.confirm) return
+
+  const amount = validateAmount(amountRes.content)
+  if (amount === null) return
+
+  uni.showLoading({ title: '发起中...' })
+  try {
+    const res = await createCollection({
+      title: titleRes.content.trim(),
+      amount_per_person: amount,
+      semester: deriveSemester()
+    })
+    if (res.success) {
+      uni.showToast({ title: '收缴已发起', icon: 'success' })
+      await loadCollections()
+    } else {
+      uni.showToast({ title: res.message || '发起失败', icon: 'none' })
+    }
+  } catch (e) {
+    uni.showToast({ title: '发起失败', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
+}
+
+/** 缴纳班费（所有人均可操作） */
+async function handlePay(record) {
+  const defaultAmount = currentCollection.value?.amount_per_person ?? ''
+  const res = await uni.showModal({
+    title: '缴纳班费',
+    content: `为 ${record.name} 缴纳班费，金额（元）：`,
+    editable: true,
+    placeholderText: String(defaultAmount)
+  })
+  if (!res?.confirm) return
+
+  const amountStr = res.content?.trim() || String(defaultAmount)
+  const amount = validateAmount(amountStr)
+  if (amount === null) return
+
+  uni.showLoading({ title: '缴纳中...' })
+  try {
+    const result = await payCollection(currentCollection.value.id, amount)
+    if (result.success) {
+      uni.showToast({ title: '缴纳成功', icon: 'success' })
+      await loadCollections()
+    } else {
+      uni.showToast({ title: result.message || '缴纳失败', icon: 'none' })
+    }
+  } catch (e) {
+    uni.showToast({ title: '缴纳失败', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
+}
+
+/** 标记免缴（管理员） */
+async function handleExempt(record) {
+  const res = await uni.showModal({
+    title: '标记免缴',
+    content: `确定将 ${record.name} 标记为免缴？填写备注：`,
+    editable: true,
+    placeholderText: '免缴原因（选填）'
+  })
+  if (!res?.confirm) return
+
+  uni.showLoading({ title: '处理中...' })
+  try {
+    const result = await exemptCollection(currentCollection.value.id, record.user_id, res.content || '')
+    if (result.success) {
+      uni.showToast({ title: '已标记免缴', icon: 'success' })
+      await loadCollections()
+    } else {
+      uni.showToast({ title: result.message || '操作失败', icon: 'none' })
+    }
+  } catch (e) {
+    uni.showToast({ title: '操作失败', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
+}
+
+/** 截止收缴（管理员） */
+async function handleClose() {
+  const res = await uni.showModal({
+    title: '截止收缴',
+    content: '确定截止本次收缴？截止后不可再缴纳。'
+  })
+  if (!res?.confirm) return
+
+  uni.showLoading({ title: '处理中...' })
+  try {
+    const result = await closeCollection(currentCollection.value.id)
+    if (result.success) {
+      uni.showToast({ title: '已截止', icon: 'success' })
+      await loadCollections()
+    } else {
+      uni.showToast({ title: result.message || '操作失败', icon: 'none' })
+    }
+  } catch (e) {
+    uni.showToast({ title: '操作失败', icon: 'none' })
+  } finally {
+    uni.hideLoading()
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -102,10 +259,15 @@ onMounted(loadCollections)
 
 .section-header { display: flex; align-items: center; justify-content: space-between; padding: 0 32rpx; margin-bottom: 20rpx; margin-top: 32rpx; }
 .section-title { font-family: 'PingFang SC', sans-serif; font-size: 30rpx; font-weight: 600; color: #191c1e; }
+.header-actions { display: flex; align-items: center; gap: 16rpx; }
+.action-btn { font-size: 22rpx; color: #001e40; background: rgba(0,30,64,0.06); border: 1rpx solid #001e40; border-radius: 12rpx; padding: 6rpx 20rpx; &::after { display: none; } }
 .refresh-btn { font-size: 24rpx; color: #001e40; background: transparent; border: none; padding: 0; &::after { display: none; } }
 
 .member-list { padding: 0 32rpx; }
 .member-card { display: flex; align-items: center; gap: 18rpx; padding: 20rpx 0; &:not(:last-child) { border-bottom: 1rpx solid #f2f4f7; } }
+.member-actions { display: flex; gap: 12rpx; flex-shrink: 0; }
+.pay-btn { font-size: 22rpx; color: #ffffff; background: #001e40; border: none; border-radius: 12rpx; padding: 8rpx 20rpx; &::after { display: none; } }
+.exempt-btn { font-size: 22rpx; color: #666; background: #f2f4f7; border: none; border-radius: 12rpx; padding: 8rpx 20rpx; &::after { display: none; } }
 .avatar-box { width: 72rpx; height: 72rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .avatar-text { font-size: 28rpx; font-weight: 700; color: #ffffff; &.dim { color: #c3c6d1; } }
 .member-info { flex: 1; display: flex; flex-direction: column; gap: 4rpx; }

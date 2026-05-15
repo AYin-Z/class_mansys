@@ -98,9 +98,19 @@ class FeeController {
   static async createExpense(req, res) {
     try {
       const { amount, type, purpose, proof_url, details, semester } = req.body;
+
+      // 金额校验
+      const parsedAmount = parseFloat(amount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        return res.status(400).json({ error: '请输入有效金额' });
+      }
+      if (parsedAmount > 100000) {
+        return res.status(400).json({ error: '单笔申请不超过¥100,000' });
+      }
+
       const expenseId = await Fee.createExpense({
         user_id: req.user.id,
-        amount, type: type || '支出', purpose, proof_url, details, semester
+        amount: parsedAmount, type: type || '支出', purpose, proof_url, details, semester
       });
       res.json({ success: true, expenseId, message: '申请已提交，等待审批' });
     } catch (err) {
@@ -162,11 +172,12 @@ class FeeController {
 
       const tier = expense.tier || (expense.amount <= 100 ? 'small' : expense.amount <= 500 ? 'medium' : 'large');
       const isLeader = req.user.role === 1 || req.user.role === 8; // 区队长或管理员
+      const isCounselor = req.user.role === 9 || req.user.role === 8; // 辅导员或管理员
 
       let success = false;
       if (expense.approval_step === 1 && isLeader) {
         success = await ExpenseApproval.approveByLeader(id, req.user.id, notes);
-      } else if (expense.approval_step === 2) {
+      } else if (expense.approval_step === 2 && isCounselor) {
         success = await ExpenseApproval.approveByAdvisor(id, req.user.id, notes);
       } else {
         return res.status(400).json({ error: '当前步骤无需您的审批' });
@@ -268,6 +279,20 @@ class FeeController {
       res.json({ success: true, balance: { balance: summary.balance, totalIncome: summary.totalIncome, totalExpense: summary.totalExpense } });
     } catch (err) {
       res.status(500).json({ error: '获取余额失败' });
+    }
+  }
+
+  /** 证明材料上传（供前端申请页面使用） */
+  static async uploadProof(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: '请选择文件' });
+      }
+      const url = `/uploads/resources/${req.file.filename}`;
+      res.json({ success: true, url, filename: req.file.originalname, size: req.file.size });
+    } catch (err) {
+      console.error('证明材料上传失败:', err);
+      res.status(500).json({ success: false, error: '上传失败' });
     }
   }
 }

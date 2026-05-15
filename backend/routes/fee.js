@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const FeeController = require('../controllers/FeeController');
 const { authenticateToken, authorizeAdmin } = require('../middleware/auth');
+const { uploadResource } = require('../config/multer');
 
 // === 收缴 ===
 router.post('/collections', authenticateToken, FeeController.createCollection);
@@ -37,7 +38,9 @@ router.get('/summary', authenticateToken, FeeController.getSummary);
 router.post('/expense', authenticateToken, FeeController.createExpense);
 router.get('/my', authenticateToken, FeeController.getMyExpenses);
 router.get('/all', authenticateToken, FeeController.getAllExpenses);
-router.put('/approve', authenticateToken, FeeController.approveExpense);
 router.get('/balance', authenticateToken, FeeController.getBalance);
+
+// === 证明材料上传（供前端 apply.vue 使用）===
+router.post('/proof/upload', authenticateToken, uploadResource.single('file'), FeeController.uploadProof);
 
 module.exports = router;

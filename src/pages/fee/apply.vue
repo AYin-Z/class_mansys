@@ -67,6 +67,9 @@
 <script setup>
 import { reactive } from 'vue'
 import { createExpense } from '@/api/fee'
+import { getToken } from '@/utils/request'
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
 
 const formData = reactive({
   purpose: '',
@@ -95,11 +98,38 @@ function removeProof(idx) {
   formData.proofs.splice(idx, 1)
 }
 
+/** 上传单个证明材料，返回 URL */
+function uploadProofFile(filePath) {
+  return new Promise((resolve, reject) => {
+    const token = getToken()
+    uni.uploadFile({
+      url: `${API_BASE_URL}/api/fee/proof/upload`,
+      filePath,
+      name: 'file',
+      header: token ? { Authorization: `Bearer ${token}` } : {},
+      success: (res) => {
+        try {
+          const data = JSON.parse(res.data)
+          if (data.success) resolve(data.url)
+          else reject(new Error(data.error || '上传失败'))
+        } catch (e) {
+          reject(new Error('解析响应失败'))
+        }
+      },
+      fail: (err) => {
+        reject(new Error(err.errMsg || '网络请求失败'))
+      }
+    })
+  })
+}
+
 async function onSubmit() {
   if (!formData.purpose) { uni.showToast({ title: '请填写用途', icon: 'none' }); return }
   if (!formData.amount) { uni.showToast({ title: '请输入金额', icon: 'none' }); return }
 
   const amount = parseFloat(formData.amount)
+  if (isNaN(amount) || amount <= 0) { uni.showToast({ title: '请输入有效金额', icon: 'none' }); return }
+  if (amount > 100000) { uni.showToast({ title: '单笔申请不超过¥100,000', icon: 'none' }); return }
   let steps = [...approvalSteps]
   if (amount < 100) {
     steps = ['经办人提交', '区队长审核', '执行']
@@ -114,10 +144,24 @@ async function onSubmit() {
       if (res.confirm) {
         uni.showLoading({ title: '提交中...' })
         try {
+          // 上传证明材料（如果有）
+          let proof_url = ''
+          if (formData.proofs.length > 0) {
+            uni.showLoading({ title: '上传图片中...' })
+            const uploadedUrls = []
+            for (const fp of formData.proofs) {
+              const url = await uploadProofFile(fp)
+              uploadedUrls.push(url)
+            }
+            proof_url = uploadedUrls.join(',')
+            uni.showLoading({ title: '提交中...' })
+          }
+
           const res = await createExpense({
             type: '支出',
             amount: amount,
-            purpose: formData.purpose + (formData.details ? `\n明细：${formData.details}` : '')
+            purpose: formData.purpose + (formData.details ? `\n明细：${formData.details}` : ''),
+            proof_url: proof_url || undefined
           })
           uni.hideLoading()
           if (res.success) {
