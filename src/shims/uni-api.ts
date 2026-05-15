@@ -236,6 +236,11 @@ function showModal(opts: {
     const cleanup = (result: { confirm: boolean; cancel: boolean; content?: string }) => {
       overlay.remove()
       resolve(result)
+      try {
+        if (result.confirm) opts?.success?.(result)
+        else opts?.cancel?.(result)
+        opts?.complete?.(result)
+      } catch {}
     }
 
     const confirmBtn = dialog.querySelector('#__uni_modal_confirm') as HTMLElement
