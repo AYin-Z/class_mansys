@@ -418,7 +418,7 @@ function chooseImage(opts?: {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = 'image/*'
+    input.accept = 'image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar'
     if (opts?.count && opts.count > 1) input.multiple = true
     input.style.display = 'none'
 
