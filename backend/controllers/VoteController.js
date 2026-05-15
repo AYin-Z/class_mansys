@@ -1,6 +1,6 @@
 const Vote = require('../models/Vote');
 
-const ADMIN_ROLES = new Set([1, 2, 3, 4, 5, 6, 7, 8]);
+const ADMIN_ROLES = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9]);
 const isAdmin = (user) => user && ADMIN_ROLES.has(Number(user.role));
 
 class VoteController {
@@ -9,7 +9,15 @@ class VoteController {
       if (!isAdmin(req.user)) {
         return res.status(403).json({ success: false, error: '需要管理员权限' });
       }
-      const { title, description, type, start_time, end_time, options } = req.body || {};
+      const { title, description, type, start_time, end_time, options, visible_scope, vote_scope } = req.body || {};
+      // Validate scopes
+      const validScopes = ['all', 'admin'];
+      if (visible_scope && !validScopes.includes(visible_scope)) {
+        return res.status(400).json({ success: false, error: '可见范围取值无效' });
+      }
+      if (vote_scope && !validScopes.includes(vote_scope)) {
+        return res.status(400).json({ success: false, error: '可投范围取值无效' });
+      }
       if (!title) return res.status(400).json({ success: false, error: '标题必填' });
       if (!Array.isArray(options) || options.filter(o => o && o.trim()).length < 2) {
         return res.status(400).json({ success: false, error: '至少需要两个有效选项' });
@@ -28,7 +36,9 @@ class VoteController {
         creator_id: req.user.id,
         start_time,
         end_time,
-        options
+        options,
+        visible_scope: visible_scope || 'all',
+        vote_scope: vote_scope || 'all'
       });
       res.json({ success: true, id, message: '投票发布成功' });
     } catch (e) {
@@ -40,7 +50,11 @@ class VoteController {
   static async listVotes(req, res) {
     try {
       const votes = await Vote.getAll();
-      res.json({ success: true, votes });
+      // Filter by visible_scope: non-admin only sees 'all'
+      const filtered = isAdmin(req.user)
+        ? votes
+        : votes.filter(v => v.visible_scope === 'all' || !v.visible_scope);
+      res.json({ success: true, votes: filtered });
     } catch (e) {
       res.status(500).json({ success: false, error: '获取投票列表失败' });
     }
@@ -50,6 +64,10 @@ class VoteController {
     try {
       const vote = await Vote.findById(req.params.id);
       if (!vote) return res.status(404).json({ success: false, error: '投票不存在' });
+      // Visibility check
+      if (vote.visible_scope === 'admin' && !isAdmin(req.user)) {
+        return res.status(403).json({ success: false, error: '无权查看' });
+      }
       const options = await Vote.getOptions(req.params.id);
       const myChoices = await Vote.getUserChoices(req.params.id, req.user.id);
 
@@ -83,6 +101,11 @@ class VoteController {
       const vote = await Vote.findById(voteId);
       if (!vote) return res.status(404).json({ success: false, error: '投票不存在' });
       if (!vote.is_active) return res.status(400).json({ success: false, error: '该投票已关闭' });
+
+      // Vote scope check
+      if (vote.vote_scope === 'admin' && !isAdmin(req.user)) {
+        return res.status(403).json({ success: false, error: '仅班干部可参与此投票' });
+      }
 
       const now = new Date();
       if (now < new Date(vote.start_time)) {

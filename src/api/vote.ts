@@ -21,6 +21,8 @@ export interface VoteItem {
   start_time: string
   end_time: string
   is_active: boolean
+  visible_scope?: string       // 'all' | 'admin'
+  vote_scope?: string          // 'all' | 'admin'
   participant_count?: number
   created_at: string
 }

@@ -28,6 +28,18 @@
           <picker mode="time" :value="form.endTime" @change="(e) => form.endTime = e.detail.value">
             <view class="form-row"><text class="row-label">结束时间</text><view class="row-value"><text class="value-text">{{ form.endTime }}</text><text class="arrow">›</text></view></view>
           </picker>
+          <view class="divider"></view>
+
+          <!-- 可见范围 -->
+          <picker mode="selector" :range="['全部可见', '仅班干部']" @change="(e) => form.visible_scope = e.detail.value === 0 ? 'all' : 'admin'">
+            <view class="form-row"><text class="row-label">可见范围</text><view class="row-value"><text class="value-text">{{ form.visible_scope === 'all' ? '全部可见' : '仅班干部' }}</text><text class="arrow">›</text></view></view>
+          </picker>
+          <view class="divider"></view>
+
+          <!-- 可投范围 -->
+          <picker mode="selector" :range="['全部可投', '仅班干部']" @change="(e) => form.vote_scope = e.detail.value === 0 ? 'all' : 'admin'">
+            <view class="form-row"><text class="row-label">可投范围</text><view class="row-value"><text class="value-text">{{ form.vote_scope === 'all' ? '全部可投' : '仅班干部' }}</text><text class="arrow">›</text></view></view>
+          </picker>
 
           <!-- Options -->
           <view class="options-area">
@@ -68,7 +80,9 @@ const form = reactive({
   startDate: todayStr(),
   startTime: '09:00',
   endDate: tomorrowStr(),
-  endTime: '23:59'
+  endTime: '23:59',
+  visible_scope: 'all',
+  vote_scope: 'all'
 })
 const options = reactive(['', ''])
 
@@ -97,6 +111,8 @@ async function submit() {
       type: form.type,
       start_time: start,
       end_time: end,
+      visible_scope: form.visible_scope,
+      vote_scope: form.vote_scope,
       options: validOpts
     })
     uni.hideLoading()

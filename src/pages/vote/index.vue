@@ -18,6 +18,10 @@
               <text class="meta-dot">·</text>
               <text class="meta-item">{{ item.deadline }}</text>
             </view>
+            <view class="scope-row-sm" v-if="item.visible_scope === 'admin' || item.vote_scope === 'admin'">
+              <text class="scope-tag-sm" v-if="item.visible_scope === 'admin'">👁️ 仅班干部</text>
+              <text class="scope-tag-sm" v-if="item.vote_scope === 'admin'">🗳️ 仅班干部</text>
+            </view>
           </view>
         </view>
 
@@ -105,6 +109,8 @@ onShow(() => {
 .vote-meta { display: flex; gap: 10rpx; align-items: center; flex-wrap: wrap; }
 .meta-item { font-size: 22rpx; color: #c3c6d1; }
 .meta-dot { font-size: 22rpx; color: #e0e3e6; }
+.scope-row-sm { display: flex; gap: 8rpx; margin-top: 10rpx; }
+.scope-tag-sm { font-size: 20rpx; color: #8c909a; background: rgba(140,144,154,0.08); padding: 2rpx 12rpx; border-radius: 999rpx; }
 
 .create-btn { margin: 24rpx 32rpx; height: 88rpx; background: #f2f4f7; border-radius: 18rpx; border: none; display: flex; align-items: center; justify-content: center; &::after { display: none; } &:active { background: #eceef1; } }
 .create-text { font-size: 28rpx; font-weight: 600; color: #001e40; }

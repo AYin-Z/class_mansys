@@ -16,9 +16,10 @@ class Vote {
     try {
       await conn.beginTransaction();
       const [voteResult] = await conn.query(
-        `INSERT INTO votes (title, description, type, creator_id, start_time, end_time, is_active)
-         VALUES (?, ?, ?, ?, ?, ?, true)`,
-        [data.title, data.description || '', data.type || 'single', data.creator_id, data.start_time, data.end_time]
+        `INSERT INTO votes (title, description, type, creator_id, start_time, end_time, is_active, visible_scope, vote_scope)
+         VALUES (?, ?, ?, ?, ?, ?, true, ?, ?)`,
+        [data.title, data.description || '', data.type || 'single', data.creator_id, data.start_time, data.end_time,
+         data.visible_scope || 'all', data.vote_scope || 'all']
       );
       const voteId = voteResult.insertId;
 

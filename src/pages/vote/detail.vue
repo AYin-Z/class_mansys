@@ -10,6 +10,10 @@
           <text class="meta-text">{{ isSingle ? '单选' : '多选' }} · {{ totalVotes }}票</text>
         </view>
         <text class="period">{{ formatTime(vote.start_time) }} 至 {{ formatTime(vote.end_time) }}</text>
+        <view class="scope-row">
+          <view class="scope-tag visible">{{ vote.visible_scope === 'admin' ? '仅班干部可见' : '全部可见' }}</view>
+          <view class="scope-tag votable">{{ vote.vote_scope === 'admin' ? '仅班干部可投' : '全部可投' }}</view>
+        </view>
       </view>
 
       <view class="options-section">
@@ -58,7 +62,11 @@ const isSingle = computed(() => isVoteSingle(vote.value || { type: 'single' }))
 const status = computed(() => vote.value?.id ? getVoteStatus(vote.value) : 'pending')
 const hasVoted = computed(() => myChoices.value.length > 0)
 const showResults = computed(() => hasVoted.value || status.value === 'ended' || isAdminUser.value)
-const canVote = computed(() => status.value === 'active')
+const canVote = computed(() => {
+  if (status.value !== 'active') return false
+  if (vote.value?.vote_scope === 'admin' && !isAdminUser.value) return false
+  return true
+})
 const canClose = computed(() => isAdminUser.value && vote.value?.is_active)
 
 function isSelected(id) {
@@ -151,6 +159,12 @@ onLoad((opts) => {
 .meta-row { display: flex; align-items: center; gap: 14rpx; margin-bottom: 10rpx; }
 .meta-text { font-size: 24rpx; color: #466270; }
 .period { font-size: 22rpx; color: #c3c6d1; display: block; }
+.scope-row { display: flex; gap: 10rpx; margin-top: 14rpx; }
+.scope-tag {
+  padding: 4rpx 16rpx; border-radius: 999rpx; font-size: 20rpx; font-weight: 500;
+  &.visible { background: rgba(70,98,112,0.06); color: #466270; }
+  &.votable { background: rgba(0,30,64,0.06); color: #001e40; }
+}
 
 .options-section { margin: 0 32rpx; }
 .section-label { font-size: 25rpx; font-weight: 600; color: #43474f; text-transform: uppercase; letter-spacing: 4rpx; display: block; margin-bottom: 18rpx; }
