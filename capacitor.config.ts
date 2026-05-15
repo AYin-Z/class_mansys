@@ -9,6 +9,7 @@ const config: CapacitorConfig = {
   },
   server: {
     androidScheme: 'https',
+    hostname: 'localhost',
   },
 };
 

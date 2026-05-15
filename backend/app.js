@@ -35,7 +35,9 @@ app.use(cors({
       'http://localhost:3002',
       'http://localhost:5173',
       'https://class-manage-sys-247928-5-1420593393.sh.run.tcloudbase.com',
-      'https://cls.ayinserver.xin'
+      'https://cls.ayinserver.xin',
+      'capacitor://localhost',
+      'http://localhost'
     ];
     // 无 origin 的场景（服务器内部调用、curl 等）也放行
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
