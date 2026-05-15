@@ -42,22 +42,28 @@ class AuthController {
 
       const { openid, session_key } = response.data;
 
+      // 检查微信API是否返回错误
+      if (response.data.errcode) {
+        return res.status(400).json({ success: false, error: '微信登录失败: ' + (response.data.errmsg || '未知错误') });
+      }
+
       // 查找用户
       let user = await User.findByOpenid(openid);
 
       if (!user) {
-        // 新用户，创建用户记录
+        // 新用户，创建用户记录（兼容无 userInfo 场景）
+        const info = userInfo || {};
         user = await User.create({
           openid,
-          nickName: userInfo.nickName,
-          avatarUrl: userInfo.avatarUrl,
-          gender: userInfo.gender || 0,
-          student_id: userInfo.student_id || '',
-          name: userInfo.name || userInfo.nickName,
-          class_id: userInfo.class_id || '',
-          role: userInfo.role || 0,
-          phone: userInfo.phone || '',
-          email: userInfo.email || ''
+          nickName: info.nickName || '微信用户',
+          avatarUrl: info.avatarUrl || '',
+          gender: info.gender || 0,
+          student_id: info.student_id || '',
+          name: info.name || info.nickName || '微信用户',
+          class_id: info.class_id || '',
+          role: info.role || 0,
+          phone: info.phone || '',
+          email: info.email || ''
         });
         user = await User.findByOpenid(openid);
       } else {

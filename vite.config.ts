@@ -53,6 +53,7 @@ export default defineConfig({
           [/\bnavigator\b/g, 'a'],
           [/\bimage\b/g, 'img'],
           [/\bscroll-view\b/g, 'div'],
+          [/\bpicker\b/g, 'uni-picker'],
         ]
         // Only replace inside tag names (between < and space/>)
         for (const [pattern, replacement] of tags) {

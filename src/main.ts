@@ -13,6 +13,7 @@ import CustomNavBar from './components/custom-nav-bar.vue'
 import UniPopup from '@dcloudio/uni-ui/lib/uni-popup/uni-popup.vue'
 import UniLoadMore from '@dcloudio/uni-ui/lib/uni-load-more/uni-load-more.vue'
 import UniTransition from '@dcloudio/uni-ui/lib/uni-transition/uni-transition.vue'
+import UniPicker from './shims/uni-picker.vue'
 
 // ====== 诊断日志 ======
 const d = (msg: string) => {
@@ -43,6 +44,7 @@ try {
   app.component('uni-popup', UniPopup)
   app.component('uni-load-more', UniLoadMore)
   app.component('uni-transition', UniTransition)
+  app.component('uni-picker', UniPicker)
   d('uni-ui components registered')
 
   d('mounting...')
