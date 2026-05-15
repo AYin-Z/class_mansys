@@ -59,6 +59,28 @@ class Notice {
     return rows[0].count;
   }
 
+  static async update(id, fields) {
+    const allowedFields = ['title', 'content', 'summary', 'type', 'priority', 'is_pinned'];
+    const setClauses = [];
+    const values = [];
+
+    for (const field of allowedFields) {
+      if (fields[field] !== undefined) {
+        setClauses.push(`${field} = ?`);
+        values.push(fields[field]);
+      }
+    }
+
+    if (setClauses.length === 0) return 0;
+
+    values.push(id);
+    const [result] = await db.query(
+      `UPDATE notices SET ${setClauses.join(', ')} WHERE id = ?`,
+      values
+    );
+    return result.affectedRows;
+  }
+
   static async delete(id) {
     await db.query('DELETE FROM notice_reads WHERE notice_id = ?', [id]);
     const [result] = await db.query('DELETE FROM notices WHERE id = ?', [id]);

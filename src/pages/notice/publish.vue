@@ -1,6 +1,6 @@
 <template>
   <view class="publish-page">
-    <custom-nav-bar title="发布通知" :showBack="true" />
+    <custom-nav-bar :title="isEdit ? '编辑通知' : '发布通知'" :showBack="true" />
 
     <scroll-view scroll-y class="main-scroll">
       <view class="form-area">
@@ -68,7 +68,7 @@
 
       <view class="bottom-action">
         <button class="primary-btn" @click="onPublish">
-          <text class="btn-text">发布通知</text>
+          <text class="btn-text">{{ isEdit ? '保存修改' : '发布通知' }}</text>
         </button>
       </view>
     </scroll-view>
@@ -77,10 +77,15 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
-import { createNotice } from '@/api/notice'
+import { onLoad } from '@dcloudio/uni-app'
+import { getNoticeDetail, createNotice, updateNotice } from '@/api/notice'
 
 const priorityOptions = ['日常', '重要', '紧急']
 const typeOptions = ['系统通知', '集合通知', '学习通知', '活动通知', '其他']
+
+const isEdit = ref(false)
+const noticeId = ref(null)
+
 const formData = reactive({
   title: '',
   type: '',
@@ -111,6 +116,32 @@ function chooseFile() {
   })
 }
 
+async function fetchDetail() {
+  if (!noticeId.value) return
+  try {
+    const res = await getNoticeDetail(noticeId.value)
+    if (res.success && res.notice) {
+      const notice = res.notice
+      formData.title = notice.title || ''
+      formData.content = notice.content || ''
+      formData.type = notice.type || ''
+      formData.priority = notice.priority ?? 0
+      formData.priorityLabel = priorityOptions[notice.priority] || '日常'
+      formData.is_pinned = notice.is_pinned ?? false
+    }
+  } catch (error) {
+    uni.showToast({ title: '加载通知详情失败', icon: 'none' })
+  }
+}
+
+onLoad((opts) => {
+  if (opts?.id) {
+    isEdit.value = true
+    noticeId.value = Number(opts.id)
+    fetchDetail()
+  }
+})
+
 async function onPublish() {
   if (!formData.title) {
     uni.showToast({ title: '请输入标题', icon: 'none' })
@@ -121,23 +152,26 @@ async function onPublish() {
     return
   }
 
-  uni.showLoading({ title: '发布中...' })
+  uni.showLoading({ title: isEdit.value ? '保存中...' : '发布中...' })
   try {
     if (!formData.type) {
       uni.hideLoading()
       uni.showToast({ title: '请选择通知类型', icon: 'none' })
       return
     }
-    const res = await createNotice({
+    const payload = {
       title: formData.title,
       content: formData.content,
       type: formData.type,
       priority: formData.priority,
       is_pinned: formData.is_pinned
-    })
+    }
+    const res = isEdit.value
+      ? await updateNotice(noticeId.value, payload)
+      : await createNotice(payload)
     uni.hideLoading()
     if (res.success) {
-      uni.showToast({ title: '发布成功', icon: 'success' })
+      uni.showToast({ title: isEdit.value ? '修改成功' : '发布成功', icon: 'success' })
       setTimeout(() => {
         uni.navigateBack()
       }, 1500)

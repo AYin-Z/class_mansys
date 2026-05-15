@@ -1,7 +1,7 @@
 /**
  * 通知相关 API
  */
-import { get, post, del } from '@/utils/request'
+import { get, post, put, del } from '@/utils/request'
 
 export interface NoticeItem {
   id: number
@@ -54,6 +54,13 @@ export function getUnreadCount(): Promise<{ success: boolean; count: number }> {
  */
 export function createNotice(params: NoticeCreateParams): Promise<{ success: boolean; noticeId: number; message: string }> {
   return post('/api/notice/create', params)
+}
+
+/**
+ * 更新通知（管理员）
+ */
+export function updateNotice(id: number, params: NoticeCreateParams): Promise<{ success: boolean; message: string }> {
+  return put(`/api/notice/${id}`, params)
 }
 
 /**

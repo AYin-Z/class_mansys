@@ -60,6 +60,31 @@ class NoticeController {
     }
   }
 
+  static async updateNotice(req, res) {
+    try {
+      const { id } = req.params;
+      const { title, content, summary, type, priority, is_pinned } = req.body || {};
+
+      // Check that body is not completely empty
+      const fields = { title, content, summary, type, priority, is_pinned };
+      const hasFields = Object.values(fields).some(v => v !== undefined);
+      if (!hasFields) {
+        return res.status(400).json({ success: false, error: '没有可更新的字段' });
+      }
+
+      const affected = await Notice.update(id, fields);
+      if (!affected) {
+        return res.status(404).json({ success: false, error: '通知不存在' });
+      }
+
+      const notice = await Notice.findById(id);
+      res.json({ success: true, notice });
+    } catch (error) {
+      console.error('通知更新失败:', error);
+      res.status(500).json({ success: false, error: '通知更新失败' });
+    }
+  }
+
   static async deleteNotice(req, res) {
     try {
       const ok = await Notice.delete(req.params.id);

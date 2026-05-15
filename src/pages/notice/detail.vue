@@ -18,7 +18,7 @@
 
       <!-- Content -->
       <view class="content-card">
-        <rich-text :nodes="notice.content"></rich-text>
+        <div v-html="notice.content"></div>
       </view>
 
       <!-- Attachments -->
@@ -33,7 +33,8 @@
         </view>
       </view>
 
-      <view v-if="canDelete && notice.id" class="action-row">
+      <view v-if="canDelete && notice.id" class="action-row" style="display:flex;gap:12px;">
+        <view class="btn-edit" @tap="onEdit">编辑通知</view>
         <view class="btn-danger" @tap="onDelete">删除该通知</view>
       </view>
 
@@ -80,7 +81,7 @@ function renderContent(text) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/\n/g, '<br/>')
-  return `<p style="font-size:28rpx;color:#43474f;line-height:1.8;">${safe}</p>`
+  return `<p style="font-size:calc(28 * 100vw / 750);color:#43474f;line-height:1.8;">${safe}</p>`
 }
 
 async function fetchDetail() {
@@ -118,6 +119,10 @@ function priorityLabel(p) {
 
 function downloadFile(file) {
   uni.showToast({ title: `下载：${file.name}`, icon: 'none' })
+}
+
+function onEdit() {
+  uni.navigateTo({ url: `/pages/notice/publish?id=${noticeId.value}` })
 }
 
 function onDelete() {
@@ -263,6 +268,20 @@ function onDelete() {
 
 .action-row {
   padding: 32rpx;
+}
+
+.btn-edit {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 14rpx;
+  background: #001e40;
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &:active { opacity: 0.85; }
 }
 
 .btn-danger {
