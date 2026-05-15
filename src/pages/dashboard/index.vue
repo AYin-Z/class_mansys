@@ -78,10 +78,6 @@ const roleLabel = computed(() => getRoleLabel(store.user?.role))
 function goPage(url: string) {
   uni.navigateTo({ url })
 }
-
-onShow(() => {
-  // 仪表盘刷新时可在此处添加数据汇总逻辑
-})
 </script>
 
 <style lang="scss" scoped>
