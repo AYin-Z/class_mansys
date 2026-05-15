@@ -124,7 +124,8 @@ onLoad(async (opts: any) => {
   background: $surface;
 }
 .main-scroll {
-  height: calc(100vh - 88rpx);
+  height: 100vh;
+  padding-top: calc(env(safe-area-inset-top) + 88rpx);
 }
 
 .hero-strip {

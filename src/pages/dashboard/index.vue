@@ -87,6 +87,7 @@ onShow(() => {
 
 .main-scroll {
   height: calc(100vh - 110rpx);
+  padding-top: calc(env(safe-area-inset-top) + 88rpx);
 }
 
 .hero-strip {

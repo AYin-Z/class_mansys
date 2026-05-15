@@ -160,7 +160,7 @@ onShow(() => { fetchNotices() })
 @import "@/uni.scss";
 
 .page { min-height: 100vh; background: $surface; }
-.main-scroll { height: calc(100vh - 88rpx); }
+.main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .search-bar {
   margin: 20rpx 28rpx 12rpx;
