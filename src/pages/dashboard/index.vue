@@ -1,5 +1,12 @@
 <template>
-  <view class="dash-page">
+  <!-- 加载中 -->
+  <view v-if="!loaded" class="dash-page">
+    <view class="loading-box">
+      <text class="loading-text">加载中...</text>
+    </view>
+  </view>
+  <!-- 仪表盘内容 -->
+  <view v-else class="dash-page">
     <custom-nav-bar title="班级仪表盘" />
 
     <scroll-view scroll-y class="main-scroll">
@@ -60,17 +67,30 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getRoleLabel } from '@/constants/roles'
 import { useUserStore } from '@/stores/user'
 
 const store = useUserStore()
+const loaded = ref(false)
+let redirecting = false
 
 // 非干部直接退回首页
 onLoad(() => {
-  if (!store.isAdmin) {
-    uni.reLaunch({ url: '/pages/index/index' })
+  try {
+    if (redirecting) return
+    if (!store.isAdmin) {
+      redirecting = true
+      console.log('[dashboard] not admin, redirecting to index')
+      uni.reLaunch({ url: '/pages/index/index' })
+      return
+    }
+    console.log('[dashboard] admin confirmed, rendering')
+    loaded.value = true
+  } catch (e) {
+    console.error('[dashboard] onLoad error:', e)
+    loaded.value = true  // 出错仍尝试渲染
   }
 })
 const roleLabel = computed(() => getRoleLabel(store.user?.role))
@@ -86,6 +106,17 @@ function goPage(url: string) {
 .dash-page {
   min-height: 100vh;
   background: $surface;
+}
+
+.loading-box {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.loading-text {
+  font-size: 28rpx;
+  color: $on-surface-tertiary;
 }
 
 .main-scroll {

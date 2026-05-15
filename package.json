@@ -1,6 +1,6 @@
 {
   "name": "class_manage_sys",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "区队管理系统 - 基于 uni-app 框架",
   "type": "module",
   "main": "src/main.ts",
@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@capacitor/android": "^8.3.1",
+    "@capacitor/app": "^8.1.0",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
     "@cloudbase/adapter-uni-app": "^1.1.0",
