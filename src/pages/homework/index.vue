@@ -82,7 +82,7 @@ onShow(() => { fetchList() })
 <style lang="scss" scoped>
 @import "@/uni.scss";
 .homework-page { min-height: 100vh; background-color: #f7f9fc; }
-.main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
+.main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); padding-bottom: calc(140rpx + env(safe-area-inset-bottom)); }
 
 .hw-list { padding: 24rpx 32rpx; }
 .hw-card { position: relative; display: flex; background: #fff; border-radius: 18rpx; overflow: hidden; margin-bottom: 14rpx; &:active { opacity: 0.85; } }
