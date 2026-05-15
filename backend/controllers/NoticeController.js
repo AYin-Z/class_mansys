@@ -84,6 +84,16 @@ class NoticeController {
     }
   }
 
+  /** 获取待办通知的完成名单 */
+  static async getTodoCompletion(req, res) {
+    try {
+      const result = await Notice.getTodoCompletionStatus(req.params.id);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(500).json({ success: false, error: '获取完成状态失败' });
+    }
+  }
+
   static async updateNotice(req, res) {
     try {
       const { id } = req.params;

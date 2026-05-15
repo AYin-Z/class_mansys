@@ -9,6 +9,7 @@ router.get('/', authenticateToken, NoticeController.getNotices);
 router.get('/unread/count', authenticateToken, NoticeController.getUnreadCount);
 router.get('/todo/count', authenticateToken, NoticeController.getTodoCount);
 router.post('/:id/complete', authenticateToken, NoticeController.completeTodo);
+router.get('/:id/completion', authenticateToken, NoticeController.getTodoCompletion);
 router.get('/:id', authenticateToken, NoticeController.getNoticeDetail);
 router.put('/:id', authenticateToken, authorizeAdmin, NoticeController.updateNotice);
 router.delete('/:id', authenticateToken, authorizeAdmin, NoticeController.deleteNotice);

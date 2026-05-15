@@ -54,6 +54,9 @@ export const ADMIN_ROLE_IDS: UserRoleId[] = [
  * 每条权限只在这里声明一次，UI 与路由判定都从这里读
  */
 export const PERMISSIONS = {
+  // 班级仪表盘
+  ACCESS_DASHBOARD: ADMIN_ROLE_IDS,
+
   // 通知/公告
   PUBLISH_NOTICE: ADMIN_ROLE_IDS,
   PUBLISH_ANNOUNCEMENT: [USER_ROLES.CLASS_LEADER, USER_ROLES.SUPER_ADMIN],

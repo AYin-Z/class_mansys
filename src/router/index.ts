@@ -279,6 +279,11 @@ const routes: RouteRecordRaw[] = [
     path: '/pages/admin/members/detail',
     name: 'admin-members-detail',
     component: () => import('@/pages/admin/members/detail.vue')
+  },
+  {
+    path: '/pages/dashboard/index',
+    name: 'dashboard-index',
+    component: () => import('@/pages/dashboard/index.vue')
   }
 ]
 

@@ -116,13 +116,28 @@ class Notice {
 
   static async getTodoCount(user_id) {
     const [rows] = await db.query(
-      `SELECT COUNT(*) AS count
-       FROM notices n
-       LEFT JOIN notice_completions nc ON n.id = nc.notice_id AND nc.user_id = ?
-       WHERE n.is_todo = true AND nc.id IS NULL`,
+      'SELECT COUNT(*) as cnt FROM notices n LEFT JOIN notice_completions nc ON n.id = nc.notice_id AND nc.user_id = ? WHERE n.is_todo = true AND nc.id IS NULL',
       [user_id]
     );
-    return rows[0].count;
+    return rows[0].cnt;
+  }
+
+  /** 获取指定待办通知的完成状态 */
+  static async getTodoCompletionStatus(notice_id) {
+    const [completed] = await db.query(
+      `SELECT u.id, u.name, u.student_id, nc.completed_at
+       FROM notice_completions nc
+       JOIN users u ON nc.user_id = u.id
+       WHERE nc.notice_id = ?
+       ORDER BY nc.completed_at`,
+      [notice_id]
+    );
+    const [allUsers] = await db.query(
+      'SELECT id, name, student_id FROM users WHERE role = 0 ORDER BY student_id'
+    );
+    const completedIds = new Set(completed.map(c => c.id));
+    const pending = allUsers.filter(u => !completedIds.has(u.id));
+    return { completed, pending, total: allUsers.length };
   }
 }
 

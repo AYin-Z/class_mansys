@@ -95,3 +95,14 @@ export function updateNotice(id: number, params: NoticeCreateParams): Promise<{ 
 export function deleteNotice(id: number): Promise<{ success: boolean }> {
   return del(`/api/notice/${id}`)
 }
+
+/** 获取待办通知完成情况 */
+export interface TodoCompletionResult {
+  success: boolean
+  completed: { id: number; name: string; student_id: string; completed_at: string }[]
+  pending: { id: number; name: string; student_id: string }[]
+  total: number
+}
+export function getTodoCompletion(id: number): Promise<TodoCompletionResult> {
+  return get(`/api/notice/${id}/completion`)
+}

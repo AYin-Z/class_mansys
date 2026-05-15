@@ -1,7 +1,7 @@
 <template>
   <view class="tab-bar" :style="{ paddingBottom: safeAreaBottom + 'px' }">
     <view
-      v-for="item in tabs"
+      v-for="item in visibleTabs"
       :key="item.key"
       class="tab-item"
       :class="{ active: item.key === current }"
@@ -17,20 +17,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useSystemInfo } from '@/composables/useSystemInfo'
 import { getUnreadCount } from '@/api/notice'
+import { useUserStore } from '@/stores/user'
 
 const props = defineProps({
   current: {
     type: String,
     required: true,
-    validator: v => ['home', 'notice', 'homework', 'leave', 'profile'].includes(v)
+    validator: v => ['home', 'notice', 'homework', 'leave', 'profile', 'dashboard'].includes(v)
   }
 })
 
 const { safeAreaBottom } = useSystemInfo()
-
+const store = useUserStore()
 const unreadCount = ref(0)
 
 onMounted(async () => {
@@ -40,13 +41,21 @@ onMounted(async () => {
   } catch (_) {}
 })
 
-const tabs = [
+const allTabs = [
   { key: 'home',     label: '首页',   icon: '🏠', iconActive: '🏠', url: '/pages/index/index' },
   { key: 'notice',   label: '通知',   icon: '🔔', iconActive: '🔔', url: '/pages/notice/index' },
   { key: 'homework', label: '作业',   icon: '📝', iconActive: '📝', url: '/pages/homework/index' },
   { key: 'leave',    label: '请假',   icon: '📋', iconActive: '📋', url: '/pages/leave/index' },
-  { key: 'profile',  label: '我的',   icon: '👤', iconActive: '👤', url: '/pages/profile/index' }
+  { key: 'profile',  label: '我的',   icon: '👤', iconActive: '👤', url: '/pages/profile/index' },
+  { key: 'dashboard', label: '仪表盘', icon: '📊', iconActive: '📊', url: '/pages/dashboard/index' },
 ]
+
+const visibleTabs = computed(() => {
+  const isCadre = store.isAdmin
+  if (isCadre) return allTabs
+  // 非干部：不显示仪表盘
+  return allTabs.filter(t => t.key !== 'dashboard')
+})
 
 function onTap(item) {
   if (item.key === props.current) return
