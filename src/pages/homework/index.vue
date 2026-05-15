@@ -108,6 +108,6 @@ onShow(() => { fetchList() })
 .empty-title { font-size: 30rpx; font-weight: 600; color: #43474f; }
 .empty-hint { font-size: 24rpx; color: #c3c6d1; line-height: 1.5; }
 
-.fab { position: fixed; right: 40rpx; bottom: calc(60rpx + env(safe-area-inset-bottom)); width: 112rpx; height: 112rpx; border-radius: 56rpx; background: #001e40; display: flex; align-items: center; justify-content: center; box-shadow: 0 16rpx 32rpx rgba(0,30,64,0.25); z-index: 50; }
+.fab { position: fixed; right: 40rpx; bottom: calc(180rpx + env(safe-area-inset-bottom)); width: 112rpx; height: 112rpx; border-radius: 56rpx; background: #001e40; display: flex; align-items: center; justify-content: center; box-shadow: 0 16rpx 32rpx rgba(0,30,64,0.25); z-index: 50; }
 .fab-icon { color: #fff; font-size: 56rpx; line-height: 1; }
 </style>
