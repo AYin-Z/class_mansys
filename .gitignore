@@ -71,8 +71,11 @@ dev-app.err.log
 cert/
 certs/
 
-# Capacitor Android 构建产物（android/ 目录整体要提交，但构建产物要排除）
-android/app/build/
+# APK 构建产物
+android/app/build/outputs/
+*.apk
+# 但保留已发布的 APK（backend/apk/ 下的发布版）
+!backend/apk/*.apk
 android/build/
 android/.gradle/
 android/local.properties

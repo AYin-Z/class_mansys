@@ -3,11 +3,11 @@
     "versionName": "1.0.0",
     "versionCode": 100,
     "minVersionCode": 100,
-    "downloadUrl": "",
-    "apkSize": 0,
-    "releasedAt": "2026-04-22",
+    "downloadUrl": "https://cls.ayinserver.xin/apk/class-mansys-v1.0.0.apk",
+    "apkSize": 5242880,
+    "releasedAt": "2026-05-15",
     "forceUpdate": false,
-    "changelog": "首次发布\n- 完整实现 18+ 业务模块\n- 适配 Android 5.0+ 系统"
+    "changelog": "首次发布\n- 完整实现 18+ 业务模块\n- 适配 Android 5.0+ 系统\n- TypeScript strict 模式\n- SCSS 设计系统全覆盖"
   },
   "ios": {
     "versionName": "",

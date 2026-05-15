@@ -52,6 +52,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // 静态文件服务
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/apk', express.static(path.join(__dirname, 'apk')));
 
 // 速率限制（仅限API路由，不影响静态资源）
 const limiter = rateLimit({
