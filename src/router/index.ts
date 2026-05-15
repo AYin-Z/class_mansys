@@ -281,6 +281,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/pages/admin/members/detail.vue')
   },
   {
+    path: '/pages/dashboard/notice-completion',
+    name: 'dashboard-notice-completion',
+    component: () => import('@/pages/dashboard/notice-completion.vue')
+  },
+  {
     path: '/pages/dashboard/notice-manage',
     name: 'dashboard-notice-manage',
     component: () => import('@/pages/dashboard/notice-manage.vue')
