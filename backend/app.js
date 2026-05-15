@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
-require('dotenv').config({ override: true });
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const db = require('./config/database');
 
@@ -50,15 +50,15 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 速率限制
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15分钟
-  max: 100 // 每个IP限制100个请求
-});
-app.use(limiter);
-
 // 静态文件服务
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// 速率限制（仅限API路由，不影响静态资源）
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15分钟
+  max: 200 // 每个IP限制200个API请求
+});
+app.use('/api', limiter);
 
 // 操作记录中间件（只记录写操作，失败自吞）
 app.use('/api', require('./middleware/operationLog'));
