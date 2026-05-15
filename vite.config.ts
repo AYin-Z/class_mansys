@@ -133,6 +133,23 @@ export { isInSSRComponentSetup, injectHook, logError, onBeforeActivate, onBefore
       }
     },
   ],
+  css: {
+    postcss: {
+      plugins: [
+        {
+          postcssPlugin: 'rpx-to-viewport',
+          Declaration(decl) {
+            if (decl.value.includes('rpx')) {
+              decl.value = decl.value.replace(
+                /(\d+(?:\.\d+)?)rpx/g,
+                (_, num) => `calc(${num} * 100vw / 750)`
+              )
+            }
+          },
+        },
+      ],
+    },
+  },
   build: {
     target: 'esnext',
     outDir: 'dist',
