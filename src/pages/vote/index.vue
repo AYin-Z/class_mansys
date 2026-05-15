@@ -78,8 +78,9 @@ onShow(() => {
 })
 </script>
 
-<style lang="scss" scoped
-> .vote-page { min-height: 100vh; background-color: #f7f9fc; }
+<style lang="scss" scoped>
+@import "@/uni.scss";
+.vote-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .vote-list { padding: 24rpx 32rpx; }

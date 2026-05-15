@@ -200,87 +200,88 @@ onMounted(() => loadData())
 </script>
 
 <style lang="scss" scoped>
-.vote-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";
+.vote-page { min-height: 100vh; background-color: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .active-vote-card {
-  margin: 24rpx 32rpx; background: #fff; border-radius: 24rpx; overflow: hidden;
+  margin: 24rpx 32rpx; background: $surface-container-lowest; border-radius: 24rpx; overflow: hidden;
 }
 .vote-header { display: flex; align-items: center; justify-content: space-between; padding: 28rpx 28rpx 0; }
 .status-badge {
   padding: 8rpx 20rpx; border-radius: 999rpx; font-size: 22rpx; font-weight: 600;
-  &.active { background: rgba(70,98,112,0.1); color: #466270; }
+  &.active { background: rgba(70,98,112,0.1); color: $secondary; }
 }
-.deadline { font-size: 22rpx; color: #c3c6d1; }
+.deadline { font-size: 22rpx; color: $outline-variant; }
 .vote-title {
-  font-family: 'PingFang SC'; font-size: 32rpx; font-weight: 700; color: #191c1e;
+  font-family: 'PingFang SC'; font-size: 32rpx; font-weight: 700; color: $on-surface;
   padding: 20rpx 28rpx 12rpx;
 }
-.vote-desc { font-size: 26rpx; color: #43474f; line-height: 1.5; padding: 0 28rpx; }
+.vote-desc { font-size: 26rpx; color: $on-surface-variant; line-height: 1.5; padding: 0 28rpx; }
 
-.progress-section { margin: 28rpx; background: #f7f9fc; border-radius: 16rpx; padding: 24rpx; }
+.progress-section { margin: 28rpx; background: $surface; border-radius: 16rpx; padding: 24rpx; }
 .progress-header { display: flex; justify-content: space-between; margin-bottom: 14rpx; }
-.progress-label { font-size: 24rpx; color: #43474f; font-weight: 500; }
-.progress-rate { font-family: 'PingFang SC'; font-size: 26rpx; font-weight: 700; color: #001e40; }
-.progress-bar { height: 14rpx; background: #e6e8eb; border-radius: 7rpx; overflow: hidden; }
+.progress-label { font-size: 24rpx; color: $on-surface-variant; font-weight: 500; }
+.progress-rate { font-family: 'PingFang SC'; font-size: 26rpx; font-weight: 700; color: $primary; }
+.progress-bar { height: 14rpx; background: $surface-container-high; border-radius: 7rpx; overflow: hidden; }
 .progress-fill { height: 100%; background: linear-gradient(90deg, #001e40, #003366); border-radius: 7rpx; transition: width 0.3s; }
 .vote-stats { display: flex; gap: 16rpx; margin-top: 14rpx; flex-wrap: wrap; }
-.stat-item { font-size: 22rpx; color: #c3c6d1; }
+.stat-item { font-size: 22rpx; color: $outline-variant; }
 
 .options-section { padding: 0 28rpx; }
 .option-item {
   position: relative; margin-bottom: 12rpx; padding: 20rpx; border-radius: 14rpx;
-  background: #f7f9fc; overflow: hidden; display: flex; align-items: center; gap: 12rpx;
+  background: $surface; overflow: hidden; display: flex; align-items: center; gap: 12rpx;
   &.selected { background: rgba(0,30,64,0.06); }
   &.voted { pointer-events: none; }
 }
 .option-bar-bg {
-  position: absolute; left: 0; bottom: 0; height: 4rpx; background: #e6e8eb; width: 100%;
+  position: absolute; left: 0; bottom: 0; height: 4rpx; background: $surface-container-high; width: 100%;
 }
 .option-bar {
   height: 100%; background: linear-gradient(90deg, #001e40, #003366);
   border-radius: 2rpx; transition: width 0.5s;
 }
 .option-label {
-  width: 36rpx; height: 36rpx; border-radius: 50%; background: #fff; border: 2rpx solid #d0d3d9;
+  width: 36rpx; height: 36rpx; border-radius: 50%; background: $surface-container-lowest; border: 2rpx solid #d0d3d9;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  .selected & { background: #001e40; border-color: #001e40; }
+  .selected & { background: $primary; border-color: $primary; }
 }
-.option-marker { font-size: 22rpx; font-weight: 700; color: #fff; }
+.option-marker { font-size: 22rpx; font-weight: 700; color: $on-primary; }
 .option-content { flex: 1; display: flex; gap: 8rpx; align-items: center; }
-.option-text { font-size: 26rpx; color: #191c1e; }
-.option-count { font-size: 22rpx; color: #c3c6d1; }
+.option-text { font-size: 26rpx; color: $on-surface; }
+.option-count { font-size: 22rpx; color: $outline-variant; }
 
 .vote-actions { padding: 16rpx 28rpx 24rpx; }
 .vote-btn.submit {
   width: 100%; height: 88rpx; border-radius: 18rpx; border: none;
-  background: linear-gradient(135deg, #001e40, #003366); color: #fff;
+  background: $gradient-primary; color: $on-primary;
   display: flex; align-items: center; justify-content: center;
   &:disabled { opacity: 0.5; }
   &:not(:disabled):active { transform: scale(0.97); }
 }
-.voted-msg { text-align: center; padding: 20rpx; font-size: 26rpx; color: #466270; font-weight: 500; }
+.voted-msg { text-align: center; padding: 20rpx; font-size: 26rpx; color: $secondary; font-weight: 500; }
 
 .threshold-info { padding: 0 28rpx 28rpx; }
-.threshold-text { font-size: 22rpx; color: #c3c6d1; }
+.threshold-text { font-size: 22rpx; color: $outline-variant; }
 
 .empty-state, .loading-state { padding: 120rpx 48rpx; text-align: center; }
-.loading-text { font-size: 28rpx; color: #c3c6d1; }
+.loading-text { font-size: 28rpx; color: $outline-variant; }
 .empty-icon { font-size: 64rpx; display: block; margin-bottom: 16rpx; }
-.empty-title { font-size: 28rpx; color: #c3c6d1; }
+.empty-title { font-size: 28rpx; color: $outline-variant; }
 
 .history-section { margin: 40rpx 32rpx 0; }
-.section-title { font-family: 'PingFang SC'; font-size: 30rpx; font-weight: 600; color: #191c1e; display: block; margin-bottom: 20rpx; }
+.section-title { font-family: 'PingFang SC'; font-size: 30rpx; font-weight: 600; color: $on-surface; display: block; margin-bottom: 20rpx; }
 .history-list { display: flex; flex-direction: column; gap: 12rpx; }
-.history-card { position: relative; display: flex; background: #fff; border-radius: 16rpx; overflow: hidden; }
+.history-card { position: relative; display: flex; background: $surface-container-lowest; border-radius: 16rpx; overflow: hidden; }
 .result-indicator {
   width: 8rpx; flex-shrink: 0;
-  &.pass { background: #003366; }
+  &.pass { background: $primary-container; }
   &.fail { background: #460002; }
 }
 .history-body { flex: 1; padding: 20rpx 20rpx 20rpx 16rpx; }
-.history-title { font-size: 27rpx; font-weight: 500; color: #191c1e; display: block; }
-.history-result { font-size: 23rpx; color: #43474f; display: block; margin-top: 6rpx; }
-.history-time { font-size: 21rpx; color: #c3c6d1; display: block; margin-top: 4rpx; }
+.history-title { font-size: 27rpx; font-weight: 500; color: $on-surface; display: block; }
+.history-result { font-size: 23rpx; color: $on-surface-variant; display: block; margin-top: 6rpx; }
+.history-time { font-size: 21rpx; color: $outline-variant; display: block; margin-top: 4rpx; }
 .empty-history { padding: 60rpx; text-align: center; }
 </style>

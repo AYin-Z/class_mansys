@@ -161,9 +161,10 @@ function onDelete() {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
 .detail-page {
   min-height: 100vh;
-  background-color: #f7f9fc;
+  background-color: $surface;
 }
 
 .main-scroll {
@@ -190,16 +191,16 @@ function onDelete() {
   font-size: 22rpx;
   font-weight: 600;
 
-  .urgent & { color: #460002; }
-  .important & { color: #001e40; }
-  .daily & { color: #466270; }
+  .urgent & { color: $tertiary; }
+  .important & { color: $primary; }
+  .daily & { color: $secondary; }
 }
 
 .detail-title {
   font-family: 'PingFang SC', sans-serif;
   font-size: 36rpx;
   font-weight: 700;
-  color: #191c1e;
+  color: $on-surface;
   line-height: 1.4;
   display: block;
   margin-bottom: 16rpx;
@@ -213,12 +214,12 @@ function onDelete() {
 
 .meta-item {
   font-size: 24rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
 }
 
 .meta-dot {
   font-size: 24rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
 }
 
 .content-card {
@@ -239,7 +240,7 @@ function onDelete() {
   font-family: 'PingFang SC', sans-serif;
   font-size: 26rpx;
   font-weight: 600;
-  color: #191c1e;
+  color: $on-surface;
   display: block;
   margin-bottom: 20rpx;
 }
@@ -255,7 +256,7 @@ function onDelete() {
   align-items: center;
   gap: 14rpx;
   padding: 18rpx 20rpx;
-  background: #f2f4f7;
+  background: $surface-container-low;
   border-radius: 14rpx;
 
   &:active {
@@ -270,7 +271,7 @@ function onDelete() {
 .file-name {
   flex: 1;
   font-size: 26rpx;
-  color: #191c1e;
+  color: $on-surface;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -278,7 +279,7 @@ function onDelete() {
 
 .file-size {
   font-size: 22rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
   flex-shrink: 0;
 }
 
@@ -290,8 +291,8 @@ function onDelete() {
   flex: 1;
   height: 88rpx;
   border-radius: 14rpx;
-  background: #001e40;
-  color: #ffffff;
+  background: $primary;
+  color: $on-primary;
   font-size: 28rpx;
   font-weight: 600;
   display: flex;
@@ -303,8 +304,8 @@ function onDelete() {
 .btn-danger {
   height: 88rpx;
   border-radius: 14rpx;
-  background: #460002;
-  color: #ffffff;
+  background: $tertiary;
+  color: $on-primary;
   font-size: 28rpx;
   font-weight: 600;
   display: flex;

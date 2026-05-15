@@ -94,6 +94,7 @@ onShow(() => {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
 .cancel-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #e8eef5 0%, #f4f6f9 100%);

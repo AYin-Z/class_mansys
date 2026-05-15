@@ -63,8 +63,9 @@ function goCreate() {
 onShow(() => fetchAlbums())
 </script>
 
-<style lang="scss" scoped
-> .album-page { min-height: 100vh; background-color: #f7f9fc; }
+<style lang="scss" scoped>
+@import "@/uni.scss";
+.album-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .album-grid {

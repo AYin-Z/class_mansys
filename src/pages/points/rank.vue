@@ -47,8 +47,9 @@ async function fetchRank() {
 onShow(() => { fetchRank() })
 </script>
 
-<style lang="scss" scoped
-> .rank-page { min-height: 100vh; background-color: #f7f9fc; }
+<style lang="scss" scoped>
+@import "@/uni.scss";
+.rank-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .top-three {

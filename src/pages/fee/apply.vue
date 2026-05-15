@@ -137,9 +137,10 @@ async function onSubmit() {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
 .apply-page {
   min-height: 100vh;
-  background-color: #f7f9fc;
+  background-color: $surface;
 }
 
 .main-scroll {
@@ -152,32 +153,32 @@ async function onSubmit() {
 
 .section-label { margin-bottom: 20rpx; padding-left: 4rpx; }
 .label-text {
-  font-size: 22rpx; font-weight: 600; color: #43474f; text-transform: uppercase; letter-spacing: 4rpx;
+  font-size: 22rpx; font-weight: 600; color: $on-surface-variant; text-transform: uppercase; letter-spacing: 4rpx;
 }
 
-.form-card { background: #ffffff; border-radius: 20rpx; overflow: hidden; }
+.form-card { background: $surface-container-lowest; border-radius: 20rpx; overflow: hidden; }
 .form-row { padding: 28rpx 24rpx; }
 .row-label {
-  font-size: 28rpx; font-weight: 500; color: #191c1e;
+  font-size: 28rpx; font-weight: 500; color: $on-surface;
   &.block { display: block; margin-bottom: 16rpx; }
 }
 .solid-textarea {
-  width: 100%; min-height: 140rpx; font-size: 28rpx; color: #191c1e;
-  background: #f7f9fc; border-radius: 12rpx; padding: 20rpx; border: none; box-sizing: border-box;
+  width: 100%; min-height: 140rpx; font-size: 28rpx; color: $on-surface;
+  background: $surface; border-radius: 12rpx; padding: 20rpx; border: none; box-sizing: border-box;
   &.small { min-height: 100rpx; }
-  &::placeholder { color: #c3c6d1; }
+  &::placeholder { color: $outline-variant; }
 }
 .divider { height: 1rpx; margin-left: 24rpx; margin-right: 24rpx; background: transparent; }
 
 .amount-input-wrap {
   display: flex; align-items: center; gap: 8rpx;
-  background: #f7f9fc; border-radius: 12rpx; padding: 16rpx 20rpx;
+  background: $surface; border-radius: 12rpx; padding: 16rpx 20rpx;
 }
-.amount-prefix { font-size: 36rpx; font-weight: 700; color: #001e40; }
+.amount-prefix { font-size: 36rpx; font-weight: 700; color: $primary; }
 .amount-input {
-  flex: 1; height: 52rpx; font-size: 40rpx; font-weight: 600; color: #191c1e;
+  flex: 1; height: 52rpx; font-size: 40rpx; font-weight: 600; color: $on-surface;
   background: transparent; border: none;
-  &::placeholder { color: #c3c6d1; }
+  &::placeholder { color: $outline-variant; }
 }
 
 .upload-section { padding: 28rpx 24rpx; }
@@ -193,20 +194,20 @@ async function onSubmit() {
   background: rgba(70,0,2,0.8); border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
 }
-.remove-x { color: #fff; font-size: 24rpx; line-height: 1; }
+.remove-x { color: $on-primary; font-size: 24rpx; line-height: 1; }
 .add-proof {
   width: 160rpx; height: 160rpx; border: 2rpx dashed rgba(195,198,209,0.5);
   border-radius: 14rpx; display: flex; align-items: center; justify-content: center;
 }
-.add-icon { font-size: 48rpx; color: #c3c6d1; }
+.add-icon { font-size: 48rpx; color: $outline-variant; }
 
 .flow-card {
-  margin-top: 32rpx; background: linear-gradient(135deg, rgba(0,30,64,0.03), rgba(0,51,102,0.02));
-  border-radius: 20rpx; padding: 28rpx 24rpx; border-left: 10rpx solid #001e40;
+  margin-top: 32rpx; background: $gradient-glass;
+  border-radius: 20rpx; padding: 28rpx 24rpx; border-left: 10rpx solid $primary;
 }
 .flow-title {
   font-family: 'PingFang SC', sans-serif; font-size: 26rpx; font-weight: 600;
-  color: #191c1e; display: block; margin-bottom: 24rpx;
+  color: $on-surface; display: block; margin-bottom: 24rpx;
 }
 .flow-steps { display: flex; align-items: center; }
 .flow-step {
@@ -214,13 +215,13 @@ async function onSubmit() {
 }
 .step-dot {
   width: 44rpx; height: 44rpx; border-radius: 50%;
-  background: #f2f4f7; display: flex; align-items: center; justify-content: center;
-  font-size: 22rpx; font-weight: 700; color: #c3c6d1;
-  &.done { background: linear-gradient(135deg, #001e40, #003366); color: #ffffff; }
+  background: $surface-container-low; display: flex; align-items: center; justify-content: center;
+  font-size: 22rpx; font-weight: 700; color: $outline-variant;
+  &.done { background: $gradient-primary; color: $on-primary; }
 }
-.step-text { font-size: 20rpx; color: #43474f; text-align: center; white-space: nowrap; }
+.step-text { font-size: 20rpx; color: $on-surface-variant; text-align: center; white-space: nowrap; }
 .step-line {
-  flex: 1; height: 2rpx; background: #e6e8eb; margin: 0 -12rpx;
+  flex: 1; height: 2rpx; background: $surface-container-high; margin: 0 -12rpx;
   margin-bottom: 30rpx;
 }
 
@@ -230,12 +231,12 @@ async function onSubmit() {
   background: rgba(255,255,255,0.85); backdrop-filter: blur(40rpx); z-index: 100;
 }
 .primary-btn {
-  width: 100%; height: 96rpx; background: linear-gradient(135deg, #001e40, #003366);
+  width: 100%; height: 96rpx; background: $gradient-primary;
   border-radius: 20rpx; border: none; display: flex; align-items: center; justify-content: center;
   box-shadow: 0 8rpx 32rpx rgba(0,30,64,0.25);
   &:active { transform: scale(0.98); }
 }
 .btn-text {
-  font-family: 'PingFang SC', sans-serif; font-size: 32rpx; font-weight: 700; color: #fff;
+  font-family: 'PingFang SC', sans-serif; font-size: 32rpx; font-weight: 700; color: $on-primary;
 }
 </style>

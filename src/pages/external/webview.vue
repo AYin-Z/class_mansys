@@ -17,6 +17,7 @@ onLoad((options) => {
 })
 </script>
 
-<style lang="scss" scoped
-> .webview-page { min-height: 100vh; background-color: #f7f9fc; }
+<style lang="scss" scoped>
+@import "@/uni.scss";
+.webview-page { min-height: 100vh; background-color: #f7f9fc; }
 </style>

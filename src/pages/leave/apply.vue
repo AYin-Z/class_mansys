@@ -207,15 +207,16 @@ async function onSubmit() {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
 .apply-page {
   min-height: 100vh;
-  background: #f7f9fc;
+  background: $surface;
 }
 
 .hero-strip {
   margin: 24rpx 32rpx 8rpx;
   padding: 28rpx 28rpx 24rpx;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  background: $gradient-primary;
   border-radius: 24rpx;
   box-shadow: 0 12rpx 40rpx rgba(0, 30, 64, 0.22);
 }
@@ -224,7 +225,7 @@ async function onSubmit() {
   display: block;
   font-size: 34rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: $on-primary;
   letter-spacing: 2rpx;
 }
 
@@ -254,13 +255,13 @@ async function onSubmit() {
 .label-text {
   font-size: 22rpx;
   font-weight: 600;
-  color: #43474f;
+  color: $on-surface-variant;
   letter-spacing: 4rpx;
   text-transform: uppercase;
 }
 
 .form-card {
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 22rpx;
   overflow: hidden;
 }
@@ -279,7 +280,7 @@ async function onSubmit() {
 .row-label {
   font-size: 28rpx;
   font-weight: 500;
-  color: #191c1e;
+  color: $on-surface;
 
   &.block {
     display: block;
@@ -296,17 +297,17 @@ async function onSubmit() {
 
 .value-text {
   font-size: 26rpx;
-  color: #191c1e;
+  color: $on-surface;
   text-align: right;
 
   &.placeholder {
-    color: #c3c6d1;
+    color: $outline-variant;
   }
 }
 
 .arrow {
   font-size: 36rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
   flex-shrink: 0;
 }
 
@@ -334,7 +335,7 @@ async function onSubmit() {
   justify-content: space-between;
   gap: 8rpx;
   padding: 18rpx 22rpx;
-  background: #f7f9fc;
+  background: $surface;
   border-radius: 14rpx;
 
   &:active {
@@ -344,16 +345,16 @@ async function onSubmit() {
 
 .sub-text {
   font-size: 26rpx;
-  color: #191c1e;
+  color: $on-surface;
 
   &.placeholder {
-    color: #c3c6d1;
+    color: $outline-variant;
   }
 }
 
 .sub-arrow {
   font-size: 22rpx;
-  color: #001e40;
+  color: $primary;
   flex-shrink: 0;
 }
 
@@ -365,15 +366,15 @@ async function onSubmit() {
   width: 100%;
   min-height: 160rpx;
   font-size: 28rpx;
-  color: #191c1e;
+  color: $on-surface;
   border: none;
-  background: #f7f9fc;
+  background: $surface;
   border-radius: 12rpx;
   padding: 18rpx;
   box-sizing: border-box;
 
   &::placeholder {
-    color: #c3c6d1;
+    color: $outline-variant;
   }
 }
 
@@ -393,7 +394,7 @@ async function onSubmit() {
 .primary-btn {
   width: 100%;
   height: 96rpx;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  background: $gradient-primary;
   border-radius: 20rpx;
   border: none;
   display: flex;
@@ -409,6 +410,6 @@ async function onSubmit() {
 .btn-text {
   font-size: 32rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: $on-primary;
 }
 </style>

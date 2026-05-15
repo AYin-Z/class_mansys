@@ -201,9 +201,10 @@ onShow(() => {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
 .leave-page {
   min-height: 100vh;
-  background: #f7f9fc;
+  background: $surface;
 }
 
 .main-scroll {
@@ -214,7 +215,7 @@ onShow(() => {
 .hero-strip {
   margin: 16rpx 32rpx 24rpx;
   padding: 32rpx 28rpx 28rpx;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  background: $gradient-primary;
   border-radius: 24rpx;
   box-shadow: 0 12rpx 40rpx rgba(0, 30, 64, 0.22);
 }
@@ -233,7 +234,7 @@ onShow(() => {
   margin-top: 12rpx;
   font-size: 40rpx;
   font-weight: 800;
-  color: #ffffff;
+  color: $on-primary;
   letter-spacing: 2rpx;
 }
 
@@ -253,17 +254,17 @@ onShow(() => {
 
 .stat-card {
   flex: 1;
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 20rpx;
   padding: 26rpx 16rpx;
   text-align: center;
 
   &.accent {
-    background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+    background: $gradient-primary;
 
     .stat-num,
     .stat-label {
-      color: #ffffff;
+      color: $on-primary;
     }
   }
 }
@@ -271,13 +272,13 @@ onShow(() => {
 .stat-num {
   font-size: 44rpx;
   font-weight: 700;
-  color: #001e40;
+  color: $primary;
   display: block;
 }
 
 .stat-label {
   font-size: 22rpx;
-  color: #43474f;
+  color: $on-surface-variant;
   margin-top: 6rpx;
   display: block;
 }
@@ -299,21 +300,21 @@ onShow(() => {
   border-radius: 20rpx;
 
   &.primary {
-    background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+    background: $gradient-primary;
     box-shadow: 0 10rpx 28rpx rgba(0, 30, 64, 0.22);
 
     .action-icon,
     .action-text {
-      color: #ffffff;
+      color: $on-primary;
     }
   }
 
   &.secondary {
-    background: #ffffff;
+    background: $surface-container-lowest;
 
     .action-icon,
     .action-text {
-      color: #001e40;
+      color: $primary;
     }
   }
 }
@@ -339,12 +340,12 @@ onShow(() => {
 .section-title {
   font-size: 30rpx;
   font-weight: 700;
-  color: #191c1e;
+  color: $on-surface;
 }
 
 .count-badge {
   font-size: 22rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
   font-weight: 500;
 }
 
@@ -355,7 +356,7 @@ onShow(() => {
 .leave-card {
   position: relative;
   display: flex;
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 20rpx;
   overflow: hidden;
   margin-bottom: 16rpx;
@@ -370,16 +371,16 @@ onShow(() => {
   flex-shrink: 0;
 
   &.pending {
-    background: #466270;
+    background: $secondary;
   }
   &.approved {
-    background: #001e40;
+    background: $primary;
   }
   &.rejected {
     background: #460002;
   }
   &.cancelled {
-    background: #c3c6d1;
+    background: $outline-variant;
   }
 }
 
@@ -398,7 +399,7 @@ onShow(() => {
 .leave-type {
   font-size: 28rpx;
   font-weight: 700;
-  color: #191c1e;
+  color: $on-surface;
 }
 
 .status-badge {
@@ -409,11 +410,11 @@ onShow(() => {
 
   &.pending {
     background: rgba(70, 98, 112, 0.10);
-    color: #466270;
+    color: $secondary;
   }
   &.approved {
     background: rgba(0, 30, 64, 0.06);
-    color: #001e40;
+    color: $primary;
   }
   &.rejected {
     background: rgba(70, 0, 2, 0.08);
@@ -421,13 +422,13 @@ onShow(() => {
   }
   &.cancelled {
     background: rgba(195, 198, 209, 0.20);
-    color: #43474f;
+    color: $on-surface-variant;
   }
 }
 
 .leave-reason {
   font-size: 26rpx;
-  color: #43474f;
+  color: $on-surface-variant;
   margin-bottom: 12rpx;
   display: block;
   line-height: 1.4;
@@ -440,7 +441,7 @@ onShow(() => {
 
 .meta-text {
   font-size: 22rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
 }
 
 .empty-state {
@@ -456,7 +457,7 @@ onShow(() => {
 
 .empty-text {
   font-size: 28rpx;
-  color: #43474f;
+  color: $on-surface-variant;
   font-weight: 500;
 }
 
@@ -464,7 +465,7 @@ onShow(() => {
   display: block;
   margin-top: 12rpx;
   font-size: 24rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
 }
 
 .admin-entry {
@@ -473,7 +474,7 @@ onShow(() => {
   align-items: center;
   gap: 20rpx;
   padding: 28rpx 24rpx;
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 20rpx;
 
   &:active {
@@ -494,7 +495,7 @@ onShow(() => {
 
 .admin-icon {
   font-size: 32rpx;
-  color: #001e40;
+  color: $primary;
 }
 
 .admin-info {
@@ -507,17 +508,17 @@ onShow(() => {
 .admin-title {
   font-size: 28rpx;
   font-weight: 700;
-  color: #191c1e;
+  color: $on-surface;
 }
 
 .admin-desc {
   font-size: 22rpx;
-  color: #43474f;
+  color: $on-surface-variant;
 }
 
 .admin-arrow {
   font-size: 40rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
 }
 
 .page-spacer {

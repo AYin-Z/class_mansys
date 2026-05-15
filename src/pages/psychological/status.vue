@@ -91,6 +91,7 @@ onShow(() => fetch())
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
 .status-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 

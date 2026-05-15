@@ -100,8 +100,9 @@ function goAction(act) {
 onShow(() => { fetchAll() })
 </script>
 
-<style lang="scss" scoped
-> .points-page { min-height: 100vh; background-color: #f7f9fc; }
+<style lang="scss" scoped>
+@import "@/uni.scss";
+.points-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .overview-card {

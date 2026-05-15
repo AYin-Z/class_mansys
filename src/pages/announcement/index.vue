@@ -169,8 +169,9 @@ function refresh() {
 onShow(() => refresh())
 </script>
 
-<style lang="scss" scoped
->
+<style lang="scss" scoped>
+@import "@/uni.scss";
+
 @import "@/uni.scss";
 
 .announcement-page { min-height: 100vh; background-color: $surface; }

@@ -67,7 +67,7 @@
       </view>
 
       <view class="loading-bar" v-if="loading" style="text-align: center; padding: 40rpx;">
-        <text style="font-size: 24rpx; color: #c3c6d1;">加载中...</text>
+        <text style="font-size: 24rpx; color: $outline-variant;">加载中...</text>
       </view>
       <view style="height: 40rpx;"></view>
     </scroll-view>
@@ -179,11 +179,12 @@ onMounted(() => loadData())
 </script>
 
 <style lang="scss" scoped>
-.supervision-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";
+.supervision-page { min-height: 100vh; background-color: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .overview-card {
-  margin: 24rpx 32rpx; background: linear-gradient(135deg, #001e40, #003366); border-radius: 24rpx;
+  margin: 24rpx 32rpx; background: $gradient-primary; border-radius: 24rpx;
   padding: 32rpx; overflow: hidden;
 }
 .overview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28rpx; }
@@ -193,12 +194,12 @@ onMounted(() => loadData())
 .overview-grid { display: flex; gap: 0; }
 .overview-item { flex: 1; text-align: center; }
 .overview-value {
-  font-family: 'PingFang SC'; font-size: 30rpx; font-weight: 700; color: #fff; display: block; margin-bottom: 8rpx;
+  font-family: 'PingFang SC'; font-size: 30rpx; font-weight: 700; color: $on-primary; display: block; margin-bottom: 8rpx;
 }
 .overview-label { font-size: 22rpx; color: rgba(255,255,255,0.55); }
 
-.section-block { margin: 32rpx 32rpx 0; background: #fff; border-radius: 20rpx; padding: 28rpx 24rpx; }
-.block-title { font-family: 'PingFang SC'; font-size: 26rpx; font-weight: 600; color: #191c1e; display: block; margin-bottom: 24rpx; }
+.section-block { margin: 32rpx 32rpx 0; background: $surface-container-lowest; border-radius: 20rpx; padding: 28rpx 24rpx; }
+.block-title { font-family: 'PingFang SC'; font-size: 26rpx; font-weight: 600; color: $on-surface; display: block; margin-bottom: 24rpx; }
 
 .trans-list { display: flex; flex-direction: column; gap: 4rpx; }
 .trans-item { display: flex; align-items: center; gap: 16rpx; padding: 18rpx 0; }
@@ -208,8 +209,8 @@ onMounted(() => loadData())
   &.out { background: #ffb4ab; }
 }
 .trans-info { flex: 1; min-width: 0; }
-.trans-title { font-size: 26rpx; color: #191c1e; font-weight: 500; display: block; }
-.trans-meta { font-size: 22rpx; color: #c3c6d1; display: block; margin-top: 4rpx; }
+.trans-title { font-size: 26rpx; color: $on-surface; font-weight: 500; display: block; }
+.trans-meta { font-size: 22rpx; color: $outline-variant; display: block; margin-top: 4rpx; }
 .trans-amount {
   font-family: 'PingFang SC'; font-size: 27rpx; font-weight: 600; flex-shrink: 0;
   &.in { color: #a7c8ff; }
@@ -222,15 +223,15 @@ onMounted(() => loadData())
 }
 .audit-step { display: flex; flex-direction: column; align-items: center; width: 36rpx; flex-shrink: 0; }
 .step-num {
-  width: 36rpx; height: 36rpx; border-radius: 50%; background: #f2f4f7; display: flex; align-items: center;
-  justify-content: center; font-size: 20rpx; font-weight: 700; color: #43474f;
+  width: 36rpx; height: 36rpx; border-radius: 50%; background: $surface-container-low; display: flex; align-items: center;
+  justify-content: center; font-size: 20rpx; font-weight: 700; color: $on-surface-variant;
 }
-.step-line { flex: 1; width: 2rpx; background: #e6e8eb; margin-top: 8rpx; }
+.step-line { flex: 1; width: 2rpx; background: $surface-container-high; margin-top: 8rpx; }
 .audit-content { display: flex; flex-direction: column; gap: 4rpx; padding-top: 2rpx; }
-.audit-action { font-size: 26rpx; font-weight: 500; color: #191c1e; }
-.audit-person { font-size: 23rpx; color: #43474f; }
-.audit-time { font-size: 21rpx; color: #c3c6d1; }
-.audit-note { font-size: 23rpx; color: #466270; font-style: italic; }
+.audit-action { font-size: 26rpx; font-weight: 500; color: $on-surface; }
+.audit-person { font-size: 23rpx; color: $on-surface-variant; }
+.audit-time { font-size: 21rpx; color: $outline-variant; }
+.audit-note { font-size: 23rpx; color: $secondary; font-style: italic; }
 .empty-block { padding: 40rpx 0; text-align: center; }
-.empty-text { font-size: 24rpx; color: #c3c6d1; }
+.empty-text { font-size: 24rpx; color: $outline-variant; }
 </style>

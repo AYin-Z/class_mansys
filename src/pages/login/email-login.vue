@@ -198,6 +198,7 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
 .login-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);

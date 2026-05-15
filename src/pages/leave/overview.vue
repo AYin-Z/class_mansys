@@ -126,10 +126,11 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import "@/uni.scss";
 .overview-page {
   min-height: 100vh;
-  background: #f7f9fc;
+  background: $surface;
 }
 .date-banner {
   padding: 24px 32px 12px;
@@ -162,12 +163,12 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  background: #001e40;
+  background: $primary;
 }
 .type-name {
   font-size: 28px;
   font-weight: 700;
-  color: #ffffff;
+  color: $on-primary;
 }
 .type-count {
   font-size: 22px;
@@ -182,17 +183,17 @@ onMounted(async () => {
   align-items: center;
   gap: 16px;
   padding: 18px 24px;
-  border-bottom: 1px solid #f2f4f7;
+  border-bottom: 1px solid $surface-container-low;
   cursor: pointer;
-  &:active { background: #f7f9fc; }
+  &:active { background: $surface; }
   &:last-child { border-bottom: none; }
 }
 .member-avatar {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #001e40, #003366);
-  color: #fff;
+  background: linear-gradient(135deg, $primary, $primary-container);
+  color: $on-primary;
   font-size: 20px;
   font-weight: 700;
   display: flex;
@@ -209,7 +210,7 @@ onMounted(async () => {
 .member-name {
   font-size: 26px;
   font-weight: 600;
-  color: #191c1e;
+  color: $on-surface;
 }
 .member-id {
   font-size: 22px;
@@ -218,7 +219,7 @@ onMounted(async () => {
 }
 .member-reason {
   font-size: 22px;
-  color: #43474f;
+  color: $on-surface-variant;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

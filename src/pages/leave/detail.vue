@@ -108,6 +108,7 @@ onLoad(async (options) => {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
 .detail-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #e8eef5 0%, #f4f6f9 100%);

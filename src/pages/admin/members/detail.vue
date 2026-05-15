@@ -201,9 +201,10 @@ onMounted(() => { if (memberId.value) load() })
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
 .detail-page {
   min-height: 100vh;
-  background: #f7f9fc;
+  background: $surface;
   display: flex;
   flex-direction: column;
 }
@@ -211,7 +212,7 @@ onMounted(() => { if (memberId.value) load() })
 .header-section {
   position: relative;
   padding: 48rpx 32rpx 32rpx;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  background: linear-gradient(135deg, $primary 0%, $primary-container 100%);
 }
 .brand-bar {
   position: absolute; left:0; top:0; bottom:0; width:12rpx;
@@ -283,7 +284,7 @@ onMounted(() => { if (memberId.value) load() })
 }
 .leave-row { display: flex; gap: 14rpx; font-size: 24rpx; }
 .leave-row .muted { min-width: 72rpx; color: #8c909a; }
-.leave-row .strong { font-weight: 600; color: #191c1e; }
+.leave-row .strong { font-weight: 600; color: $on-surface; }
 .leave-row .multi { flex:1; }
 
 .stats-row {
@@ -293,7 +294,7 @@ onMounted(() => { if (memberId.value) load() })
 }
 .stat-item {
   flex: 1;
-  background: #f7f9fc;
+  background: $surface;
   border-radius: 16rpx;
   padding: 16rpx 8rpx;
   text-align: center;
@@ -301,11 +302,11 @@ onMounted(() => { if (memberId.value) load() })
   flex-direction: column;
   gap: 4rpx;
 }
-.stat-num { font-size: 34rpx; font-weight: 700; color: #001e40; }
+.stat-num { font-size: 34rpx; font-weight: 700; color: $primary; }
 .stat-label { font-size: 22rpx; color: #8c909a; }
 
 .leave-card {
-  background: #f7f9fc;
+  background: $surface;
   border-radius: 16rpx;
   padding: 20rpx;
   display: flex;
@@ -313,7 +314,7 @@ onMounted(() => { if (memberId.value) load() })
   gap: 8rpx;
 }
 .leave-top { display: flex; justify-content: space-between; align-items: center; }
-.leave-type { font-size: 26rpx; font-weight: 600; color: #191c1e; }
+.leave-type { font-size: 26rpx; font-weight: 600; color: $on-surface; }
 .leave-status {
   padding: 2rpx 14rpx;
   border-radius: 20rpx;
@@ -325,7 +326,7 @@ onMounted(() => { if (memberId.value) load() })
 .leave-status.neutral { background: #e8ebf3; color: #5c6270; }
 
 .leave-range { font-size: 22rpx; color: #8c909a; }
-.leave-reason { font-size: 24rpx; color: #191c1e; }
+.leave-reason { font-size: 24rpx; color: $on-surface; }
 .leave-notes { font-size: 22rpx; color: #5c6270; font-style: italic; }
 
 .op-row {
@@ -347,11 +348,11 @@ onMounted(() => { if (memberId.value) load() })
   font-size: 20rpx;
   font-weight: 700;
   padding: 2rpx 10rpx;
-  background: rgba(0, 30, 64, 0.08);
-  color: #001e40;
+  background: rgba($primary, 0.08);
+  color: $primary;
   border-radius: 10rpx;
 }
-.op-action { font-size: 26rpx; font-weight: 600; color: #191c1e; }
+.op-action { font-size: 26rpx; font-weight: 600; color: $on-surface; }
 .op-status {
   margin-left: auto;
   font-size: 22rpx;

@@ -192,9 +192,10 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
 .admin-members-page {
   min-height: 100vh;
-  background: #f7f9fc;
+  background: $surface;
   display: flex;
   flex-direction: column;
 }
@@ -202,7 +203,7 @@ onMounted(async () => {
 .header-section {
   position: relative;
   padding: 48rpx 32rpx 32rpx;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  background: $gradient-primary;
 }
 
 .brand-bar {
@@ -219,7 +220,7 @@ onMounted(async () => {
 .title {
   font-size: 44rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: $on-primary;
 }
 
 .subtitle {
@@ -235,7 +236,7 @@ onMounted(async () => {
 
 .filter-item {
   min-width: 180rpx;
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 16rpx;
   padding: 16rpx 20rpx;
   display: flex;
@@ -245,13 +246,13 @@ onMounted(async () => {
 
 .filter-label { font-size: 22rpx; color: #8c909a; }
 .filter-value { display: flex; align-items: center; justify-content: space-between; gap: 8rpx; }
-.filter-text { font-size: 28rpx; color: #001e40; font-weight: 600; }
-.arrow { color: #c3c6d1; font-size: 32rpx; }
+.filter-text { font-size: 28rpx; color: $primary; font-weight: 600; }
+.arrow { color: $outline-variant; font-size: 32rpx; }
 .arrow.big { font-size: 40rpx; flex-shrink: 0; }
 
 .search-wrap {
   flex: 1;
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 16rpx;
   padding: 20rpx 24rpx;
   display: flex;
@@ -262,7 +263,7 @@ onMounted(async () => {
   flex: 1;
   height: 44rpx;
   font-size: 26rpx;
-  color: #191c1e;
+  color: $on-surface;
 }
 
 .summary-row {
@@ -272,7 +273,7 @@ onMounted(async () => {
   padding: 16rpx 32rpx 8rpx;
 }
 .summary-text { font-size: 24rpx; color: #8c909a; }
-.refresh-btn { font-size: 24rpx; color: #001e40; font-weight: 600; }
+.refresh-btn { font-size: 24rpx; color: $primary; font-weight: 600; }
 
 .list-scroll {
   flex: 1;
@@ -289,7 +290,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 24rpx;
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 20rpx;
   padding: 24rpx;
   margin-bottom: 20rpx;
@@ -307,8 +308,8 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
 }
-.avatar-fallback { background: linear-gradient(135deg, #001e40, #003366); }
-.avatar-initial { color: #fff; font-size: 34rpx; font-weight: 700; }
+.avatar-fallback { background: $gradient-primary; }
+.avatar-initial { color: $on-primary; font-size: 34rpx; font-weight: 700; }
 
 .info-col { flex: 1; display: flex; flex-direction: column; gap: 10rpx; min-width: 0; }
 
@@ -317,11 +318,11 @@ onMounted(async () => {
   align-items: center;
   gap: 14rpx;
 }
-.name { font-size: 30rpx; font-weight: 700; color: #191c1e; }
+.name { font-size: 30rpx; font-weight: 700; color: $on-surface; }
 .role-tag {
   padding: 2rpx 14rpx;
   background: rgba(0, 30, 64, 0.06);
-  color: #001e40;
+  color: $primary;
   border-radius: 20rpx;
   font-size: 20rpx;
   font-weight: 500;

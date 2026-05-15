@@ -150,40 +150,41 @@ onShow(() => fetch())
 </script>
 
 <style lang="scss" scoped>
-.detail-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";
+.detail-page { min-height: 100vh; background-color: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .info-card { margin: 24rpx 32rpx; background: #fff; border-radius: 20rpx; padding: 28rpx 24rpx; }
 .type-badge {
   display: inline-block; padding: 6rpx 18rpx; border-radius: 999rpx; font-size: 22rpx; font-weight: 600;
-  &.study { background: rgba(0,30,64,0.06); color: #001e40; }
-  &.discipline { background: rgba(70,98,112,0.08); color: #466270; }
+  &.study { background: rgba(0,30,64,0.06); color: $primary; }
+  &.discipline { background: rgba(70,98,112,0.08); color: $secondary; }
   &.fitness { background: rgba(179,38,30,0.05); color: #b3261e; }
 }
-.detail-title { font-size: 34rpx; font-weight: 700; color: #191c1e; display: block; margin-top: 16rpx; margin-bottom: 12rpx; }
-.detail-desc { font-size: 26rpx; color: #43474f; line-height: 1.5; display: block; margin-bottom: 20rpx; }
+.detail-title { font-size: 34rpx; font-weight: 700; color: $on-surface; display: block; margin-top: 16rpx; margin-bottom: 12rpx; }
+.detail-desc { font-size: 26rpx; color: $on-surface-variant; line-height: 1.5; display: block; margin-bottom: 20rpx; }
 
 .info-row { display: flex; justify-content: space-between; padding: 14rpx 0; }
-.info-label { font-size: 25rpx; color: #c3c6d1; }
-.info-value { font-size: 25rpx; color: #191c1e; font-weight: 500; }
+.info-label { font-size: 25rpx; color: $outline-variant; }
+.info-value { font-size: 25rpx; color: $on-surface; font-weight: 500; }
 
-.section-label { font-size: 25rpx; font-weight: 600; color: #43474f; text-transform: uppercase; letter-spacing: 3rpx; display: block; margin-bottom: 14rpx; }
-.record-row { display: flex; justify-content: space-between; align-items: center; padding: 14rpx 0; border-top: 1rpx solid #f2f4f7; }
+.section-label { font-size: 25rpx; font-weight: 600; color: $on-surface-variant; text-transform: uppercase; letter-spacing: 3rpx; display: block; margin-bottom: 14rpx; }
+.record-row { display: flex; justify-content: space-between; align-items: center; padding: 14rpx 0; border-top: 1rpx solid $surface-container-low; }
 .record-row:first-of-type { border-top: none; }
-.record-main { font-size: 26rpx; color: #191c1e; }
-.sub-meta { font-size: 22rpx; color: #c3c6d1; display: block; margin-top: 4rpx; }
+.record-main { font-size: 26rpx; color: $on-surface; }
+.sub-meta { font-size: 22rpx; color: $outline-variant; display: block; margin-top: 4rpx; }
 .record-result { font-size: 24rpx; font-weight: 700;
-  &.win { color: #001e40; }
+  &.win { color: $primary; }
   &.lose { color: #b3261e; }
 }
 
 .btn-row { display: flex; gap: 8rpx; }
-.btn-row .accept { background: #001e40; color: #fff; font-size: 22rpx; }
-.btn-row .reject { background: #f2f4f7; color: #43474f; font-size: 22rpx; }
+.btn-row .accept { background: $primary; color: $on-primary; font-size: 22rpx; }
+.btn-row .reject { background: $surface-container-low; color: $on-surface-variant; font-size: 22rpx; }
 
-.solid-input { width: 100%; height: 60rpx; line-height: 60rpx; font-size: 28rpx; color: #191c1e; background: #f7f9fc; border-radius: 12rpx; padding: 0 20rpx; border: none; box-sizing: border-box; }
-.solid-textarea { width: 100%; min-height: 120rpx; font-size: 26rpx; color: #191c1e; background: #f7f9fc; border-radius: 12rpx; padding: 16rpx; border: none; box-sizing: border-box; margin-top: 12rpx; }
-.primary-btn { margin-top: 16rpx; height: 80rpx; background: #001e40; color: #fff; border-radius: 14rpx; font-size: 26rpx; }
+.solid-input { width: 100%; height: 60rpx; line-height: 60rpx; font-size: 28rpx; color: $on-surface; background: $surface; border-radius: 12rpx; padding: 0 20rpx; border: none; box-sizing: border-box; }
+.solid-textarea { width: 100%; min-height: 120rpx; font-size: 26rpx; color: $on-surface; background: $surface; border-radius: 12rpx; padding: 16rpx; border: none; box-sizing: border-box; margin-top: 12rpx; }
+.primary-btn { margin-top: 16rpx; height: 80rpx; background: $primary; color: $on-primary; border-radius: 14rpx; font-size: 26rpx; }
 
-.join-btn { margin: 28rpx 32rpx; height: 88rpx; background: linear-gradient(135deg, #001e40, #003366); border-radius: 18rpx; border: none; font-size: 29rpx; font-weight: 600; color: #fff; &::after { display: none; } }
+.join-btn { margin: 28rpx 32rpx; height: 88rpx; background: linear-gradient(135deg, $primary, $primary-container); border-radius: 18rpx; border: none; font-size: 29rpx; font-weight: 600; color: $on-primary; &::after { display: none; } }
 </style>

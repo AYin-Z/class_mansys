@@ -134,8 +134,9 @@ onLoad((opts) => {
 })
 </script>
 
-<style lang="scss" scoped
-> .detail-page { min-height: 100vh; background-color: #f7f9fc; }
+<style lang="scss" scoped>
+@import "@/uni.scss";
+.detail-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .vote-info { margin: 24rpx 32rpx; padding: 28rpx 24rpx; background: #fff; border-radius: 20rpx; }

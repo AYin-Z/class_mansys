@@ -176,6 +176,7 @@ onShow(() => {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
 .approve-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #e8eef5 0%, #f4f6f9 100%);
@@ -198,7 +199,7 @@ onShow(() => {
   display: block;
   font-size: 34rpx;
   font-weight: 800;
-  color: #ffffff;
+  color: $on-primary;
 }
 
 .hero-sub {
@@ -227,7 +228,7 @@ onShow(() => {
 .approve-card {
   position: relative;
   display: flex;
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 20rpx;
   overflow: hidden;
   margin-bottom: 20rpx;
@@ -283,7 +284,7 @@ onShow(() => {
 .avatar-text {
   font-size: 28rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: $on-primary;
 }
 
 .user-info {
@@ -301,7 +302,7 @@ onShow(() => {
 
 .user-id {
   font-size: 22rpx;
-  color: #8b95a1;
+  color: $on-surface-tertiary;
 }
 
 .type-badge {
@@ -348,7 +349,7 @@ onShow(() => {
 
 .detail-label {
   font-size: 24rpx;
-  color: #8b95a1;
+  color: $on-surface-tertiary;
   width: 72rpx;
   flex-shrink: 0;
 }
@@ -389,7 +390,7 @@ onShow(() => {
 
   &.approve {
     background: linear-gradient(135deg, #102a43 0%, #1e4d7b 100%);
-    color: #ffffff;
+    color: $on-primary;
   }
 }
 
@@ -406,7 +407,7 @@ onShow(() => {
 
 .empty-text {
   font-size: 26rpx;
-  color: #8b95a1;
+  color: $on-surface-tertiary;
 }
 
 .page-spacer {
