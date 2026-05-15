@@ -30,6 +30,15 @@ export default defineConfig({
   plugins: [
     stripConditionalCompile(),
     vue(),
+    // Remove crossorigin from built HTML — mobile browsers can silently
+    // reject same-origin module scripts with crossorigin attribute.
+    {
+      name: 'strip-crossorigin',
+      enforce: 'post',
+      transformIndexHtml(html) {
+        return html.replace(/ crossorigin/g, '')
+      },
+    },
     // Fix @dcloudio/uni-app importing Vue internals not in standard ESM builds
     {
       name: 'fix-vue-ssr-export',

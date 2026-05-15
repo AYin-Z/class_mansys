@@ -38,7 +38,48 @@ function removeStorageSync(key: string) {
   localStorage.removeItem(key)
 }
 
+/* ======================== Native Plugin ======================== */
+function requireNativePlugin(_name: string): any {
+  // uni-ui components call this in H5 — return a stub animation plugin
+  return {
+    createAnimation(_opts?: any) { return { step() {}, export() { return {} } } },
+  }
+}
+
+/* ======================== Animation ======================== */
+function createAnimation(_opts?: any): any {
+  // uni.createAnimation — uni-ui components call this directly
+  const anim: any = {}
+  anim.bottom = (_v: number) => anim
+  anim.top = (_v: number) => anim
+  anim.left = (_v: number) => anim
+  anim.right = (_v: number) => anim
+  anim.width = (_v: number) => anim
+  anim.height = (_v: number) => anim
+  anim.opacity = (_v: number) => anim
+  anim.rotate = (_v: number) => anim
+  anim.scale = (_v: number) => anim
+  anim.translate = (_x: number, _y: number) => anim
+  anim.translateX = (_v: number) => anim
+  anim.translateY = (_v: number) => anim
+  anim.skew = (_x: number, _y: number) => anim
+  anim.step = () => {}
+  anim.export = () => ({})
+  return anim
+}
+
 /* ======================== System Info ======================== */
+function getDeviceInfo(): any {
+  return {
+    platform: 'web',
+    brand: navigator.userAgent.match(/Chrome\//) ? 'chrome' : 'web',
+    model: navigator.userAgent,
+    system: navigator.platform,
+    deviceId: 'h5-device',
+    deviceType: 'web',
+    deviceModel: navigator.userAgent,
+  }
+}
 function getSystemInfoSync(): UniApp.GetSystemInfoResult {
   return {
     windowWidth: window.innerWidth,
@@ -425,8 +466,8 @@ const uni = {
   $on, $off, $emit,
   // Storage
   getStorageSync, setStorageSync, removeStorageSync,
-  // System Info
-  getSystemInfoSync, getSystemInfo,
+  // System & Device
+  getSystemInfoSync, getSystemInfo, getDeviceInfo, requireNativePlugin, createAnimation,
   // Base64
   base64ToArrayBuffer, arrayBufferToBase64,
   // UI

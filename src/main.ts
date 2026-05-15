@@ -14,15 +14,41 @@ import UniPopup from '@dcloudio/uni-ui/lib/uni-popup/uni-popup.vue'
 import UniLoadMore from '@dcloudio/uni-ui/lib/uni-load-more/uni-load-more.vue'
 import UniTransition from '@dcloudio/uni-ui/lib/uni-transition/uni-transition.vue'
 
-const app = createApp(App)
+// ====== 诊断日志 ======
+const d = (msg: string) => {
+  console.log('[boot]', msg)
+  if ((window as any).__debugLog) (window as any).__debugLog(msg)
+}
+d('main.ts loaded')
 
-app.use(createPinia())
-app.use(router)
+try {
+  d('creating app...')
+  const app = createApp(App)
+  d('app created')
 
-app.component('show-captcha', showCaptcha)
-app.component('custom-nav-bar', CustomNavBar)
-app.component('uni-popup', UniPopup)
-app.component('uni-load-more', UniLoadMore)
-app.component('uni-transition', UniTransition)
+  d('installing pinia...')
+  app.use(createPinia())
+  d('pinia installed')
 
-app.mount('#app')
+  d('installing router...')
+  app.use(router)
+  d('router installed')
+
+  d('registering components...')
+  app.component('show-captcha', showCaptcha)
+  app.component('custom-nav-bar', CustomNavBar)
+  d('custom components registered')
+
+  d('registering uni-ui components...')
+  app.component('uni-popup', UniPopup)
+  app.component('uni-load-more', UniLoadMore)
+  app.component('uni-transition', UniTransition)
+  d('uni-ui components registered')
+
+  d('mounting...')
+  app.mount('#app')
+  d('MOUNT SUCCESS')
+} catch (e: any) {
+  d('ERROR: ' + (e.message || String(e)))
+  console.error('[boot] Fatal error:', e)
+}

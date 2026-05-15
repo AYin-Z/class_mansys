@@ -1,3 +1,7 @@
+<template>
+  <router-view />
+</template>
+
 <script setup lang="ts">
 // Hooks resolved via src/shims/uni-lifecycle.ts (vite alias)
 import { onLaunch, onShow, onHide } from "@dcloudio/uni-app";
