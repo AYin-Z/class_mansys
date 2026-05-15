@@ -61,11 +61,18 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onLoad } from '@dcloudio/uni-app'
 import { getRoleLabel } from '@/constants/roles'
 import { useUserStore } from '@/stores/user'
 
 const store = useUserStore()
+
+// 非干部直接退回首页
+onLoad(() => {
+  if (!store.isAdmin) {
+    uni.reLaunch({ url: '/pages/index/index' })
+  }
+})
 const roleLabel = computed(() => getRoleLabel(store.user?.role))
 
 function goPage(url: string) {
