@@ -25,6 +25,18 @@ const TAB_PATHS = [
   '/pages/dashboard/index',
 ]
 
+// 浏览器环境：tab 首页侧滑时阻止关闭标签页
+// 因为 tab 切换使用 reLaunch（router.replace）不产生历史记录
+if (!Capacitor.isNativePlatform()) {
+  window.addEventListener('popstate', () => {
+    const path = router.currentRoute.value.path
+    if (TAB_PATHS.includes(path)) {
+      // 重新推入当前 hash，防止浏览器关闭 tab
+      history.pushState(null, '', window.location.href)
+    }
+  })
+}
+
 onLaunch(async () => {
   try {
   console.log("App Launch");
