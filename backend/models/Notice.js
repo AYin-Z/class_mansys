@@ -9,13 +9,14 @@ class Notice {
       creator_id,
       priority = 0,
       is_pinned = false,
+      is_todo = false,
       attachments
     } = noticeData;
 
     const attachJson = attachments ? JSON.stringify(attachments) : null;
     const [result] = await db.query(
-      'INSERT INTO notices (title, content, type, priority, is_pinned, attachments, creator_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [title, content, type, priority, is_pinned, attachJson, creator_id]
+      'INSERT INTO notices (title, content, type, priority, is_pinned, is_todo, attachments, creator_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [title, content, type, priority, is_pinned, is_todo, attachJson, creator_id]
     );
 
     return result.insertId;
@@ -38,11 +39,12 @@ class Notice {
   static async getAll(userId = null) {
     let query = `SELECT n.*, u.name AS creator_name, u.nickName AS creator_nickname`;
     if (userId) {
-      query += `, (nr.id IS NOT NULL) AS is_read`;
+      query += `, (nr.id IS NOT NULL) AS is_read, (nc.id IS NOT NULL) AS is_completed`;
     }
     query += `\n       FROM notices n\n       LEFT JOIN users u ON n.creator_id = u.id`;
     if (userId) {
       query += `\n       LEFT JOIN notice_reads nr ON n.id = nr.notice_id AND nr.user_id = ${Number(userId)}`;
+      query += `\n       LEFT JOIN notice_completions nc ON n.id = nc.notice_id AND nc.user_id = ${Number(userId)}`;
     }
     query += `\n       ORDER BY n.is_pinned DESC, n.created_at DESC`;
 
@@ -75,7 +77,7 @@ class Notice {
   }
 
   static async update(id, fields) {
-    const allowedFields = ['title', 'content', 'summary', 'type', 'priority', 'is_pinned', 'attachments'];
+    const allowedFields = ['title', 'content', 'summary', 'type', 'priority', 'is_pinned', 'is_todo', 'attachments'];
     const setClauses = [];
     const values = [];
 
@@ -98,8 +100,29 @@ class Notice {
 
   static async delete(id) {
     await db.query('DELETE FROM notice_reads WHERE notice_id = ?', [id]);
+    await db.query('DELETE FROM notice_completions WHERE notice_id = ?', [id]);
     const [result] = await db.query('DELETE FROM notices WHERE id = ?', [id]);
     return result.affectedRows > 0;
+  }
+
+  // ---- 待办完成 ----
+  static async markComplete(notice_id, user_id) {
+    const [result] = await db.query(
+      'INSERT IGNORE INTO notice_completions (notice_id, user_id) VALUES (?, ?)',
+      [notice_id, user_id]
+    );
+    return result.affectedRows > 0;
+  }
+
+  static async getTodoCount(user_id) {
+    const [rows] = await db.query(
+      `SELECT COUNT(*) AS count
+       FROM notices n
+       LEFT JOIN notice_completions nc ON n.id = nc.notice_id AND nc.user_id = ?
+       WHERE n.is_todo = true AND nc.id IS NULL`,
+      [user_id]
+    );
+    return rows[0].count;
   }
 }
 

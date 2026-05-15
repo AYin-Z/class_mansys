@@ -3,7 +3,7 @@ const Notice = require('../models/Notice');
 class NoticeController {
   static async createNotice(req, res) {
     try {
-      const { title, content, type, priority, is_pinned, attachments } = req.body || {};
+      const { title, content, type, priority, is_pinned, is_todo, attachments } = req.body || {};
       if (!title || !content) {
         return res.status(400).json({ success: false, error: '标题和内容必填' });
       }
@@ -14,6 +14,7 @@ class NoticeController {
         type: type || '日常',
         priority: typeof priority === 'number' ? priority : 0,
         is_pinned: !!is_pinned,
+        is_todo: !!is_todo,
         attachments,
         creator_id: req.user.id
       });
@@ -61,13 +62,35 @@ class NoticeController {
     }
   }
 
+  static async completeTodo(req, res) {
+    try {
+      const ok = await Notice.markComplete(req.params.id, req.user.id);
+      if (!ok) {
+        return res.status(400).json({ success: false, error: '已完成或通知不存在' });
+      }
+      res.json({ success: true, message: '已标记完成' });
+    } catch (error) {
+      console.error('待办完成失败:', error);
+      res.status(500).json({ success: false, error: '操作失败' });
+    }
+  }
+
+  static async getTodoCount(req, res) {
+    try {
+      const count = await Notice.getTodoCount(req.user.id);
+      res.json({ success: true, count });
+    } catch (error) {
+      res.status(500).json({ success: false, error: '获取待办数失败' });
+    }
+  }
+
   static async updateNotice(req, res) {
     try {
       const { id } = req.params;
-      const { title, content, summary, type, priority, is_pinned, attachments } = req.body || {};
+      const { title, content, summary, type, priority, is_pinned, is_todo, attachments } = req.body || {};
 
       // Check that body is not completely empty
-      const fields = { title, content, summary, type, priority, is_pinned, attachments };
+      const fields = { title, content, summary, type, priority, is_pinned, is_todo, attachments };
       const hasFields = Object.values(fields).some(v => v !== undefined);
       if (!hasFields) {
         return res.status(400).json({ success: false, error: '没有可更新的字段' });

@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const HomeworkController = require('../controllers/HomeworkController');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authorizeAdmin } = require('../middleware/auth');
 
+router.get('/pending/count', authenticateToken, HomeworkController.pendingCount);
 router.get('/', authenticateToken, HomeworkController.list);
-router.post('/', authenticateToken, HomeworkController.create);
+router.post('/', authenticateToken, authorizeAdmin, HomeworkController.create);
 router.get('/:id', authenticateToken, HomeworkController.detail);
-router.delete('/:id', authenticateToken, HomeworkController.remove);
 router.post('/:id/submit', authenticateToken, HomeworkController.submit);
-router.put('/submission/:submissionId/grade', authenticateToken, HomeworkController.grade);
+router.put('/submission/:submissionId/grade', authenticateToken, authorizeAdmin, HomeworkController.grade);
+router.delete('/:id', authenticateToken, authorizeAdmin, HomeworkController.remove);
 
 module.exports = router;

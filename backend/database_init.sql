@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS notices (
   type VARCHAR(20) NOT NULL,
   priority INT NOT NULL DEFAULT 0,
   is_pinned BOOLEAN NOT NULL DEFAULT false,
+  is_todo BOOLEAN NOT NULL DEFAULT false,
   attachments JSON DEFAULT NULL,
   creator_id INT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -527,6 +528,17 @@ CREATE INDEX idx_fee_collection_records_collection ON fee_collection_records(col
 CREATE INDEX idx_expense_approvals_expense ON expense_approvals(expense_id);
 CREATE INDEX idx_expense_approval_votes_expense ON expense_approval_votes(expense_id);
 CREATE INDEX idx_fee_publications_period ON fee_publications(period);
+
+-- 通知待办完成记录表
+CREATE TABLE IF NOT EXISTS notice_completions (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  notice_id INT NOT NULL,
+  user_id INT NOT NULL,
+  completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (notice_id) REFERENCES notices(id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  UNIQUE KEY uk_notice_user (notice_id, user_id)
+);
 
 -- 更新视图：反映 expenses 扩展字段
 DROP VIEW IF EXISTS fee_summary;

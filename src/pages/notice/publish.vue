@@ -49,6 +49,16 @@
 
           <view class="divider"></view>
 
+          <view class="form-row toggle-row" @tap="formData.is_todo = !formData.is_todo">
+            <text class="row-label">设为待办</text>
+            <view class="row-hint"><text class="hint-text">需手动标记完成</text></view>
+            <view :class="['toggle', { on: formData.is_todo }]">
+              <view class="toggle-knob"></view>
+            </view>
+          </view>
+
+          <view class="divider"></view>
+
           <view class="textarea-wrap">
             <text class="row-label block">通知正文</text>
             <textarea class="solid-textarea" v-model="formData.content" placeholder="请输入通知内容..." />
@@ -132,6 +142,7 @@ const formData = reactive({
   priority: 0,
   priorityLabel: '日常',
   is_pinned: false,
+  is_todo: false,
   content: '',
   attachments: []
 })
@@ -242,6 +253,7 @@ async function fetchDetail() {
       formData.priority = notice.priority ?? 0
       formData.priorityLabel = priorityOptions[notice.priority] || '日常'
       formData.is_pinned = notice.is_pinned ?? false
+      formData.is_todo = notice.is_todo ?? false
       formData.attachments = notice.attachments || []
     }
   } catch (error) {
@@ -280,6 +292,7 @@ async function onPublish() {
       type: formData.type,
       priority: formData.priority,
       is_pinned: formData.is_pinned,
+      is_todo: formData.is_todo,
       attachments: formData.attachments.length > 0 ? formData.attachments : undefined
     }
     const res = isEdit.value

@@ -50,9 +50,9 @@ import { onShow } from '@dcloudio/uni-app'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { canPublishNotice } from '@/utils/auth'
-import { getBalance } from '@/api/fee'
-import { getNotices, getUnreadCount } from '@/api/notice'
+import { getNotices, getUnreadCount, getTodoCount } from '@/api/notice'
 import { getMyLeaves } from '@/api/leave'
+import { getPendingHomeworkCount } from '@/api/homework'
 import { hasBackendToken } from '@/utils/request'
 import { getDefaultAvatar } from '@/utils/avatar'
 
@@ -97,10 +97,10 @@ const actions = [
 ]
 
 const statusData = ref([
-  { key: 'leave',  value: '0', label: '我的请假',  url: '/pages/leave/index' },
-  { key: 'notice', value: '0', label: '未读通知',  url: '/pages/notice/index' },
-  { key: 'fee',    value: '¥—', label: '班费余额', url: '/pages/fee/index' },
-  { key: 'role',   value: '—', label: '我的身份',  url: '/pages/profile/index' }
+  { key: 'leave',   value: '0',    label: '请假状态', url: '/pages/leave/index' },
+  { key: 'hw',      value: '0',    label: '待完成作业', url: '/pages/homework/index' },
+  { key: 'todo',    value: '0',    label: '待办',     url: '/pages/notice/index' },
+  { key: 'notice',  value: '0',    label: '未读通知', url: '/pages/notice/index' }
 ])
 
 const pinnedNotices = ref([])
@@ -109,14 +109,17 @@ const recentUpdates = ref([])
 async function refreshAll() {
   // 优先取本地，再后台拉
   userStore.hydrate()
-  setStatus('role', roleLabel.value || '学员')
 
   if (!hasBackendToken()) return
   try { await userStore.refresh() } catch (_) {}
-  setStatus('role', roleLabel.value || '学员')
 
   // 并发拉取，每个独立 try/catch 避免一个失败影响全部
-  await Promise.all([loadNotices(), loadLeaves(), loadFeeBalance()])
+  await Promise.all([
+    loadNotices(),
+    loadLeaves(),
+    loadHomeworkPending(),
+    loadTodoCount()
+  ])
 }
 
 function setStatus(key, value) {
@@ -157,15 +160,21 @@ async function loadLeaves() {
   }
 }
 
-async function loadFeeBalance() {
+async function loadHomeworkPending() {
   try {
-    const res = await getBalance()
-    if (res?.success && res.balance) {
-      const v = res.balance.balance ?? 0
-      setStatus('fee', `¥${Number(v).toLocaleString()}`)
-    }
+    const r = await getPendingHomeworkCount()
+    if (r?.success) setStatus('hw', String(r.count ?? 0))
   } catch (e) {
-    console.warn('[home] balance 加载失败', e)
+    console.warn('[home] hw 加载失败', e)
+  }
+}
+
+async function loadTodoCount() {
+  try {
+    const r = await getTodoCount()
+    if (r?.success) setStatus('todo', String(r.count ?? 0))
+  } catch (e) {
+    console.warn('[home] todo 加载失败', e)
   }
 }
 

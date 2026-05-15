@@ -34,6 +34,9 @@
                 {{ priorityLabel(item.priority) }}
               </view>
             </view>
+            <view class="card-badges" v-if="item.is_todo">
+              <text :class="['todo-chip', { done: item.is_completed }]">{{ item.is_completed ? '✅ 已完成' : '📋 待办' }}</text>
+            </view>
             <text class="notice-summary">{{ item.summary }}</text>
             <view class="card-footer">
               <text class="notice-time">{{ item.time }}</text>

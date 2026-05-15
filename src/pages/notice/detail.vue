@@ -18,6 +18,15 @@
 
       <!-- Content -->
       <view class="content-card">
+        <!-- Todo Banner -->
+        <view v-if="notice.is_todo" :class="['todo-banner', { completed: notice.is_completed }]">
+          <text class="todo-icon">{{ notice.is_completed ? '✅' : '📋' }}</text>
+          <text class="todo-text">{{ notice.is_completed ? '已完成' : '待完成' }}</text>
+          <view v-if="!notice.is_completed && !notice.is_loading" class="todo-btn" @tap="onComplete">
+            <text class="todo-btn-text">标记已完成</text>
+          </view>
+          <text v-if="notice.is_loading" class="todo-loading">处理中…</text>
+        </view>
         <div v-html="notice.content"></div>
       </view>
 
@@ -46,7 +55,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getNoticeDetail, deleteNotice } from '@/api/notice'
+import { getNoticeDetail, deleteNotice, completeTodo } from '@/api/notice'
 import { canPublishNotice } from '@/utils/auth'
 
 const notice = ref({
@@ -57,7 +66,10 @@ const notice = ref({
   author: '',
   time: '',
   content: '',
-  attachments: []
+  attachments: [],
+  is_todo: false,
+  is_completed: false,
+  is_loading: false
 })
 const noticeId = ref(null)
 const canDelete = ref(false)
@@ -97,7 +109,10 @@ async function fetchDetail() {
         author: n.creator_name || n.creator_nickname || '管理员',
         time: formatTime(n.created_at),
         content: renderContent(n.content),
-        attachments: n.attachments || []
+        attachments: n.attachments || [],
+        is_todo: !!n.is_todo,
+        is_completed: !!n.is_completed,
+        is_loading: false
       }
       // 解析 JSON 字符串附件
       if (typeof notice.value.attachments === 'string') {
@@ -157,6 +172,18 @@ function onDelete() {
       }
     }
   })
+}
+
+async function onComplete() {
+  try {
+    notice.value.is_loading = true
+    await completeTodo(noticeId.value)
+    notice.value.is_completed = true
+    notice.value.is_loading = false
+    uni.showToast({ title: '已标记完成', icon: 'success' })
+  } catch (e) {
+    notice.value.is_loading = false
+  }
 }
 </script>
 
@@ -228,6 +255,25 @@ function onDelete() {
   border-radius: 20rpx;
   padding: 32rpx;
 }
+
+.todo-banner {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 24rpx 28rpx;
+  margin: -32rpx -32rpx 32rpx;
+  border-radius: 20rpx 20rpx 0 0;
+  background: linear-gradient(135deg, rgba(70,98,112,0.08), rgba(195,198,209,0.12));
+  &.completed { background: linear-gradient(135deg, rgba(52,168,83,0.08), rgba(52,168,83,0.04)); }
+}
+.todo-icon { font-size: 32rpx; }
+.todo-text { flex: 1; font-size: 26rpx; font-weight: 600; color: #43474f; .completed & { color: #1f7a3b; } }
+.todo-btn {
+  padding: 8rpx 24rpx; border-radius: 999rpx; background: #001e40;
+  &:active { opacity: 0.85; }
+}
+.todo-btn-text { font-size: 24rpx; font-weight: 600; color: #fff; }
+.todo-loading { font-size: 24rpx; color: #8c909a; }
 
 .section-block {
   margin: 32rpx 32rpx 0;

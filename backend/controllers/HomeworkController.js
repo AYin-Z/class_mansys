@@ -1,6 +1,6 @@
 const Homework = require('../models/Homework');
 
-const ADMIN_ROLES = new Set([1, 2, 3, 4, 5, 6, 7, 8]);
+const ADMIN_ROLES = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9]);
 const isAdmin = (user) => user && ADMIN_ROLES.has(Number(user.role));
 
 class HomeworkController {
@@ -84,6 +84,15 @@ class HomeworkController {
       res.json({ success: true });
     } catch (e) {
       res.status(500).json({ success: false, error: '删除失败' });
+    }
+  }
+
+  static async pendingCount(req, res) {
+    try {
+      const count = await Homework.getPendingCount(req.user.id);
+      res.json({ success: true, count });
+    } catch (e) {
+      res.status(500).json({ success: false, error: '获取待完成作业数失败' });
     }
   }
 }

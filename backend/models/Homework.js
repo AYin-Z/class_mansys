@@ -96,6 +96,19 @@ class Homework {
     );
     return result.affectedRows > 0;
   }
+
+  static async getPendingCount(user_id) {
+    const [rows] = await db.query(
+      `SELECT COUNT(*) AS count FROM homeworks h
+       WHERE h.deadline > NOW()
+       AND NOT EXISTS (
+         SELECT 1 FROM homework_submissions s
+         WHERE s.homework_id = h.id AND s.user_id = ?
+       )`,
+      [user_id]
+    );
+    return rows[0].count;
+  }
 }
 
 module.exports = Homework;

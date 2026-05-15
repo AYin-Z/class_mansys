@@ -79,3 +79,7 @@ export function submitHomework(id: number, params: HomeworkSubmitParams): Promis
 export function gradeSubmission(submissionId: number, params: HomeworkGradeParams): Promise<{ success: boolean }> {
   return put(`/api/homework/submission/${submissionId}/grade`, params)
 }
+
+export function getPendingHomeworkCount(): Promise<{ success: boolean; count: number }> {
+  return get('/api/homework/pending/count')
+}

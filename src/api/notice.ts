@@ -8,10 +8,12 @@ export interface NoticeItem {
   title: string
   content: string
   summary?: string
-  type?: string     // 系统通知/集合通知/学习通知/活动通知/其他
-  priority: number  // 0=日常, 1=重要, 2=紧急
+  type?: string
+  priority: number
   creator_id: number
   is_pinned?: boolean
+  is_todo?: boolean
+  is_completed?: boolean
   attachments?: AttachmentItem[] | null
   created_at: string
   updated_at: string
@@ -34,14 +36,8 @@ export interface NoticeCreateParams {
   type?: string
   priority?: number
   is_pinned?: boolean
+  is_todo?: boolean
   attachments?: AttachmentItem[]
-}
-
-/**
- * 获取通知列表
- */
-export function getNotices(): Promise<{ success: boolean; notices: NoticeItem[] }> {
-  return get('/api/notice')
 }
 
 /**
@@ -56,6 +52,27 @@ export function getNoticeDetail(id: number): Promise<{ success: boolean; notice:
  */
 export function getUnreadCount(): Promise<{ success: boolean; count: number }> {
   return get('/api/notice/unread/count')
+}
+
+/**
+ * 获取待办通知数量
+ */
+export function getTodoCount(): Promise<{ success: boolean; count: number }> {
+  return get('/api/notice/todo/count')
+}
+
+/**
+ * 标记待办通知为已完成
+ */
+export function completeTodo(id: number): Promise<{ success: boolean; message: string }> {
+  return post(`/api/notice/${id}/complete`)
+}
+
+/**
+ * 获取通知列表
+ */
+export function getNotices(): Promise<{ success: boolean; notices: NoticeItem[] }> {
+  return get('/api/notice')
 }
 
 /**
