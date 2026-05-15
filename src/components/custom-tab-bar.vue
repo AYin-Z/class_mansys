@@ -7,14 +7,19 @@
       :class="{ active: item.key === current }"
       @tap="onTap(item)"
     >
-      <text class="tab-icon">{{ item.key === current ? item.iconActive : item.icon }}</text>
+      <view class="tab-icon-wrap">
+        <text class="tab-icon">{{ item.key === current ? item.iconActive : item.icon }}</text>
+        <text v-if="item.key === 'notice' && unreadCount > 0" class="badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</text>
+      </view>
       <text class="tab-label">{{ item.label }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { useSystemInfo } from '@/composables/useSystemInfo'
+import { getUnreadCount } from '@/api/notice'
 
 const props = defineProps({
   current: {
@@ -25,6 +30,15 @@ const props = defineProps({
 })
 
 const { safeAreaBottom } = useSystemInfo()
+
+const unreadCount = ref(0)
+
+onMounted(async () => {
+  try {
+    const res = await getUnreadCount()
+    if (res?.success) unreadCount.value = res.count || 0
+  } catch (_) {}
+})
 
 const tabs = [
   { key: 'home',     label: '首页',   icon: '🏠', iconActive: '🏠', url: '/pages/index/index' },
@@ -78,6 +92,30 @@ function onTap(item) {
   line-height: 1;
   filter: grayscale(0.4) opacity(0.55);
   transition: filter $transition-fast;
+}
+
+.tab-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge {
+  position: absolute;
+  top: -8rpx;
+  right: -16rpx;
+  min-width: 28rpx;
+  height: 28rpx;
+  padding: 0 6rpx;
+  background: #b3261e;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 700;
+  line-height: 28rpx;
+  text-align: center;
+  border-radius: 14rpx;
+  white-space: nowrap;
 }
 
 .tab-label {

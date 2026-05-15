@@ -35,13 +35,18 @@ class Notice {
     return rows[0];
   }
 
-  static async getAll() {
-    const [rows] = await db.query(
-      `SELECT n.*, u.name AS creator_name, u.nickName AS creator_nickname
-       FROM notices n
-       LEFT JOIN users u ON n.creator_id = u.id
-       ORDER BY n.is_pinned DESC, n.created_at DESC`
-    );
+  static async getAll(userId = null) {
+    let query = `SELECT n.*, u.name AS creator_name, u.nickName AS creator_nickname`;
+    if (userId) {
+      query += `, (nr.id IS NOT NULL) AS is_read`;
+    }
+    query += `\n       FROM notices n\n       LEFT JOIN users u ON n.creator_id = u.id`;
+    if (userId) {
+      query += `\n       LEFT JOIN notice_reads nr ON n.id = nr.notice_id AND nr.user_id = ${Number(userId)}`;
+    }
+    query += `\n       ORDER BY n.is_pinned DESC, n.created_at DESC`;
+
+    const [rows] = await db.query(query);
     rows.forEach(r => {
       if (r.attachments && typeof r.attachments === 'string') {
         try { r.attachments = JSON.parse(r.attachments); } catch { r.attachments = null; }

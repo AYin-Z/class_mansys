@@ -26,7 +26,10 @@
           <view :class="['card-accent', priorityAccent(item.priority)]"></view>
           <view class="card-body">
             <view class="card-top">
-              <text class="notice-title">{{ item.title }}</text>
+              <view class="title-row">
+                <text v-if="item.is_read === false" class="unread-dot">●</text>
+                <text class="notice-title">{{ item.title }}</text>
+              </view>
               <view :class="['priority-tag', priorityClass(item.priority)]">
                 {{ priorityLabel(item.priority) }}
               </view>
@@ -231,6 +234,21 @@ onShow(() => {
   justify-content: space-between;
   gap: 12rpx;
   margin-bottom: 12rpx;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex: 1;
+  min-width: 0;
+}
+
+.unread-dot {
+  color: #001e40;
+  font-size: 20rpx;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .notice-title {

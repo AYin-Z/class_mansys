@@ -27,7 +27,7 @@ class NoticeController {
 
   static async getNotices(req, res) {
     try {
-      const notices = await Notice.getAll();
+      const notices = await Notice.getAll(req.user.id);
       res.json({ success: true, notices });
     } catch (error) {
       console.error('获取通知列表失败:', error);
