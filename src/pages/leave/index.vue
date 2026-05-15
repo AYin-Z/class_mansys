@@ -64,6 +64,17 @@
         </view>
       </view>
 
+      <view class="admin-entry" @tap="goOverview">
+        <view class="admin-icon-wrap">
+          <text class="admin-icon">📋</text>
+        </view>
+        <view class="admin-info">
+          <text class="admin-title">今日请假一览</text>
+          <text class="admin-desc">查看当天各类请假情况</text>
+        </view>
+        <text class="admin-arrow">›</text>
+      </view>
+
       <view class="admin-entry" v-if="isAdmin" @tap="goApprove">
         <view class="admin-icon-wrap">
           <text class="admin-icon">◎</text>
@@ -133,6 +144,10 @@ function goApprove() {
     return
   }
   uni.navigateTo({ url: '/pages/leave/approve' })
+}
+
+function goOverview() {
+  uni.navigateTo({ url: '/pages/leave/overview' })
 }
 
 function recomputeStats(leaves) {

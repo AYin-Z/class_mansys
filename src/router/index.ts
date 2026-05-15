@@ -56,6 +56,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/pages/leave/detail.vue')
   },
   {
+    path: '/pages/leave/overview',
+    name: 'leave-overview',
+    component: () => import('@/pages/leave/overview.vue')
+  },
+  {
     path: '/pages/notice/index',
     name: 'notice-index',
     component: () => import('@/pages/notice/index.vue')
