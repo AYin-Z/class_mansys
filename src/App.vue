@@ -12,8 +12,11 @@ import { setRouteGuard } from "@/utils/request";
 // #ifdef APP-PLUS
 import { checkAppUpdate } from "@/utils/update-checker";
 // #endif
+import router from "@/router";
+import { Capacitor } from '@capacitor/core';
 
 onLaunch(async () => {
+  try {
   console.log("App Launch");
 
   // 并行初始化：cloudbase 不阻塞 hydrate / routeGuard
@@ -46,6 +49,25 @@ onLaunch(async () => {
     }, 3000);
   });
   // #endif
+
+  // 安卓物理返回 / 全面屏侧滑
+  if (Capacitor.isNativePlatform()) {
+    import('@capacitor/core').then(({ App: CapacitorApp }) => {
+      CapacitorApp.addListener('backButton', () => {
+        if (router.currentRoute.value.path !== '/pages/index/index' &&
+            router.currentRoute.value.path !== '/pages/notice/index' &&
+            router.currentRoute.value.path !== '/pages/homework/index' &&
+            router.currentRoute.value.path !== '/pages/leave/index' &&
+            router.currentRoute.value.path !== '/pages/profile/index' &&
+            router.currentRoute.value.path !== '/pages/dashboard/index') {
+          router.back();
+        } else {
+          CapacitorApp.minimizeApp();
+        }
+      });
+    });
+  }
+} catch (_) { /* @capacitor/core in H5 build may throw */ }
 });
 
 onShow(() => {
