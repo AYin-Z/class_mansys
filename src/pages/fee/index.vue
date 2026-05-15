@@ -102,7 +102,7 @@
       <view style="height: 40rpx;"></view>
     </scroll-view>
 
-    <custom-tab-bar current="fee" />
+    <custom-tab-bar current="profile" />
   </view>
 </template>
 

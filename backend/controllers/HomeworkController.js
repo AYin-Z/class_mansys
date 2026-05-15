@@ -7,12 +7,12 @@ class HomeworkController {
   static async create(req, res) {
     try {
       if (!isAdmin(req.user)) return res.status(403).json({ success: false, error: '无权发布作业' });
-      const { title, description, deadline } = req.body || {};
+      const { title, description, deadline, attachments } = req.body || {};
       if (!title || !description || !deadline) {
         return res.status(400).json({ success: false, error: 'title/description/deadline 必填' });
       }
       const id = await Homework.create({
-        title, description, deadline,
+        title, description, deadline, attachments,
         creator_id: req.user.id
       });
       res.json({ success: true, id });

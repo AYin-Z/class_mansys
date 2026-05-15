@@ -8,12 +8,14 @@ class Notice {
       type = '日常',
       creator_id,
       priority = 0,
-      is_pinned = false
+      is_pinned = false,
+      attachments
     } = noticeData;
 
+    const attachJson = attachments ? JSON.stringify(attachments) : null;
     const [result] = await db.query(
-      'INSERT INTO notices (title, content, type, priority, is_pinned, creator_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [title, content, type, priority, is_pinned, creator_id]
+      'INSERT INTO notices (title, content, type, priority, is_pinned, attachments, creator_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [title, content, type, priority, is_pinned, attachJson, creator_id]
     );
 
     return result.insertId;
@@ -27,6 +29,9 @@ class Notice {
        WHERE n.id = ?`,
       [id]
     );
+    if (rows[0] && typeof rows[0].attachments === 'string') {
+      try { rows[0].attachments = JSON.parse(rows[0].attachments); } catch { rows[0].attachments = null; }
+    }
     return rows[0];
   }
 
@@ -37,6 +42,11 @@ class Notice {
        LEFT JOIN users u ON n.creator_id = u.id
        ORDER BY n.is_pinned DESC, n.created_at DESC`
     );
+    rows.forEach(r => {
+      if (r.attachments && typeof r.attachments === 'string') {
+        try { r.attachments = JSON.parse(r.attachments); } catch { r.attachments = null; }
+      }
+    });
     return rows;
   }
 
@@ -60,14 +70,14 @@ class Notice {
   }
 
   static async update(id, fields) {
-    const allowedFields = ['title', 'content', 'summary', 'type', 'priority', 'is_pinned'];
+    const allowedFields = ['title', 'content', 'summary', 'type', 'priority', 'is_pinned', 'attachments'];
     const setClauses = [];
     const values = [];
 
     for (const field of allowedFields) {
       if (fields[field] !== undefined) {
         setClauses.push(`${field} = ?`);
-        values.push(fields[field]);
+        values.push(field === 'attachments' ? JSON.stringify(fields[field]) : fields[field]);
       }
     }
 

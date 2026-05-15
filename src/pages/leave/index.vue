@@ -88,6 +88,7 @@
 
       <view class="page-spacer"></view>
     </scroll-view>
+    <custom-tab-bar current="leave" />
   </view>
 </template>
 

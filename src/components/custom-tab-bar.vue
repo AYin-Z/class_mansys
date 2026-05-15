@@ -20,17 +20,18 @@ const props = defineProps({
   current: {
     type: String,
     required: true,
-    validator: v => ['home', 'notice', 'fee', 'profile'].includes(v)
+    validator: v => ['home', 'notice', 'homework', 'leave', 'profile'].includes(v)
   }
 })
 
 const { safeAreaBottom } = useSystemInfo()
 
 const tabs = [
-  { key: 'home',    label: '首页',   icon: '🏠', iconActive: '🏠', url: '/pages/index/index' },
-  { key: 'notice',  label: '通知',   icon: '🔔', iconActive: '🔔', url: '/pages/notice/index' },
-  { key: 'fee',     label: '班费',   icon: '💰', iconActive: '💰', url: '/pages/fee/index' },
-  { key: 'profile', label: '我的',   icon: '👤', iconActive: '👤', url: '/pages/profile/index' }
+  { key: 'home',     label: '首页',   icon: '🏠', iconActive: '🏠', url: '/pages/index/index' },
+  { key: 'notice',   label: '通知',   icon: '🔔', iconActive: '🔔', url: '/pages/notice/index' },
+  { key: 'homework', label: '作业',   icon: '📝', iconActive: '📝', url: '/pages/homework/index' },
+  { key: 'leave',    label: '请假',   icon: '📋', iconActive: '📋', url: '/pages/leave/index' },
+  { key: 'profile',  label: '我的',   icon: '👤', iconActive: '👤', url: '/pages/profile/index' }
 ]
 
 function onTap(item) {

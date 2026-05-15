@@ -1,10 +1,11 @@
 const db = require('../config/database');
 
 class Homework {
-  static async create({ title, description, creator_id, deadline }) {
+  static async create({ title, description, creator_id, deadline, attachments }) {
+    const attachJson = attachments ? JSON.stringify(attachments) : null;
     const [result] = await db.query(
-      'INSERT INTO homeworks (title, description, creator_id, deadline) VALUES (?, ?, ?, ?)',
-      [title, description, creator_id, deadline]
+      'INSERT INTO homeworks (title, description, creator_id, deadline, attachments) VALUES (?, ?, ?, ?, ?)',
+      [title, description, creator_id, deadline, attachJson]
     );
     return result.insertId;
   }
@@ -17,6 +18,9 @@ class Homework {
        WHERE h.id = ?`,
       [id]
     );
+    if (rows[0] && typeof rows[0].attachments === 'string') {
+      try { rows[0].attachments = JSON.parse(rows[0].attachments); } catch { rows[0].attachments = null; }
+    }
     return rows[0];
   }
 
@@ -28,6 +32,11 @@ class Homework {
        LEFT JOIN users u ON h.creator_id = u.id
        ORDER BY h.created_at DESC`
     );
+    rows.forEach(r => {
+      if (r.attachments && typeof r.attachments === 'string') {
+        try { r.attachments = JSON.parse(r.attachments); } catch { r.attachments = null; }
+      }
+    });
     return rows;
   }
 

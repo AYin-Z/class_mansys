@@ -28,7 +28,7 @@
           <view v-for="(file, idx) in notice.attachments" :key="idx" class="attachment-item" @tap="downloadFile(file)">
             <text class="file-icon">📎</text>
             <text class="file-name">{{ file.name }}</text>
-            <text class="file-size">{{ file.size }}</text>
+            <text class="file-size">{{ formatFileSize(file.size) }}</text>
           </view>
         </view>
       </view>
@@ -97,7 +97,12 @@ async function fetchDetail() {
         author: n.creator_name || n.creator_nickname || '管理员',
         time: formatTime(n.created_at),
         content: renderContent(n.content),
-        attachments: []
+        attachments: n.attachments || []
+      }
+      // 解析 JSON 字符串附件
+      if (typeof notice.value.attachments === 'string') {
+        try { notice.value.attachments = JSON.parse(notice.value.attachments) }
+        catch { notice.value.attachments = [] }
       }
     }
   } catch (e) {
@@ -117,8 +122,19 @@ function priorityLabel(p) {
   return '日常'
 }
 
+function formatFileSize(bytes) {
+  const n = Number(bytes || 0)
+  if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + 'MB'
+  if (n >= 1024) return (n / 1024).toFixed(0) + 'KB'
+  return n + 'B'
+}
+
 function downloadFile(file) {
-  uni.showToast({ title: `下载：${file.name}`, icon: 'none' })
+  if (file.url) {
+    window.open(file.url, '_blank')
+  } else {
+    uni.showToast({ title: `附件：${file.name}`, icon: 'none' })
+  }
 }
 
 function onEdit() {

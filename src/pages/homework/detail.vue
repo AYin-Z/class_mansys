@@ -10,6 +10,16 @@
           <text class="section-label">作业要求</text>
           <text class="desc-text">{{ hw.description }}</text>
         </view>
+
+        <!-- 附件 -->
+        <view class="desc-section" v-if="hw.attachments && hw.attachments.length">
+          <text class="section-label">附件（{{ hw.attachments.length }}）</text>
+          <view v-for="(file, idx) in parsedAttachments" :key="idx" class="attachment-item" @tap="openFile(file)">
+            <text class="file-icon">📎</text>
+            <text class="file-name">{{ file.name }}</text>
+            <text class="file-size">{{ formatSize(file.size) }}</text>
+          </view>
+        </view>
       </view>
 
       <view v-if="mySubmission" class="info-card">
@@ -66,6 +76,13 @@ const isUrgent = computed(() => {
   if (!hw.value) return false
   const d = new Date(hw.value.deadline).getTime() - Date.now()
   return d > 0 && d < 86400000 * 2
+})
+
+const parsedAttachments = computed(() => {
+  if (!hw.value?.attachments) return []
+  let list = hw.value.attachments
+  if (typeof list === 'string') { try { list = JSON.parse(list) } catch { return [] } }
+  return Array.isArray(list) ? list : []
 })
 
 function formatDate(s) {
@@ -140,6 +157,17 @@ onLoad((options) => {
   hwId.value = Number(options?.id) || null
 })
 onShow(() => { fetchDetail() })
+
+function openFile(file) {
+  if (file.url) window.open(file.url, '_blank')
+}
+
+function formatSize(bytes) {
+  const n = Number(bytes || 0)
+  if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + 'MB'
+  if (n >= 1024) return (n / 1024).toFixed(0) + 'KB'
+  return n + 'B'
+}
 </script>
 
 <style lang="scss" scoped>
@@ -156,6 +184,11 @@ onShow(() => { fetchDetail() })
 .desc-section { margin-top: 22rpx; }
 .section-label { font-size: 25rpx; font-weight: 600; color: #43474f; text-transform: uppercase; letter-spacing: 3rpx; display: block; margin-bottom: 14rpx; }
 .desc-text { font-size: 26rpx; color: #191c1e; line-height: 1.6; }
+
+.attachment-item { display: flex; align-items: center; gap: 14rpx; padding: 14rpx 16rpx; background: #f2f4f7; border-radius: 12rpx; margin-bottom: 10rpx; &:active { opacity: 0.75; } }
+.file-icon { font-size: 28rpx; }
+.file-name { flex: 1; font-size: 24rpx; color: #191c1e; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-size { font-size: 20rpx; color: #c3c6d1; flex-shrink: 0; }
 
 .sub-row { display: flex; justify-content: space-between; align-items: center; padding: 14rpx 0; border-top: 1rpx solid #f2f4f7; }
 .sub-row:first-of-type { border-top: none; }

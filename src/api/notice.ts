@@ -12,11 +12,19 @@ export interface NoticeItem {
   priority: number  // 0=日常, 1=重要, 2=紧急
   creator_id: number
   is_pinned?: boolean
+  attachments?: AttachmentItem[] | null
   created_at: string
   updated_at: string
   creator_name?: string
   creator_nickname?: string
   is_read?: boolean
+}
+
+export interface AttachmentItem {
+  name: string
+  url: string
+  size: number
+  type: string
 }
 
 export interface NoticeCreateParams {
@@ -26,6 +34,7 @@ export interface NoticeCreateParams {
   type?: string
   priority?: number
   is_pinned?: boolean
+  attachments?: AttachmentItem[]
 }
 
 /**

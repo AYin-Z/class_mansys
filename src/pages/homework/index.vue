@@ -29,6 +29,7 @@
     <view v-if="canPublish" class="fab" @tap="goPublish">
       <text class="fab-icon">+</text>
     </view>
+    <custom-tab-bar current="homework" />
   </view>
 </template>
 

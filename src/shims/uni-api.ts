@@ -362,7 +362,9 @@ function request<T = any>(opts: {
 
 /* ======================== Upload / Choose File ======================== */
 function uploadFile(opts: {
-  url: string; filePath: string; name: string; formData?: Record<string, string>; header?: Record<string, string>
+  url: string; filePath: string; name: string; formData?: Record<string, string>; header?: Record<string, string>;
+  success?: (res: { data: string; statusCode: number }) => void;
+  fail?: (err: any) => void; complete?: (res: any) => void;
 }): Promise<{ data: string; statusCode: number }> {
   return new Promise((resolve, reject) => {
     const formData = new FormData()
@@ -379,18 +381,36 @@ function uploadFile(opts: {
         if (opts.header) {
           Object.entries(opts.header).forEach(([k, v]) => xhr.setRequestHeader(k, v))
         }
-        xhr.onload = () => resolve({ data: xhr.responseText, statusCode: xhr.status })
-        xhr.onerror = () => reject(new Error('upload fail'))
+        xhr.onload = () => {
+          const result = { data: xhr.responseText, statusCode: xhr.status }
+          resolve(result)
+          opts?.success?.(result)
+          opts?.complete?.(result)
+        }
+        xhr.onerror = () => {
+          const err = new Error('upload fail')
+          reject(err)
+          opts?.fail?.(err)
+          opts?.complete?.(err)
+        }
         xhr.send(formData)
       })
-      .catch(reject)
+      .catch((err) => {
+        reject(err)
+        opts?.fail?.(err)
+        opts?.complete?.(err)
+      })
   })
 }
 
-function chooseImage(opts?: { count?: number; sizeType?: string[]; sourceType?: string[] }): Promise<{
+function chooseImage(opts?: {
+  count?: number; sizeType?: string[]; sourceType?: string[];
+  success?: (res: { tempFilePaths: string[]; tempFiles: { path: string; size: number }[] }) => void;
+  fail?: (err: any) => void; complete?: (res: any) => void;
+}): Promise<{
   tempFilePaths: string[]; tempFiles: { path: string; size: number }[]
 }> {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
@@ -403,10 +423,19 @@ function chooseImage(opts?: { count?: number; sizeType?: string[]; sourceType?: 
         path: URL.createObjectURL(f),
         size: f.size,
       }))
-      resolve({
+      const result = {
         tempFilePaths: tempFiles.map(f => f.path),
         tempFiles,
-      })
+      }
+      resolve(result)
+      opts?.success?.(result)
+      opts?.complete?.(result)
+    }
+    input.onerror = () => {
+      const err = new Error('chooseImage:fail')
+      reject(err)
+      opts?.fail?.(err)
+      opts?.complete?.(err)
     }
     document.body.appendChild(input)
     input.click()
@@ -414,22 +443,35 @@ function chooseImage(opts?: { count?: number; sizeType?: string[]; sourceType?: 
   })
 }
 
-function chooseMessageFile(opts?: { count?: number; type?: string }): Promise<{
+function chooseMessageFile(opts?: {
+  count?: number; type?: string;
+  success?: (res: { tempFiles: { path: string; name: string; size: number }[] }) => void;
+  fail?: (err: any) => void; complete?: (res: any) => void;
+}): Promise<{
   tempFiles: { path: string; name: string; size: number }[]
 }> {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     const input = document.createElement('input')
     input.type = 'file'
     if (opts?.count && opts.count > 1) input.multiple = true
     input.style.display = 'none'
 
     input.onchange = () => {
-      const files = Array.from(input.files || []).map(f => ({
+      const tempFiles = Array.from(input.files || []).map(f => ({
         path: URL.createObjectURL(f),
         name: f.name,
         size: f.size,
       }))
-      resolve({ tempFiles: files })
+      const result = { tempFiles }
+      resolve(result)
+      opts?.success?.(result)
+      opts?.complete?.(result)
+    }
+    input.onerror = () => {
+      const err = new Error('chooseMessageFile:fail')
+      reject(err)
+      opts?.fail?.(err)
+      opts?.complete?.(err)
     }
     document.body.appendChild(input)
     input.click()

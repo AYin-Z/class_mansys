@@ -59,11 +59,48 @@
           <text class="label-text">附件（可选）</text>
         </view>
 
-        <view class="upload-area" @tap="chooseFile">
-          <text class="upload-icon">📎</text>
-          <text class="upload-text">点击上传附件</text>
-          <text class="upload-hint">支持PDF、图片、文档等格式</text>
+        <!-- 已选附件列表 -->
+        <view class="attach-list" v-if="formData.attachments.length > 0">
+          <view class="attach-item" v-for="(item, idx) in formData.attachments" :key="idx">
+            <text class="attach-icon">📎</text>
+            <view class="attach-info">
+              <text class="attach-name">{{ item.name }}</text>
+              <text class="attach-size">{{ formatSize(item.size) }}</text>
+            </view>
+            <text class="attach-del" @click="removeAttachment(idx)">✕</text>
+          </view>
         </view>
+
+        <view class="attach-actions">
+          <view class="attach-btn" @click="chooseFile">
+            <text class="btn-icon">📤</text>
+            <text class="btn-label">上传文件</text>
+          </view>
+          <view class="attach-btn" @click="openResourcePicker">
+            <text class="btn-icon">📂</text>
+            <text class="btn-label">引用资源</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 资源引用弹出层 -->
+      <view class="overlay" v-if="showResourcePicker" @click="showResourcePicker = false"></view>
+      <view class="resource-picker" v-if="showResourcePicker">
+        <view class="picker-header">
+          <text class="picker-title">选择公共资源</text>
+          <text class="picker-close" @click="showResourcePicker = false">关闭</text>
+        </view>
+        <scroll-view scroll-y class="picker-list">
+          <view class="resource-item" v-for="item in resources" :key="item.id" @click="pickResource(item)">
+            <text class="res-icon">📄</text>
+            <view class="res-info">
+              <text class="res-name">{{ item.name }}</text>
+              <text class="res-meta">{{ item.type }} · {{ formatSize(item.size) }}</text>
+            </view>
+            <text class="res-add">+</text>
+          </view>
+          <view class="empty-hint" v-if="resources.length === 0">暂无可用资源</view>
+        </scroll-view>
       </view>
 
       <view class="bottom-action">
@@ -79,12 +116,15 @@
 import { reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getNoticeDetail, createNotice, updateNotice } from '@/api/notice'
+import { getResources } from '@/api/announcement'
 
 const priorityOptions = ['日常', '重要', '紧急']
 const typeOptions = ['系统通知', '集合通知', '学习通知', '活动通知', '其他']
 
 const isEdit = ref(false)
 const noticeId = ref(null)
+const showResourcePicker = ref(false)
+const resources = ref([])
 
 const formData = reactive({
   title: '',
@@ -95,6 +135,17 @@ const formData = reactive({
   content: '',
   attachments: []
 })
+
+function formatSize(bytes) {
+  if (!bytes) return '0 B'
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+function removeAttachment(idx) {
+  formData.attachments.splice(idx, 1)
+}
 
 function onPriorityChange(e) {
   const idx = e.detail.value
@@ -107,13 +158,76 @@ function onTypeChange(e) {
   formData.type = typeOptions[idx]
 }
 
-function chooseFile() {
+async function chooseFile() {
+  const BASE = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
+  const token = (() => {
+    try { return localStorage.getItem('backend_token') || '' } catch { return '' }
+  })()
+
   uni.chooseMessageFile({
     count: 5,
-    success: (res) => {
-      formData.attachments = res.tempFiles
+    success: async (res) => {
+      uni.showLoading({ title: '上传中...' })
+      for (const file of res.tempFiles) {
+        try {
+          const uploadResult = await new Promise((resolve, reject) => {
+            uni.uploadFile({
+              url: `${BASE}/api/announcement/resources/upload`,
+              filePath: file.path,
+              name: 'file',
+              header: { Authorization: `Bearer ${token}` },
+              success: (r) => {
+                try { resolve(JSON.parse(r.data)) } catch { reject(new Error('解析上传结果失败')) }
+              },
+              fail: reject
+            })
+          })
+          if (uploadResult.success) {
+            formData.attachments.push({
+              name: uploadResult.filename || file.name,
+              url: uploadResult.url,
+              size: uploadResult.size || file.size,
+              type: uploadResult.type || 'file'
+            })
+          } else {
+            uni.showToast({ title: uploadResult.error || '上传失败', icon: 'none' })
+          }
+        } catch (e) {
+          console.error('文件上传失败:', e)
+          uni.showToast({ title: '文件上传失败', icon: 'none' })
+        }
+      }
+      uni.hideLoading()
     }
   })
+}
+
+async function openResourcePicker() {
+  showResourcePicker.value = true
+  if (resources.value.length === 0) {
+    try {
+      const res = await getResources()
+      if (res.success) {
+        resources.value = res.resources || []
+      }
+    } catch (e) {
+      console.error('获取资源列表失败:', e)
+    }
+  }
+}
+
+function pickResource(item) {
+  if (formData.attachments.some(a => a.url === item.url)) {
+    uni.showToast({ title: '该资源已被引用', icon: 'none' })
+    return
+  }
+  formData.attachments.push({
+    name: item.name,
+    url: item.url,
+    size: item.size,
+    type: item.type
+  })
+  showResourcePicker.value = false
 }
 
 async function fetchDetail() {
@@ -128,6 +242,7 @@ async function fetchDetail() {
       formData.priority = notice.priority ?? 0
       formData.priorityLabel = priorityOptions[notice.priority] || '日常'
       formData.is_pinned = notice.is_pinned ?? false
+      formData.attachments = notice.attachments || []
     }
   } catch (error) {
     uni.showToast({ title: '加载通知详情失败', icon: 'none' })
@@ -164,7 +279,8 @@ async function onPublish() {
       content: formData.content,
       type: formData.type,
       priority: formData.priority,
-      is_pinned: formData.is_pinned
+      is_pinned: formData.is_pinned,
+      attachments: formData.attachments.length > 0 ? formData.attachments : undefined
     }
     const res = isEdit.value
       ? await updateNotice(noticeId.value, payload)
@@ -332,35 +448,36 @@ async function onPublish() {
   box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.1);
 }
 
-.upload-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12rpx;
-  padding: 48rpx 24rpx;
-  background: #ffffff;
-  border-radius: 20rpx;
-  border: 2rpx dashed rgba(195,198,209,0.4);
+/* 附件列表 */
+.attach-list { background: #fff; border-radius: 20rpx; margin-top: 20rpx; overflow: hidden; }
+.attach-item { display: flex; align-items: center; gap: 20rpx; padding: 24rpx; border-bottom: 1rpx solid #f0f2f5; }
+.attach-item:last-child { border-bottom: none; }
+.attach-icon { font-size: 36rpx; flex-shrink: 0; }
+.attach-info { flex: 1; min-width: 0; }
+.attach-name { display: block; font-size: 26rpx; color: #191c1e; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-size { display: block; font-size: 22rpx; color: #8e93a6; margin-top: 4rpx; }
+.attach-del { font-size: 28rpx; color: #e84c3d; padding: 8rpx; flex-shrink: 0; }
 
-  &:active {
-    background: #fafbfc;
-  }
-}
+/* 附件操作按钮 */
+.attach-actions { display: flex; gap: 20rpx; margin-top: 20rpx; }
+.attach-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 12rpx; padding: 32rpx 24rpx; background: #ffffff; border-radius: 20rpx; border: 2rpx dashed rgba(195,198,209,0.4); &:active { background: #fafbfc; } }
+.btn-icon { font-size: 40rpx; }
+.btn-label { font-size: 26rpx; color: #191c1e; font-weight: 500; }
 
-.upload-icon {
-  font-size: 48rpx;
-}
-
-.upload-text {
-  font-size: 28rpx;
-  color: #191c1e;
-  font-weight: 500;
-}
-
-.upload-hint {
-  font-size: 22rpx;
-  color: #c3c6d1;
-}
+/* 资源选择弹出层 */
+.overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 200; }
+.resource-picker { position: fixed; bottom: 0; left: 0; right: 0; max-height: 70vh; background: #fff; border-radius: 32rpx 32rpx 0 0; z-index: 201; display: flex; flex-direction: column; }
+.picker-header { display: flex; align-items: center; justify-content: space-between; padding: 32rpx; border-bottom: 1rpx solid #f0f2f5; }
+.picker-title { font-size: 30rpx; font-weight: 600; color: #191c1e; }
+.picker-close { font-size: 26rpx; color: #8e93a6; }
+.picker-list { flex: 1; overflow-y: auto; padding-bottom: env(safe-area-inset-bottom); }
+.resource-item { display: flex; align-items: center; gap: 20rpx; padding: 24rpx 32rpx; &:active { background: #f7f9fc; } }
+.res-icon { font-size: 36rpx; flex-shrink: 0; }
+.res-info { flex: 1; min-width: 0; }
+.res-name { display: block; font-size: 26rpx; color: #191c1e; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.res-meta { display: block; font-size: 22rpx; color: #8e93a6; margin-top: 4rpx; }
+.res-add { font-size: 32rpx; color: #001e40; font-weight: 700; flex-shrink: 0; padding: 8rpx; }
+.empty-hint { text-align: center; padding: 60rpx 0; color: #c3c6d1; font-size: 26rpx; }
 
 .bottom-action {
   position: fixed;

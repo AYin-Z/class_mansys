@@ -8,8 +8,16 @@ export interface HomeworkItem {
   creator_name?: string
   deadline: string
   submission_count?: number
+  attachments?: AttachmentItem[] | null
   created_at: string
   updated_at: string
+}
+
+export interface AttachmentItem {
+  name: string
+  url: string
+  size: number
+  type: string
 }
 
 export interface HomeworkSubmission {
@@ -30,6 +38,7 @@ export interface HomeworkCreateParams {
   title: string
   description: string
   deadline: string
+  attachments?: AttachmentItem[]
 }
 
 export interface HomeworkSubmitParams {

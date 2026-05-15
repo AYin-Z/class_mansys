@@ -3,7 +3,7 @@ const Notice = require('../models/Notice');
 class NoticeController {
   static async createNotice(req, res) {
     try {
-      const { title, content, type, priority, is_pinned } = req.body || {};
+      const { title, content, type, priority, is_pinned, attachments } = req.body || {};
       if (!title || !content) {
         return res.status(400).json({ success: false, error: '标题和内容必填' });
       }
@@ -14,6 +14,7 @@ class NoticeController {
         type: type || '日常',
         priority: typeof priority === 'number' ? priority : 0,
         is_pinned: !!is_pinned,
+        attachments,
         creator_id: req.user.id
       });
 
@@ -63,10 +64,10 @@ class NoticeController {
   static async updateNotice(req, res) {
     try {
       const { id } = req.params;
-      const { title, content, summary, type, priority, is_pinned } = req.body || {};
+      const { title, content, summary, type, priority, is_pinned, attachments } = req.body || {};
 
       // Check that body is not completely empty
-      const fields = { title, content, summary, type, priority, is_pinned };
+      const fields = { title, content, summary, type, priority, is_pinned, attachments };
       const hasFields = Object.values(fields).some(v => v !== undefined);
       if (!hasFields) {
         return res.status(400).json({ success: false, error: '没有可更新的字段' });
