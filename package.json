@@ -2,20 +2,16 @@
   "name": "class_manage_sys",
   "version": "1.0.0",
   "description": "区队管理系统 - 基于 uni-app 框架",
+  "type": "module",
   "main": "src/main.ts",
   "scripts": {
-    "dev:mp-weixin": "uni build --watch --platform mp-weixin",
-    "build:mp-weixin": "uni build --platform mp-weixin",
-    "dev:h5": "uni build --watch --platform h5",
-    "build:h5": "uni build --platform h5",
-    "dev:app": "uni build --watch --platform app-plus",
-    "build:app": "uni build --platform app-plus",
-    "build": "uni build --platform app-plus",
-    "dev": "uni build --watch --platform app-plus",
-    "cap:sync": "npm run build:h5 && npx cap sync android",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "cap:add": "npx cap add android",
+    "cap:sync": "npx cap sync android",
     "cap:open": "npx cap open android",
-    "apk:debug": "npm run cap:sync && cd android && gradlew.bat assembleDebug",
-    "apk:release": "npm run cap:sync && cd android && gradlew.bat assembleRelease"
+    "apk": "npm run build && npx cap sync android && npx cap open android"
   },
   "keywords": [
     "uni-app",
@@ -34,15 +30,19 @@
     "@dcloudio/uni-app": "^3.0.0-alpha-5000720260416001",
     "@dcloudio/uni-mp-weixin": "^3.0.0-alpha-5000720260416001",
     "@dcloudio/uni-ui": "^1.5.12",
+    "@vitejs/plugin-vue": "^6.0.6",
     "@vue/shared": "~3.4.21",
+    "axios": "^1.16.1",
     "pinia": "^2.2.0",
-    "vue": "~3.4.21"
+    "vue": "~3.4.21",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@dcloudio/types": "3.4.28",
     "@dcloudio/vite-plugin-uni": "^3.0.0-alpha-5000720260416001",
     "@vue/compiler-sfc": "~3.4.21",
     "sass": "^1.62.1",
+    "typescript": "^6.0.3",
     "vite": "5.2.8"
   }
 }

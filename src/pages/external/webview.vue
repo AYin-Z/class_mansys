@@ -6,7 +6,8 @@
 </template>
 
 <script setup>
-import { ref, onLoad } from 'vue'
+import { ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 const url = ref('about:blank')
 
 onLoad((options) => {

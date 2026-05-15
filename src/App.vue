@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// Hooks resolved via src/shims/uni-lifecycle.ts (vite alias)
 import { onLaunch, onShow, onHide } from "@dcloudio/uni-app";
 import { initCloudBase, checkEnvironment } from "./utils/cloudbase";
 import { useUserStore } from "@/stores/user";
@@ -26,7 +27,7 @@ onLaunch(async () => {
   userStore.hydrate();
 
   // 注册 401 拦截回调
-  setRouteGuard(() => routeGuard(true));
+  setRouteGuard(() => routeGuard(undefined, true));
 
   // 路由守卫（首次校验）
   routeGuard();
