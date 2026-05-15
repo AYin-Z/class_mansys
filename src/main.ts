@@ -10,6 +10,7 @@ import router from './router'
 import App from './App.vue'
 import showCaptcha from './components/show-captcha.vue'
 import CustomNavBar from './components/custom-nav-bar.vue'
+import CustomTabBar from './components/custom-tab-bar.vue'
 import UniPopup from '@dcloudio/uni-ui/lib/uni-popup/uni-popup.vue'
 import UniLoadMore from '@dcloudio/uni-ui/lib/uni-load-more/uni-load-more.vue'
 import UniTransition from '@dcloudio/uni-ui/lib/uni-transition/uni-transition.vue'
@@ -38,6 +39,7 @@ try {
   d('registering components...')
   app.component('show-captcha', showCaptcha)
   app.component('custom-nav-bar', CustomNavBar)
+  app.component('custom-tab-bar', CustomTabBar)
   d('custom components registered')
 
   d('registering uni-ui components...')
