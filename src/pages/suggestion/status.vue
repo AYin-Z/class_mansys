@@ -56,7 +56,7 @@
 import { ref, reactive, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getSuggestionDetail, handleSuggestion, SUGGESTION_STATUS_LABEL } from '@/api/suggestion'
-import { isAdmin } from '@/utils/auth.js'
+import { isAdmin } from '@/utils/auth'
 
 const detail = ref({})
 const canHandle = ref(false)

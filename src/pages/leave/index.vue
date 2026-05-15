@@ -95,7 +95,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { isAdmin as checkAdmin, canApproveLeave } from '@/utils/auth.js'
+import { isAdmin as checkAdmin, canApproveLeave } from '@/utils/auth'
 import { getMyLeaves, getAllLeaves } from '@/api/leave'
 import { hasBackendToken } from '@/utils/request'
 import { formatLeaveDateTime } from '@/utils/index'

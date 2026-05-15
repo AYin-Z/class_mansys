@@ -108,7 +108,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { isAdmin as checkAdmin } from '@/utils/auth.js'
+import { isAdmin as checkAdmin } from '@/utils/auth'
 import { getBalance, getMyExpenses, getAllExpenses } from '@/api/fee'
 import { hasBackendToken } from '@/utils/request'
 

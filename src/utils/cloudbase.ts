@@ -2,7 +2,7 @@ import cloudbase from '@cloudbase/js-sdk'
 import adapter from '@cloudbase/adapter-uni-app'
 import { cloudBaseLoginAndStoreToken, loginAndStoreToken } from '@/api/auth'
 import { setToken, clearToken, hasBackendToken } from '@/utils/request'
-import { setCurrentUser } from '@/utils/auth.js'
+import { setCurrentUser } from '@/utils/auth'
 
 // 使用 UniApp 适配器
 cloudbase.useAdapters(adapter, { uni: uni });

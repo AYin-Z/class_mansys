@@ -53,7 +53,7 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getAnnouncements, getResources, deleteAnnouncement, deleteResource } from '@/api/announcement'
-import { canPublishNotice, isAdmin } from '@/utils/auth.js'
+import { canPublishNotice, isAdmin } from '@/utils/auth'
 
 const currentTab = ref('notice')
 const notices = ref([])

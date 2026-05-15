@@ -47,7 +47,7 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getNoticeDetail, deleteNotice } from '@/api/notice'
-import { canPublishNotice } from '@/utils/auth.js'
+import { canPublishNotice } from '@/utils/auth'
 
 const notice = ref({
   id: null,

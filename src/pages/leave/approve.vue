@@ -81,7 +81,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { canApproveLeave } from '@/utils/auth.js'
+import { canApproveLeave } from '@/utils/auth'
 import { getAllLeaves, approveLeave } from '@/api/leave'
 import { hasBackendToken } from '@/utils/request'
 import { formatLeaveDateTime } from '@/utils/index'

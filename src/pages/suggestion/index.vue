@@ -47,7 +47,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getMineSuggestions, getAllSuggestions, SUGGESTION_STATUS_LABEL } from '@/api/suggestion'
-import { isAdmin } from '@/utils/auth.js'
+import { isAdmin } from '@/utils/auth'
 
 const suggestions = ref([])
 const tab = ref('mine')

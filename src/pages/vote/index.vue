@@ -35,7 +35,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getVotes, isVoteSingle, getVoteStatus } from '@/api/vote'
-import { isAdmin } from '@/utils/auth.js'
+import { isAdmin } from '@/utils/auth'
 
 const votes = ref([])
 const canCreate = ref(false)

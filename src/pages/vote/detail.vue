@@ -44,7 +44,7 @@
 import { ref, computed } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getVoteDetail, castVote, closeVote, isVoteSingle, getVoteStatus } from '@/api/vote'
-import { isAdmin } from '@/utils/auth.js'
+import { isAdmin } from '@/utils/auth'
 
 const vote = ref({})
 const options = ref([])

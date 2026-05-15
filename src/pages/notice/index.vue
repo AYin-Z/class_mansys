@@ -66,7 +66,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { canPublishNotice } from '@/utils/auth.js'
+import { canPublishNotice } from '@/utils/auth'
 import { getNotices } from '@/api/notice'
 import { hasBackendToken } from '@/utils/request'
 
