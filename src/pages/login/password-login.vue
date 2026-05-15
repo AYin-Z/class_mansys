@@ -48,8 +48,7 @@
 
       <!-- 底部链接 -->
       <view class="bottom-links">
-        <text class="link-text" @click="goToRegister">没有账号？去注册</text>
-        <text class="link-text" @click="goBack">返回登录方式选择</text>
+          <text class="link-text" @click="goBack">返回登录方式选择</text>
       </view>
     </view>
   </view>
@@ -152,11 +151,6 @@ const handleLogin = async () => {
   } finally {
     loading.value = false
   }
-}
-
-// 跳转到注册
-const goToRegister = () => {
-  uni.navigateTo({ url: '/pages/auth/register' })
 }
 
 // 返回登录方式选择
