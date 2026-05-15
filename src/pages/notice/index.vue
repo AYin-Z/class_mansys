@@ -150,9 +150,11 @@ onShow(() => {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
+
 .notice-page {
   min-height: 100vh;
-  background-color: #f7f9fc;
+  background-color: $surface;
 }
 
 .main-scroll {
@@ -165,7 +167,7 @@ onShow(() => {
   display: flex;
   gap: 8rpx;
   padding: 20rpx 32rpx;
-  background: #ffffff;
+  background: $surface-container-lowest;
 }
 
 .tab-item {
@@ -178,10 +180,10 @@ onShow(() => {
   transition: all 0.2s;
 
   &.active {
-    background: #001e40;
+    background: $primary;
 
     .tab-text {
-      color: #ffffff;
+      color: $on-primary;
     }
   }
 }
@@ -189,7 +191,7 @@ onShow(() => {
 .tab-text {
   font-size: 26rpx;
   font-weight: 500;
-  color: #43474f;
+  color: $on-surface-variant;
 }
 
 .notice-list {
@@ -199,7 +201,7 @@ onShow(() => {
 .notice-card {
   position: relative;
   display: flex;
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 18rpx;
   overflow: hidden;
   margin-bottom: 16rpx;
@@ -213,9 +215,9 @@ onShow(() => {
   width: 10rpx;
   flex-shrink: 0;
 
-  &.accent-urgent { background: #460002; }
-  &.accent-important { background: #001e40; }
-  &.accent-daily { background: #466270; }
+  &.accent-urgent { background: $tertiary; }
+  &.accent-important { background: $primary; }
+  &.accent-daily { background: $secondary; }
 }
 
 .card-body {
@@ -235,7 +237,7 @@ onShow(() => {
   font-family: 'PingFang SC', sans-serif;
   font-size: 28rpx;
   font-weight: 600;
-  color: #191c1e;
+  color: $on-surface;
   flex: 1;
   line-height: 1.4;
 }
@@ -248,14 +250,14 @@ onShow(() => {
   white-space: nowrap;
   flex-shrink: 0;
 
-  &.urgent { background: rgba(70,0,2,0.08); color: #460002; }
-  &.important { background: rgba(0,30,64,0.06); color: #001e40; }
-  &.daily { background: rgba(70,98,112,0.08); color: #466270; }
+  &.urgent { background: rgba($tertiary,0.08); color: $tertiary; }
+  &.important { background: rgba($primary,0.06); color: $primary; }
+  &.daily { background: rgba($secondary,0.08); color: $secondary; }
 }
 
 .notice-summary {
   font-size: 24rpx;
-  color: #43474f;
+  color: $on-surface-variant;
   line-height: 1.5;
   margin-bottom: 16rpx;
   display: -webkit-box;
@@ -272,19 +274,19 @@ onShow(() => {
 
 .notice-time {
   font-size: 22rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
 }
 
 .notice-author {
   font-size: 22rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
 }
 
 .empty-state {
   margin: 80rpx 32rpx 0;
   padding: 60rpx 32rpx;
   text-align: center;
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 24rpx;
   display: flex;
   flex-direction: column;
@@ -300,12 +302,12 @@ onShow(() => {
 .empty-title {
   font-size: 30rpx;
   font-weight: 600;
-  color: #43474f;
+  color: $on-surface-variant;
 }
 
 .empty-hint {
   font-size: 24rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
   line-height: 1.5;
 }
 
@@ -316,7 +318,7 @@ onShow(() => {
   bottom: calc(180rpx + env(safe-area-inset-bottom));
   width: 104rpx;
   height: 104rpx;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  background: $gradient-primary;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -331,7 +333,7 @@ onShow(() => {
 
 .fab-icon {
   font-size: 48rpx;
-  color: #ffffff;
+  color: $on-primary;
   line-height: 1;
 }
 </style>

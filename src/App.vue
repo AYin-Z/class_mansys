@@ -2,6 +2,8 @@
 import { onLaunch, onShow, onHide } from "@dcloudio/uni-app";
 import { initCloudBase, checkEnvironment } from "./utils/cloudbase";
 import { useUserStore } from "@/stores/user";
+import { routeGuard } from "@/composables/useRouteGuard";
+import { setRouteGuard } from "@/utils/request";
 // #ifdef APP-PLUS
 import { checkAppUpdate } from "@/utils/update-checker";
 // #endif
@@ -9,56 +11,47 @@ import { checkAppUpdate } from "@/utils/update-checker";
 onLaunch(async () => {
   console.log("App Launch");
 
-  if (checkEnvironment()) {
-    try {
-      const success = await initCloudBase();
-      if (success) {
-        console.log("云开发初始化成功");
-      } else {
-        console.warn("云开发初始化失败");
-      }
-    } catch (error) {
-      console.error("云开发初始化异常:", error);
-    }
-  } else {
-    console.warn("云开发环境ID未配置，请在 src/utils/cloudbase.ts 中配置");
-  }
+  // 并行初始化：cloudbase 不阻塞 hydrate / routeGuard
+  const cloudPromise = checkEnvironment()
+    ? initCloudBase().then(success => {
+        if (success) console.log("云开发初始化成功");
+        else console.warn("云开发初始化失败");
+      }).catch(error => {
+        console.error("云开发初始化异常:", error);
+      })
+    : Promise.resolve();
 
-  // 从本地恢复用户信息（store 内已自动处理）
+  // 从本地恢复用户信息
   const userStore = useUserStore();
   userStore.hydrate();
 
-  routeGuard(userStore);
+  // 注册 401 拦截回调
+  setRouteGuard(() => routeGuard(true));
+
+  // 路由守卫（首次校验）
+  routeGuard();
 
   // #ifdef APP-PLUS
-  // App 启动后延迟 3s 静默检查更新，避免阻塞首屏
-  setTimeout(() => {
-    checkAppUpdate({ silent: true }).catch(err => {
-      console.warn("[update] 启动时检查更新失败", err);
-    });
-  }, 3000);
+  // cloudbase 初始化完成后再检查更新
+  cloudPromise.then(() => {
+    setTimeout(() => {
+      checkAppUpdate({ silent: true }).catch(err => {
+        console.warn("[update] 启动时检查更新失败", err);
+      });
+    }, 3000);
+  });
   // #endif
 });
 
 onShow(() => {
   console.log("App Show");
+  // 每次应用切回前台时重新校验登录状态
+  routeGuard();
 });
 
 onHide(() => {
   console.log("App Hide");
 });
-
-function routeGuard(userStore: ReturnType<typeof useUserStore>) {
-  if (userStore.isAuthenticated) return;
-
-  // 已经在注册/登录页就别再跳
-  const pages = getCurrentPages();
-  const current = pages[pages.length - 1];
-  const route = current?.route || current?.$page?.fullPath || "";
-  if (route.includes("auth/register") || route.includes("auth/login") || route.includes("login/password") || route.includes("login/phone") || route.includes("login/email")) return;
-
-  uni.reLaunch({ url: "/pages/auth/register" });
-}
 </script>
 
 <style lang="scss">

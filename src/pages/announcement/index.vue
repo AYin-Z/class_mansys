@@ -171,50 +171,52 @@ onShow(() => refresh())
 
 <style lang="scss" scoped
 >
-.announcement-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";
+
+.announcement-page { min-height: 100vh; background-color: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
-.tab-row { display: flex; gap: 16rpx; padding: 20rpx 32rpx; background: #fff; }
+.tab-row { display: flex; gap: 16rpx; padding: 20rpx 32rpx; background: $surface-container-lowest; }
 .tab-item {
   flex: 1; height: 72rpx; border-radius: 36rpx; display: flex; align-items: center; justify-content: center;
-  &.active { background: #001e40; .tab-text { color: #fff; } }
+  &.active { background: $primary; .tab-text { color: $on-primary; } }
 }
-.tab-text { font-size: 28rpx; font-weight: 500; color: #43474f; }
+.tab-text { font-size: 28rpx; font-weight: 500; color: $on-surface-variant; }
 
 .content-list { padding: 24rpx 32rpx; }
-.list-card { position: relative; display: flex; background: #fff; border-radius: 18rpx; overflow: hidden; margin-bottom: 16rpx; &:active { opacity: 0.85; } }
-.card-accent { width: 10rpx; background: #001e40; flex-shrink: 0; }
+.list-card { position: relative; display: flex; background: $surface-container-lowest; border-radius: $radius-lg; overflow: hidden; margin-bottom: 16rpx; &:active { opacity: 0.85; } }
+.card-accent { width: 10rpx; background: $primary; flex-shrink: 0; }
 .card-body { flex: 1; padding: 24rpx; }
-.card-title { font-family: 'PingFang SC'; font-size: 28rpx; font-weight: 600; color: #191c1e; display: block; margin-bottom: 10rpx; }
-.card-summary { font-size: 24rpx; color: #43474f; line-height: 1.5; margin-bottom: 14rpx; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card-title { font-family: 'PingFang SC'; font-size: 28rpx; font-weight: 600; color: $on-surface; display: block; margin-bottom: 10rpx; }
+.card-summary { font-size: 24rpx; color: $on-surface-variant; line-height: 1.5; margin-bottom: 14rpx; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-meta { display: flex; gap: 16rpx; }
-.meta-time, .meta-author { font-size: 22rpx; color: #c3c6d1; }
+.meta-time, .meta-author { font-size: 22rpx; color: $outline-variant; }
 
 .resource-grid { padding: 24rpx 32rpx; display: flex; flex-direction: column; gap: 14rpx; }
 .resource-card {
   display: flex; align-items: center; gap: 18rpx; padding: 24rpx;
-  background: #fff; border-radius: 18rpx; &:active { opacity: 0.85; }
+  background: $surface-container-lowest; border-radius: $radius-lg; &:active { opacity: 0.85; }
 }
 .file-icon {
   width: 80rpx; height: 80rpx; border-radius: 16rpx; display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  &.pdf { background: rgba(70,0,2,0.06); .icon-text { color: #460002; } }
-  &.excel { background: rgba(0,30,64,0.06); .icon-text { color: #001e40; } }
-  &.word { background: rgba(70,98,112,0.08); .icon-text { color: #466270; } }
-  &.image { background: rgba(0,51,102,0.05); .icon-text { color: #003366; } }
+  &.pdf { background: rgba($tertiary,0.06); .icon-text { color: $tertiary; } }
+  &.excel { background: rgba($primary,0.06); .icon-text { color: $primary; } }
+  &.word { background: rgba($secondary,0.08); .icon-text { color: $secondary; } }
+  &.image { background: rgba($primary-container,0.05); .icon-text { color: $primary-container; } }
 }
 .icon-text { font-size: 22rpx; font-weight: 700; }
 .file-info { flex: 1; min-width: 0; }
-.file-name { font-size: 27rpx; font-weight: 500; color: #191c1e; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-size { font-size: 22rpx; color: #c3c6d1; display: block; margin-top: 4rpx; }
-.download-icon { font-size: 32rpx; color: #001e40; flex-shrink: 0; }
+.file-name { font-size: 27rpx; font-weight: 500; color: $on-surface; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-size { font-size: 22rpx; color: $outline-variant; display: block; margin-top: 4rpx; }
+.download-icon { font-size: 32rpx; color: $primary; flex-shrink: 0; }
 
 .fab-btn {
   position: fixed; right: 32rpx; bottom: calc(120rpx + env(safe-area-inset-bottom));
-  width: 104rpx; height: 104rpx; background: linear-gradient(135deg, #001e40, #003366);
+  width: 104rpx; height: 104rpx; background: $gradient-primary;
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 8rpx 32rpx rgba(0,30,64,0.3); z-index: 99;
+  box-shadow: 0 8rpx 32rpx rgba($primary,0.3); z-index: 99;
   &:active { transform: scale(0.95); }
 }
-.fab-icon { font-size: 48rpx; color: #fff; line-height: 1; }
+.fab-icon { font-size: 48rpx; color: $on-primary; line-height: 1; }
 </style>

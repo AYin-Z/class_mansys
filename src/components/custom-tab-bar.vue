@@ -13,8 +13,8 @@
   </view>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
+<script setup lang="ts">
+import { useSystemInfo } from '@/composables/useSystemInfo'
 
 const props = defineProps({
   current: {
@@ -24,7 +24,7 @@ const props = defineProps({
   }
 })
 
-const safeAreaBottom = ref(0)
+const { safeAreaBottom } = useSystemInfo()
 
 const tabs = [
   { key: 'home',    label: '首页',   icon: '🏠', iconActive: '🏠', url: '/pages/index/index' },
@@ -32,21 +32,6 @@ const tabs = [
   { key: 'fee',     label: '班费',   icon: '💰', iconActive: '💰', url: '/pages/fee/index' },
   { key: 'profile', label: '我的',   icon: '👤', iconActive: '👤', url: '/pages/profile/index' }
 ]
-
-onMounted(() => {
-  try {
-    const info = uni.getSystemInfoSync()
-    const safeInsets = info.safeAreaInsets || info.safeArea
-    if (safeInsets?.bottom !== undefined) {
-      safeAreaBottom.value = Math.max(0, info.screenHeight - (safeInsets.bottom || info.screenHeight))
-    }
-    if (info.safeAreaInsets?.bottom !== undefined) {
-      safeAreaBottom.value = info.safeAreaInsets.bottom
-    }
-  } catch (e) {
-    safeAreaBottom.value = 0
-  }
-})
 
 function onTap(item) {
   if (item.key === props.current) return

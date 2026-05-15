@@ -38,6 +38,11 @@ if (BASE_URL && import.meta.env.DEV) {
 const TOKEN_KEY = 'backend_token'
 
 let _redirectingToLogin = false
+let _routeGuard: (() => void) | null = null
+
+export function setRouteGuard(fn: () => void) {
+  _routeGuard = fn
+}
 
 export function getToken(): string {
   return uni.getStorageSync(TOKEN_KEY) || ''
@@ -80,10 +85,12 @@ function handleAuthFailure() {
   uni.removeStorageSync('user_profile')
   if (_redirectingToLogin) return
   _redirectingToLogin = true
-  uni.reLaunch({
-    url: '/pages/auth/register',
-    complete: () => { setTimeout(() => { _redirectingToLogin = false }, 1500) }
-  })
+  if (_routeGuard) {
+    _routeGuard()
+  } else {
+    uni.reLaunch({ url: '/pages/login/password-login' })
+  }
+  setTimeout(() => { _redirectingToLogin = false }, 1500)
 }
 
 function request<T = any>(options: RequestOptions): Promise<T> {

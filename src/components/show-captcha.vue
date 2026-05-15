@@ -66,9 +66,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import type { UniPopupInstance } from '@dcloudio/uni-ui'
 import { auth } from '../utils/cloudbase'
+
+const emit = defineEmits<{
+  /** 验证码验证成功 */
+  resolve: [result: any]
+}>()
 
 const popup = ref<UniPopupInstance | null>(null)
 const captchaCode = ref('')
@@ -161,7 +166,7 @@ const handleSubmit = async () => {
       token: captchaData.value.token,
     });
     console.log('验证码提交成功:', result)
-    uni.$emit('RESOLVE_CAPTCHA_DATA', result)
+    emit('resolve', result)
     closeCaptcha()
   } catch (error) {
     console.error('验证码验证失败:', error)
@@ -174,7 +179,7 @@ const handleSubmit = async () => {
 // 用户点击"取消"或关闭
 const handleCancel = () => {
   console.log('用户取消验证码输入')
-  uni.$emit('RESOLVE_CAPTCHA_DATA', {
+  emit('resolve', {
     error: 'user_cancelled',
     error_description: '用户取消了验证码输入'
   })
@@ -193,7 +198,7 @@ const captchaDataHandler = (data: any) => {
   }
 }
 
-// 组件挂载
+// CAPTCHA_DATA_CHANGE 由 cloudbase auth 库在需要验证码时触发（外部事件，不可修改）
 onMounted(() => {
   console.log('验证码组件已挂载，开始监听事件')
   uni.$on('CAPTCHA_DATA_CHANGE', captchaDataHandler)
@@ -206,11 +211,13 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@import "@/uni.scss";
+
 .captcha-container {
   width: 320px;
   max-width: 90vw;
-  background-color: white;
+  background-color: $surface-container-lowest;
   border-radius: 16px;
   padding: 24px;
   box-sizing: border-box;
@@ -227,23 +234,23 @@ onUnmounted(() => {
 .title {
   font-weight: bold;
   font-size: 18px;
-  color: #333;
+  color: $on-surface;
 }
 
 .close-btn {
   font-size: 20px;
-  color: #999;
+  color: $on-surface-tertiary;
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: #f5f5f5;
+  background: $surface-container-low;
 }
 
 .close-btn:active {
-  background: #e0e0e0;
+  background: $surface-container-high;
 }
 
 .captcha-body {
@@ -259,30 +266,30 @@ onUnmounted(() => {
 .captcha-img {
   width: 160px;
   height: 60px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid $surface-container-high;
   border-radius: 8px;
 }
 
 .captcha-placeholder {
   width: 160px;
   height: 60px;
-  border: 1px dashed #e0e0e0;
+  border: 1px dashed $surface-container-high;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f9f9f9;
+  background: $surface;
 }
 
 .captcha-placeholder text {
   font-size: 14px;
-  color: #999;
+  color: $on-surface-tertiary;
 }
 
 .captcha-input {
   width: 100%;
   height: 48px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid $surface-container-high;
   border-radius: 8px;
   padding: 0 16px;
   font-size: 16px;
@@ -292,7 +299,7 @@ onUnmounted(() => {
 }
 
 .captcha-input:focus {
-  border-color: #007aff;
+  border-color: $primary;
 }
 
 .captcha-actions {
@@ -310,21 +317,21 @@ onUnmounted(() => {
 }
 
 .cancel-btn {
-  background-color: #f0f0f0;
-  color: #333;
+  background-color: $surface-container;
+  color: $on-surface;
 }
 
 .cancel-btn:active {
-  background-color: #e0e0e0;
+  background-color: $surface-container-high;
 }
 
 .confirm-btn {
-  background-color: #007aff;
-  color: white;
+  background-color: $primary;
+  color: $on-primary;
 }
 
 .confirm-btn.is-disabled {
-  background-color: #ccc;
-  color: #999;
+  background-color: $outline-variant;
+  color: $on-surface-tertiary;
 }
 </style>

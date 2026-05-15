@@ -171,9 +171,11 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
+
 .fee-page {
   min-height: 100vh;
-  background-color: #f7f9fc;
+  background-color: $surface;
 }
 
 .main-scroll {
@@ -192,7 +194,7 @@ onMounted(() => {
 .balance-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  background: $gradient-primary;
 }
 
 .balance-content {
@@ -202,7 +204,7 @@ onMounted(() => {
 
 .balance-label {
   font-size: 26rpx;
-  color: rgba(255,255,255,0.65);
+  color: rgba($on-primary,0.65);
   display: block;
   margin-bottom: 12rpx;
 }
@@ -218,14 +220,14 @@ onMounted(() => {
   font-family: 'PingFang SC', sans-serif;
   font-size: 36rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: $on-primary;
 }
 
 .amount {
   font-family: 'PingFang SC', sans-serif;
   font-size: 72rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: $on-primary;
   letter-spacing: -1rpx;
 }
 
@@ -233,7 +235,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0;
-  background: rgba(255,255,255,0.1);
+  background: rgba($on-primary,0.1);
   border-radius: 16rpx;
   padding: 20rpx 24rpx;
 }
@@ -245,7 +247,7 @@ onMounted(() => {
 
 .meta-label {
   font-size: 22rpx;
-  color: rgba(255,255,255,0.55);
+  color: rgba($on-primary,0.55);
   display: block;
   margin-bottom: 4rpx;
 }
@@ -262,7 +264,7 @@ onMounted(() => {
 .meta-divider {
   width: 1rpx;
   height: 48rpx;
-  background: rgba(255,255,255,0.15);
+  background: rgba($on-primary,0.15);
 }
 
 .action-grid {
@@ -279,8 +281,8 @@ onMounted(() => {
   align-items: center;
   gap: 12rpx;
   padding: 24rpx 8rpx;
-  background: #ffffff;
-  border-radius: 18rpx;
+  background: $surface-container-lowest;
+  border-radius: $radius-lg;
 }
 
 .action-icon-wrap {
@@ -291,10 +293,10 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
 
-  &.blue { background: rgba(0,30,64,0.06); }
-  &.green { background: rgba(70,98,112,0.08); }
-  &.orange { background: rgba(70,0,2,0.05); }
-  &.purple { background: rgba(0,51,102,0.07); }
+  &.blue { background: rgba($primary,0.06); }
+  &.green { background: rgba($secondary,0.08); }
+  &.orange { background: rgba($tertiary,0.05); }
+  &.purple { background: rgba($primary-container,0.07); }
 }
 
 .action-emoji {
@@ -304,7 +306,7 @@ onMounted(() => {
 .action-label {
   font-size: 22rpx;
   font-weight: 500;
-  color: #43474f;
+  color: $on-surface-variant;
   text-align: center;
 }
 
@@ -324,12 +326,12 @@ onMounted(() => {
   font-family: 'PingFang SC', sans-serif;
   font-size: 30rpx;
   font-weight: 600;
-  color: #191c1e;
+  color: $on-surface;
 }
 
 .more-link {
   font-size: 24rpx;
-  color: #43474f;
+  color: $on-surface-variant;
   font-weight: 500;
 }
 
@@ -345,8 +347,8 @@ onMounted(() => {
   align-items: center;
   gap: 10rpx;
   padding: 24rpx 8rpx;
-  background: #ffffff;
-  border-radius: 18rpx;
+  background: $surface-container-lowest;
+  border-radius: $radius-lg;
 }
 
 .mgmt-icon {
@@ -356,7 +358,7 @@ onMounted(() => {
 .mgmt-label {
   font-size: 22rpx;
   font-weight: 500;
-  color: #43474f;
+  color: $on-surface-variant;
   text-align: center;
 }
 
@@ -365,8 +367,8 @@ onMounted(() => {
 }
 
 .record-list {
-  background: #ffffff;
-  border-radius: 20rpx;
+  background: $surface-container-lowest;
+  border-radius: $radius-lg;
   overflow: hidden;
 }
 
@@ -383,8 +385,8 @@ onMounted(() => {
   border-radius: 50%;
   flex-shrink: 0;
 
-  &.in { background: #003366; }
-  &.out { background: #460002; }
+  &.in { background: $primary-container; }
+  &.out { background: $tertiary; }
 }
 
 .record-info {
@@ -396,13 +398,13 @@ onMounted(() => {
 
 .record-desc {
   font-size: 27rpx;
-  color: #191c1e;
+  color: $on-surface;
   font-weight: 500;
 }
 
 .record-time {
   font-size: 22rpx;
-  color: #c3c6d1;
+  color: $outline-variant;
 }
 
 .record-amount {
@@ -411,7 +413,7 @@ onMounted(() => {
   font-weight: 600;
   flex-shrink: 0;
 
-  &.income { color: #003366; }
-  &.expense { color: #460002; }
+  &.income { color: $primary-container; }
+  &.expense { color: $tertiary; }
 }
 </style>

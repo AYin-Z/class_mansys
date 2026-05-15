@@ -166,9 +166,11 @@ const goBack = () => {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
+
 .login-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  background: $gradient-primary;
   padding: 60rpx 40rpx;
   box-sizing: border-box;
   display: flex;
@@ -184,20 +186,20 @@ const goBack = () => {
 .title {
   font-size: 48rpx;
   font-weight: bold;
-  color: #ffffff;
+  color: $on-primary;
   display: block;
   margin-bottom: 20rpx;
 }
 
 .subtitle {
   font-size: 28rpx;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba($on-primary, 0.8);
   display: block;
   line-height: 1.4;
 }
 
 .login-form {
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 20rpx;
   padding: 60rpx 40rpx;
   box-shadow: 0 20rpx 40rpx rgba(0, 0, 0, 0.15);
@@ -210,7 +212,7 @@ const goBack = () => {
 
 .label {
   font-size: 28rpx;
-  color: #333333;
+  color: $on-surface;
   display: block;
   margin-bottom: 20rpx;
   font-weight: 500;
@@ -219,23 +221,23 @@ const goBack = () => {
 .input-field {
   width: 100%;
   height: 88rpx;
-  border: 2rpx solid #e0e0e0;
+  border: 2rpx solid $surface-container-high;
   border-radius: 12rpx;
   padding: 0 24rpx;
   font-size: 32rpx;
   box-sizing: border-box;
-  background: #fafafa;
+  background: $surface-container-low;
 }
 
 .input-field:focus {
-  border-color: #003366;
-  background: #ffffff;
-  box-shadow: 0 0 0 4rpx rgba(0, 51, 102, 0.08);
+  border-color: $primary-container;
+  background: $surface-container-lowest;
+  box-shadow: 0 0 0 4rpx rgba($primary-container, 0.08);
 }
 
 .error-text {
   font-size: 22rpx;
-  color: #e74c3c;
+  color: $error;
   display: block;
   margin-top: 10rpx;
   padding-left: 4rpx;
@@ -271,8 +273,8 @@ const goBack = () => {
   width: 100%;
   height: 88rpx;
   line-height: 88rpx;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
-  color: #ffffff;
+  background: $gradient-primary;
+  color: $on-primary;
   border: none;
   border-radius: 12rpx;
   font-size: 32rpx;
@@ -281,8 +283,8 @@ const goBack = () => {
 }
 
 .login-btn:disabled {
-  background: #cccccc;
-  color: #999999;
+  background: $on-surface-tertiary;
+  color: $on-surface-tertiary;
 }
 
 .login-btn:not(:disabled):active {
@@ -298,7 +300,7 @@ const goBack = () => {
 
 .link-text {
   font-size: 28rpx;
-  color: #003366;
+  color: $primary-container;
   text-decoration: underline;
 }
 </style>

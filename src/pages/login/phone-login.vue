@@ -276,9 +276,11 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@import "@/uni.scss";
+
 .page {
   min-height: 100vh;
-  background: #f7f9fc;
+  background: $surface;
 }
 
 .scroll-area {
@@ -289,7 +291,7 @@ onUnmounted(() => {
 .header-section {
   position: relative;
   padding: 48rpx 32rpx 40rpx;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  background: $gradient-primary;
 }
 
 .brand-bar {
@@ -311,13 +313,13 @@ onUnmounted(() => {
   font-family: 'PingFang SC', sans-serif;
   font-size: 44rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: $on-primary;
   letter-spacing: -0.5rpx;
 }
 
 .subtitle {
   font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba($on-primary, 0.65);
   font-weight: 400;
 }
 
@@ -327,7 +329,7 @@ onUnmounted(() => {
 }
 
 .form-group {
-  background: #ffffff;
+  background: $surface-container-lowest;
   border-radius: 20rpx;
   overflow: hidden;
   margin-bottom: 24rpx;
@@ -341,7 +343,7 @@ onUnmounted(() => {
   display: block;
   font-size: 24rpx;
   font-weight: 500;
-  color: #191c1e;
+  color: $on-surface;
   margin-bottom: 12rpx;
 }
 
@@ -349,19 +351,19 @@ onUnmounted(() => {
   width: 100%;
   height: 52rpx;
   font-size: 30rpx;
-  color: #191c1e;
+  color: $on-surface;
   border: none;
-  border-bottom: 2rpx solid rgba(195, 198, 209, 0.2);
+  border-bottom: 2rpx solid rgba($outline-variant, 0.2);
   background: transparent;
   padding: 0;
   box-sizing: border-box;
 
   &:focus {
-    border-bottom-color: #001e40;
+    border-bottom-color: $primary;
   }
 
   &::placeholder {
-    color: #c3c6d1;
+    color: $outline-variant;
   }
 
   &[disabled] {
@@ -393,18 +395,18 @@ onUnmounted(() => {
   height: 64rpx;
   line-height: 64rpx;
   text-align: center;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  background: $gradient-primary;
   border-radius: 12rpx;
   border: none;
   font-family: 'PingFang SC', sans-serif;
   font-size: 24rpx;
   font-weight: 600;
-  color: #ffffff;
+  color: $on-primary;
   padding: 0;
 
   &[disabled] {
-    background: #c3c6d1;
-    color: #ffffff;
+    background: $outline-variant;
+    color: $on-primary;
   }
 
   &:active:not([disabled]) {
@@ -415,7 +417,7 @@ onUnmounted(() => {
 /* ========== 提示文字 ========== */
 .tip-text {
   font-size: 24rpx;
-  color: #999999;
+  color: $on-surface-tertiary;
   margin-bottom: 24rpx;
   padding-left: 8rpx;
 }
@@ -426,19 +428,19 @@ onUnmounted(() => {
   height: 96rpx;
   line-height: 96rpx;
   text-align: center;
-  background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+  background: $gradient-primary;
   border-radius: 20rpx;
   border: none;
   font-family: 'PingFang SC', sans-serif;
   font-size: 32rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: $on-primary;
   margin-top: 8rpx;
-  box-shadow: 0 8rpx 32rpx rgba(0, 30, 64, 0.25);
+  box-shadow: 0 8rpx 32rpx rgba($primary, 0.25);
 
   &[disabled] {
-    background: #c3c6d1;
-    color: rgba(255, 255, 255, 0.6);
+    background: $outline-variant;
+    color: rgba($on-primary, 0.6);
     box-shadow: none;
   }
 
@@ -456,7 +458,7 @@ onUnmounted(() => {
 
 .link-text {
   font-size: 26rpx;
-  color: #001e40;
+  color: $primary;
   text-decoration: underline;
 }
 
@@ -475,13 +477,13 @@ onUnmounted(() => {
 }
 
 .loading-box {
-  background: #ffffff;
+  background: $surface-container-lowest;
   padding: 40rpx 60rpx;
   border-radius: 16rpx;
 }
 
 .loading-text {
   font-size: 28rpx;
-  color: #191c1e;
+  color: $on-surface;
 }
 </style>

@@ -1,6 +1,7 @@
 /**
  * 兼容层：保持旧业务页面 import 路径不变。
- * 新代码请直接使用 useUserStore() / src/constants/roles.ts。
+ * @deprecated 请直接使用 useUserStore() / src/constants/roles.ts。
+ * 将在下次重构中移除本文件。
  *
  * 历史 bug 修复：
  *   - 旧版 ADMIN_ROLES 是中文字符串，与后端 INT 永不相等 → 永远 false
@@ -30,6 +31,7 @@ const ADMIN_ROLES = {
   PUBLICITY_COMMITTEE: USER_ROLES.PUBLICITY_COMMITTEE
 }
 
+/** @deprecated auth.js 兼容层即将移除。请直接使用 useUserStore() / src/constants/roles.ts */
 function getCurrentUser() {
   // 同时尝试 store 和老存储 key（向下兼容历史代码）
   try {

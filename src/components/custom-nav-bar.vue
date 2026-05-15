@@ -14,8 +14,9 @@
   </view>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useSystemInfo } from '@/composables/useSystemInfo'
 
 const props = defineProps({
   title: {
@@ -28,13 +29,8 @@ const props = defineProps({
   }
 })
 
-const statusBarHeight = ref(20)
+const { statusBarHeight } = useSystemInfo()
 const navBarHeight = ref(44)
-
-onMounted(() => {
-  const sysInfo = uni.getSystemInfoSync()
-  statusBarHeight.value = sysInfo.statusBarHeight || 20
-})
 
 function goBack() {
   uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/index/index' }) })
