@@ -46,6 +46,12 @@ export default defineConfig({
           changed = true
         }
 
+        // 1b. Replace uni-app @confirm with @keyup.enter (for search inputs)
+        if (tpl.includes('@confirm')) {
+          tpl = tpl.replace(/@confirm\b/g, '@keyup.enter')
+          changed = true
+        }
+
         // 2. Replace uni-app tags with standard HTML
         const tags: [RegExp, string][] = [
           [/\bview\b/g, 'div'],
