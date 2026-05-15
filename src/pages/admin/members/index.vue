@@ -1,15 +1,15 @@
 <template>
-  <view class="admin-members-page">
-    <view class="header-section">
-      <view class="brand-bar"></view>
-      <view class="header-content">
-        <text class="title">成员管理</text>
-        <text class="subtitle">查看区队成员、请假状态与系统内操作</text>
-      </view>
-    </view>
+  <div class="admin-members-page">
+    <div class="header-section">
+      <div class="brand-bar"></div>
+      <div class="header-content">
+        <span class="title">成员管理</span>
+        <span class="subtitle">查看区队成员、请假状态与系统内操作</span>
+      </div>
+    </div>
 
     <!-- 筛选栏 -->
-    <view class="filter-bar">
+    <div class="filter-bar">
       <picker
         mode="selector"
         :range="classes"
@@ -17,15 +17,15 @@
         :value="classIndex"
         @change="onClassChange"
       >
-        <view class="filter-item">
-          <text class="filter-label">班级</text>
-          <view class="filter-value">
-            <text class="filter-text">{{ classes[classIndex]?.name || '全部' }}</text>
-            <text class="arrow">›</text>
-          </view>
-        </view>
+        <div class="filter-item">
+          <span class="filter-label">班级</span>
+          <div class="filter-value">
+            <span class="filter-text">{{ classes[classIndex]?.name || '全部' }}</span>
+            <span class="arrow">›</span>
+          </div>
+        </div>
       </picker>
-      <view class="search-wrap">
+      <div class="search-wrap">
         <input
           class="search-input"
           placeholder="搜索姓名/学号/手机号"
@@ -33,60 +33,61 @@
           v-model="keyword"
           @confirm="load"
         />
-      </view>
-    </view>
+      </div>
+    </div>
 
-    <view class="summary-row">
-      <text class="summary-text">共 {{ total }} 名成员 · 当前 {{ members.length }} 条</text>
-      <text class="refresh-btn" @tap="load">刷新</text>
-    </view>
+    <div class="summary-row">
+      <span class="summary-text">共 {{ total }} 名成员 · 当前 {{ members.length }} 条</span>
+      <span class="refresh-btn" @tap="load">刷新</span>
+    </div>
 
-    <scroll-view scroll-y class="list-scroll">
-      <view v-if="!members.length && !loading" class="empty-state">
-        <text class="empty-text">暂无数据</text>
-      </view>
+    <div scroll-y class="list-scroll">
+      <div v-if="!members.length && !loading" class="empty-state">
+        <span class="empty-text">暂无数据</span>
+      </div>
 
-      <view
+      <div
         v-for="m in members"
         :key="m.id"
         class="member-card"
         @tap="goDetail(m.id)"
       >
-        <view class="avatar-wrap">
-          <image v-if="m.avatarUrl" :src="m.avatarUrl" mode="aspectFill" class="avatar" />
-          <view v-else class="avatar avatar-fallback">
-            <text class="avatar-initial">{{ (m.name || '?').slice(0, 1) }}</text>
-          </view>
-        </view>
-        <view class="info-col">
-          <view class="name-row">
-            <text class="name">{{ m.name }}</text>
-            <text class="role-tag">{{ roleLabel(m.role) }}</text>
-          </view>
-          <text class="sub">学号 {{ m.student_id }} · {{ m.class_name || m.class_id || '未分班' }}</text>
-          <view class="status-row">
-            <text
+        <div class="avatar-wrap">
+          <img v-if="m.avatarUrl" :src="m.avatarUrl" mode="aspectFill" class="avatar" />
+          <div v-else class="avatar avatar-fallback">
+            <span class="avatar-initial">{{ (m.name || '?').slice(0, 1) }}</span>
+          </div>
+        </div>
+        <div class="info-col">
+          <div class="name-row">
+            <span class="name">{{ m.name }}</span>
+            <span class="role-tag">{{ roleLabel(m.role) }}</span>
+          </div>
+          <span class="sub">学号 {{ m.student_id }} · {{ m.class_name || m.class_id || '未分班' }}</span>
+          <div class="status-row">
+            <span
               :class="['status-chip', m.active_leave_count ? 'chip-warn' : 'chip-ok']"
-            >{{ m.active_leave_count ? '请假中' : '在岗' }}</text>
-            <text class="muted">最近操作 · {{ formatDate(m.last_action_at) }}</text>
-          </view>
-        </view>
-        <text class="arrow big">›</text>
-      </view>
+            >{{ m.active_leave_count ? '请假中' : '在岗' }}</span>
+            <span class="muted">最近操作 · {{ formatDate(m.last_action_at) }}</span>
+          </div>
+        </div>
+        <span class="arrow big">›</span>
+      </div>
 
-      <view v-if="hasMore" class="load-more" @tap="loadMore">
-        <text class="load-more-text">{{ loading ? '加载中…' : '加载更多' }}</text>
-      </view>
-    </scroll-view>
-  </view>
+      <div v-if="hasMore" class="load-more" @tap="loadMore">
+        <span class="load-more-text">{{ loading ? '加载中…' : '加载更多' }}</span>
+      </div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
+<script setup lang="ts">
+
+
+import { onMounted, ref } from 'vue'
 import { listMembers } from '@/api/admin'
 import { getClasses } from '@/api/classes'
 import { getRoleLabel } from '@/constants/roles'
-
 const DEFAULT_CLASS_LIST = [
   { id: '', name: '全部' },
   { id: 'class001', name: '一区队' },
@@ -189,6 +190,7 @@ onMounted(async () => {
   await loadClasses()
   await load()
 })
+
 </script>
 
 <style lang="scss" scoped>

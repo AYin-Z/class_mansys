@@ -1,51 +1,52 @@
 <template>
-  <view class="rate-page">
+  <div class="rate-page">
     <custom-nav-bar :title="adminMode ? '加扣分' : '评分标准'" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
+    <div scroll-y class="main-scroll">
       <!-- 管理员加扣分模式 -->
-      <view v-if="adminMode && isAdminUser" class="form-area">
-        <view class="form-card">
-          <view class="form-row">
-            <text class="row-label block">选择对象（学号）</text>
+      <div v-if="adminMode && isAdminUser" class="form-area">
+        <div class="form-card">
+          <div class="form-row">
+            <span class="row-label block">选择对象（学号）</span>
             <input class="solid-input" placeholder="输入学号" v-model="form.studentId" />
-          </view>
-          <view class="form-row">
-            <text class="row-label block">分值（正数为加分、负数为扣分）</text>
+          </div>
+          <div class="form-row">
+            <span class="row-label block">分值（正数为加分、负数为扣分）</span>
             <input class="solid-input" type="digit" placeholder="例如 5 或 -3" v-model="form.score" />
-          </view>
-          <view class="textarea-wrap">
-            <text class="row-label block">原因</text>
+          </div>
+          <div class="textarea-wrap">
+            <span class="row-label block">原因</span>
             <textarea class="solid-textarea" v-model="form.reason" placeholder="说明加扣分原因..." />
-          </view>
-        </view>
-        <button class="primary-btn" @tap="submit"><text class="btn-text">提交</text></button>
-      </view>
+          </div>
+        </div>
+        <button class="primary-btn" @tap="submit"><span class="btn-text">提交</span></button>
+      </div>
 
       <!-- 评分标准展示 -->
-      <view v-else>
-        <view v-for="cat in categories" :key="cat.key" class="category-card">
-          <text class="cat-title">{{ cat.title }}</text>
-          <view v-for="item in cat.items" :key="item.name" class="rate-row">
-            <text class="rate-name">{{ item.name }}</text>
-            <text :class="['rate-val', item.type]">{{ item.type === 'add' ? '+' : '' }}{{ item.points }}</text>
-          </view>
-        </view>
-      </view>
+      <div v-else>
+        <div v-for="cat in categories" :key="cat.key" class="category-card">
+          <span class="cat-title">{{ cat.title }}</span>
+          <div v-for="item in cat.items" :key="item.name" class="rate-row">
+            <span class="rate-name">{{ item.name }}</span>
+            <span :class="['rate-val', item.type]">{{ item.type === 'add' ? '+' : '' }}{{ item.points }}</span>
+          </div>
+        </div>
+      </div>
 
-      <view style="height: 60rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 60rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, reactive, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { addPointRecord } from '@/api/points'
 import { post } from '@/utils/request'
-
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
@@ -73,31 +74,31 @@ const categories = ref([
 const form = reactive({ studentId: '', score: '', reason: '' })
 
 async function submit() {
-  if (!form.studentId) { uni.showToast({ title: '请输入学号', icon: 'none' }); return }
+  if (!form.studentId) { showToast('请输入学号'); return }
   const score = Number(form.score)
-  if (!Number.isFinite(score) || score === 0) { uni.showToast({ title: '请输入有效分数', icon: 'none' }); return }
-  if (!form.reason) { uni.showToast({ title: '请填写原因', icon: 'none' }); return }
+  if (!Number.isFinite(score) || score === 0) { showToast('请输入有效分数'); return }
+  if (!form.reason) { showToast('请填写原因'); return }
 
   try {
     // 先按学号查 user_id
     const userRes = await post('/api/auth/find-by-student', { student_id: form.studentId }, { silent: true }).catch(() => null)
     let targetId = userRes?.user?.id
     if (!targetId) {
-      uni.showToast({ title: '未找到该学号用户', icon: 'none' })
+      showToast('未找到该学号用户')
       return
     }
     await addPointRecord({ user_id: targetId, score, reason: form.reason })
-    uni.showToast({ title: '已提交', icon: 'success' })
+    showToast('已提交')
     form.studentId = ''; form.score = ''; form.reason = ''
   } catch (_) {}
 }
 
 onLoad((opts) => { adminMode.value = opts?.admin === '1' })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.rate-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.rate-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .form-area { padding: 24rpx 32rpx; }

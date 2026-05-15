@@ -1,45 +1,46 @@
 <template>
-  <view class="upload-page">
+  <div class="upload-page">
     <custom-nav-bar :title="navTitle" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
+    <div scroll-y class="main-scroll">
 
-      <view v-if="existingPhotos.length" class="section">
-        <text class="section-title">已上传 ({{ existingPhotos.length }})</text>
-        <view class="photo-grid">
-          <view v-for="p in existingPhotos" :key="p.id" class="photo-item">
-            <image :src="p.url" mode="aspectFill" class="photo-img" />
-            <view v-if="!p.is_approved" class="pending-badge">待审核</view>
-          </view>
-        </view>
-      </view>
+      <div v-if="existingPhotos.length" class="section">
+        <span class="section-title">已上传 ({{ existingPhotos.length }})</span>
+        <div class="photo-grid">
+          <div v-for="p in existingPhotos" :key="p.id" class="photo-item">
+            <img :src="p.url" mode="aspectFill" class="photo-img" />
+            <div v-if="!p.is_approved" class="pending-badge">待审核</div>
+          </div>
+        </div>
+      </div>
 
-      <view class="section">
-        <text class="section-title">本次上传</text>
-        <view class="photo-grid">
-          <view v-for="(img, idx) in photos" :key="idx" class="photo-item">
-            <image :src="img" mode="aspectFill" class="photo-img" />
-            <view class="remove-btn" @tap.stop="removePhoto(idx)"><text class="remove-x">×</text></view>
-          </view>
-          <view class="add-photo" @tap="choosePhoto"><text class="add-icon">+</text></view>
-        </view>
-      </view>
+      <div class="section">
+        <span class="section-title">本次上传</span>
+        <div class="photo-grid">
+          <div v-for="(img, idx) in photos" :key="idx" class="photo-item">
+            <img :src="img" mode="aspectFill" class="photo-img" />
+            <div class="remove-btn" @tap.stop="removePhoto(idx)"><span class="remove-x">×</span></div>
+          </div>
+          <div class="add-photo" @tap="choosePhoto"><span class="add-icon">+</span></div>
+        </div>
+      </div>
 
-      <view style="height: 200rpx;"></view>
-    </scroll-view>
-    <view class="bottom-action">
+      <div style="height: 200rpx;"></div>
+    </div>
+    <div class="bottom-action">
       <button class="primary-btn" :disabled="loading || photos.length === 0" @click="submit">
-        <text class="btn-text">{{ loading ? '上传中…' : `上传 (${photos.length}张)` }}</text>
+        <span class="btn-text">{{ loading ? '上传中…' : `上传 (${photos.length}张)` }}</span>
       </button>
-    </view>
-  </view>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { getToken } from '@/utils/request'
 import { getAlbumDetail, uploadPhotos } from '@/api/album'
-
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
 
 const albumId = ref(null)
@@ -76,8 +77,8 @@ function choosePhoto() {
 function removePhoto(idx) { photos.value.splice(idx, 1) }
 
 async function submit() {
-  if (!albumId.value) { uni.showToast({ title: '相册 ID 缺失', icon: 'none' }); return }
-  if (photos.value.length === 0) { uni.showToast({ title: '请选择照片', icon: 'none' }); return }
+  if (!albumId.value) { showToast('相册 ID 缺失'); return }
+  if (photos.value.length === 0) { showToast('请选择照片'); return }
 
   loading.value = true
   uni.showLoading({ title: `上传中 0/${photos.value.length}` })
@@ -116,26 +117,26 @@ async function submit() {
     if (urls.length === 0) throw new Error('无可上传文件')
 
     const res = await uploadPhotos({ album_id: albumId.value, urls })
-    uni.hideLoading()
+    
     if (res?.auto_approved) {
       uni.showToast({ title: `上传 ${urls.length} 张成功`, icon: 'success' })
     } else {
-      uni.showToast({ title: '上传成功，等待审核', icon: 'none' })
+      showToast('上传成功，等待审核')
     }
     photos.value = []
     fetchAlbum()
   } catch (e) {
-    uni.hideLoading()
+    
     uni.showToast({ title: e.message || '上传失败', icon: 'none' })
   } finally {
     loading.value = false
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.upload-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.upload-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); padding-bottom: 140rpx; }
 
 .photo-grid {

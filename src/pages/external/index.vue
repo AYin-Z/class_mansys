@@ -1,24 +1,25 @@
+import { ref } from 'vue'
 <template>
-  <view class="external-page">
+  <div class="external-page">
     <custom-nav-bar title="外部系统" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="sys-grid">
-        <view v-for="item in systems" :key="item.id" class="sys-card" @tap="openSystem(item)">
-          <view class="sys-icon-wrap" :style="{ background: item.color }">
-            <text class="sys-icon">{{ item.icon }}</text>
-          </view>
-          <text class="sys-name">{{ item.name }}</text>
-          <text class="sys-desc">{{ item.desc }}</text>
-        </view>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="sys-grid">
+        <div v-for="item in systems" :key="item.id" class="sys-card" @tap="openSystem(item)">
+          <div class="sys-icon-wrap" :style="{ background: item.color }">
+            <span class="sys-icon">{{ item.icon }}</span>
+          </div>
+          <span class="sys-name">{{ item.name }}</span>
+          <span class="sys-desc">{{ item.desc }}</span>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
+<script setup lang="ts">
+
 
 const systems = ref([
   { id: 1, name: '教务管理系统', icon: '📖', desc: '选课/成绩查询', url: 'https://jwxt.ppsuc.edu.cn/', color: 'linear-gradient(135deg, #001e40, #003366)' },
@@ -31,6 +32,7 @@ const systems = ref([
 function openSystem(item) {
   uni.navigateTo({ url: `/pages/external/webview?name=${encodeURIComponent(item.name)}&url=${encodeURIComponent(item.url || '')}` })
 }
+
 </script>
 
 <style lang="scss" scoped>

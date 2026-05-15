@@ -1,41 +1,43 @@
 <template>
-  <view class="create-page">
+  <div class="create-page">
     <custom-nav-bar title="创建抽奖" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="form-area">
-        <view class="form-card">
-          <view class="form-row"><text class="row-label block">活动名称</text><input class="solid-input" placeholder="请输入活动名称" v-model="form.name" /></view>
-          <view class="textarea-wrap"><text class="row-label block">活动简介</text><textarea class="solid-textarea small" v-model="form.description" placeholder="选填" /></view>
-          <view class="textarea-wrap"><text class="row-label block">活动规则</text><textarea class="solid-textarea" v-model="form.rules" placeholder="奖品、参与方式、开奖时间等" /></view>
-          <view class="form-row">
-            <text class="row-label block">开始日期</text>
+    <div scroll-y class="main-scroll">
+      <div class="form-area">
+        <div class="form-card">
+          <div class="form-row"><span class="row-label block">活动名称</span><input class="solid-input" placeholder="请输入活动名称" v-model="form.name" /></div>
+          <div class="textarea-wrap"><span class="row-label block">活动简介</span><textarea class="solid-textarea small" v-model="form.description" placeholder="选填" /></div>
+          <div class="textarea-wrap"><span class="row-label block">活动规则</span><textarea class="solid-textarea" v-model="form.rules" placeholder="奖品、参与方式、开奖时间等" /></div>
+          <div class="form-row">
+            <span class="row-label block">开始日期</span>
             <picker mode="date" :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
-              <view class="solid-input picker-display">{{ form.startDate || '请选择' }}</view>
+              <div class="solid-input picker-display">{{ form.startDate || '请选择' }}</div>
             </picker>
-          </view>
-          <view class="form-row">
-            <text class="row-label block">结束日期</text>
+          </div>
+          <div class="form-row">
+            <span class="row-label block">结束日期</span>
             <picker mode="date" :value="form.endDate" @change="(e) => form.endDate = e.detail.value">
-              <view class="solid-input picker-display">{{ form.endDate || '请选择' }}</view>
+              <div class="solid-input picker-display">{{ form.endDate || '请选择' }}</div>
             </picker>
-          </view>
-        </view>
-      </view>
-      <view class="bottom-action"><button class="primary-btn" @click="submit"><text class="btn-text">创建抽奖</text></button></view>
-    </scroll-view>
-  </view>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-action"><button class="primary-btn" @click="submit"><span class="btn-text">创建抽奖</span></button></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { reactive } from 'vue'
-import { createLottery } from '@/api/lottery'
+<script setup lang="ts">
 
+
+import { reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { createLottery } from '@/api/lottery'
 const form = reactive({ name: '', description: '', rules: '', startDate: '', endDate: '' })
 
 async function submit() {
-  if (!form.name) { uni.showToast({ title: '请输入名称', icon: 'none' }); return }
-  if (!form.rules) { uni.showToast({ title: '请输入规则', icon: 'none' }); return }
-  if (!form.startDate || !form.endDate) { uni.showToast({ title: '请选择起止日期', icon: 'none' }); return }
+  if (!form.name) { showToast('请输入名称'); return }
+  if (!form.rules) { showToast('请输入规则'); return }
+  if (!form.startDate || !form.endDate) { showToast('请选择起止日期'); return }
 
   uni.showLoading({ title: '创建中...' })
   try {
@@ -46,16 +48,16 @@ async function submit() {
       start_time: `${form.startDate} 00:00:00`,
       end_time: `${form.endDate} 23:59:59`
     })
-    uni.hideLoading()
-    uni.showToast({ title: '创建成功', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 1200)
-  } catch (_) { uni.hideLoading() }
+    
+    showToast('创建成功')
+    setTimeout(() => router.back(), 1200)
+  } catch (_) {  }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.create-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.create-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); padding-bottom: 140rpx; }
 
 .form-area { padding: 32rpx; }

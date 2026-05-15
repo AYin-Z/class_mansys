@@ -1,38 +1,40 @@
 <template>
-  <view class="upload-page">
+  <div class="upload-page">
     <custom-nav-bar title="上传资源" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="form-area">
-        <view class="form-card">
-          <view class="form-row"><text class="row-label block">资源名称</text><input class="solid-input" placeholder="请输入资源名称" v-model="name" /></view>
-          <view class="divider"></view>
-          <view class="form-row"><text class="row-label block">分类</text>
+    <div scroll-y class="main-scroll">
+      <div class="form-area">
+        <div class="form-card">
+          <div class="form-row"><span class="row-label block">资源名称</span><input class="solid-input" placeholder="请输入资源名称" v-model="name" /></div>
+          <div class="divider"></div>
+          <div class="form-row"><span class="row-label block">分类</span>
             <picker mode="selector" :range="categories" @change="onCategoryChange">
-              <view class="row-value">
-                <text class="value-text">{{ category || '请选择分类' }}</text>
-                <text class="arrow">›</text>
-              </view>
+              <div class="row-value">
+                <span class="value-text">{{ category || '请选择分类' }}</span>
+                <span class="arrow">›</span>
+              </div>
             </picker>
-          </view>
-          <view class="divider"></view>
-          <view class="form-row"><text class="row-label block">资源描述</text><input class="solid-input" placeholder="简要描述（选填）" v-model="desc" /></view>
-          <view class="divider"></view>
-          <view class="upload-section"><text class="row-label block">选择文件</text>
-            <view class="upload-area" @tap="chooseFile"><text class="upload-icon">📁</text><text class="upload-text">{{ fileName || '点击选择文件' }}</text></view>
-            <text v-if="fileSize" class="hint">大小：{{ formatSize(fileSize) }}</text>
-          </view>
-        </view>
-      </view>
-      <view class="bottom-action"><button class="primary-btn" :disabled="loading" @click="submit"><text class="btn-text">{{ loading ? '上传中…' : '上传' }}</text></button></view>
-    </scroll-view>
-  </view>
+          </div>
+          <div class="divider"></div>
+          <div class="form-row"><span class="row-label block">资源描述</span><input class="solid-input" placeholder="简要描述（选填）" v-model="desc" /></div>
+          <div class="divider"></div>
+          <div class="upload-section"><span class="row-label block">选择文件</span>
+            <div class="upload-area" @tap="chooseFile"><span class="upload-icon">📁</span><span class="upload-text">{{ fileName || '点击选择文件' }}</span></div>
+            <span v-if="fileSize" class="hint">大小：{{ formatSize(fileSize) }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-action"><button class="primary-btn" :disabled="loading" @click="submit"><span class="btn-text">{{ loading ? '上传中…' : '上传' }}</span></button></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+
+
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { getToken } from '@/utils/request'
 import { createResource } from '@/api/announcement'
-
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
 
 const categories = ['学习', '生活', '体能', '通知', '其他']
@@ -85,9 +87,9 @@ function formatSize(bytes) {
 }
 
 async function submit() {
-  if (!name.value.trim()) { uni.showToast({ title: '请输入名称', icon: 'none' }); return }
-  if (!category.value) { uni.showToast({ title: '请选择分类', icon: 'none' }); return }
-  if (!filePath.value) { uni.showToast({ title: '请选择文件', icon: 'none' }); return }
+  if (!name.value.trim()) { showToast('请输入名称'); return }
+  if (!category.value) { showToast('请选择分类'); return }
+  if (!filePath.value) { showToast('请选择文件'); return }
 
   loading.value = true
   uni.showLoading({ title: '上传中...' })
@@ -128,21 +130,21 @@ async function submit() {
       description: desc.value.trim()
     })
 
-    uni.hideLoading()
-    uni.showToast({ title: '上传成功', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 800)
+    
+    showToast('上传成功')
+    setTimeout(() => router.back(), 800)
   } catch (e) {
-    uni.hideLoading()
+    
     uni.showToast({ title: e.message || '上传失败', icon: 'none' })
   } finally {
     loading.value = false
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.upload-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.upload-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); padding-bottom: 140rpx; }
 .form-area { padding: 32rpx; }
 .form-card { background: #fff; border-radius: 20rpx; overflow: hidden; }

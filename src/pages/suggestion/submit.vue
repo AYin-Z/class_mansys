@@ -1,33 +1,35 @@
 <template>
-  <view class="submit-page">
+  <div class="submit-page">
     <custom-nav-bar title="提交建议" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="privacy-notice">
-        <text class="notice-icon">🔒</text>
-        <text class="notice-text">您的建议将匿名提交，仅区队干部可见</text>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="privacy-notice">
+        <span class="notice-icon">🔒</span>
+        <span class="notice-text">您的建议将匿名提交，仅区队干部可见</span>
+      </div>
 
-      <view class="form-area">
-        <view class="form-card">
-          <view class="form-row"><text class="row-label block">建议标题</text><input class="solid-input" placeholder="请简要描述建议主题" v-model="title" /></view>
-          <view class="divider"></view>
+      <div class="form-area">
+        <div class="form-card">
+          <div class="form-row"><span class="row-label block">建议标题</span><input class="solid-input" placeholder="请简要描述建议主题" v-model="title" /></div>
+          <div class="divider"></div>
           <picker mode="selector" :range="categories" @change="(e) => category = categories[e.detail.value]">
-            <view class="form-row"><text class="row-label">建议分类</text><view class="row-value"><text class="value-text">{{ category || '请选择' }}</text><text class="arrow">›</text></view></view>
+            <div class="form-row"><span class="row-label">建议分类</span><div class="row-value"><span class="value-text">{{ category || '请选择' }}</span><span class="arrow">›</span></div></div>
           </picker>
-          <view class="divider"></view>
-          <view class="textarea-wrap"><text class="row-label block">详细内容</text><textarea class="solid-textarea" v-model="content" placeholder="请详细描述您的建议或意见..." /></view>
-        </view>
-      </view>
+          <div class="divider"></div>
+          <div class="textarea-wrap"><span class="row-label block">详细内容</span><textarea class="solid-textarea" v-model="content" placeholder="请详细描述您的建议或意见..." /></div>
+        </div>
+      </div>
 
-      <view class="bottom-action"><button class="primary-btn" @click="submit"><text class="btn-text">匿名提交</text></button></view>
-    </scroll-view>
-  </view>
+      <div class="bottom-action"><button class="primary-btn" @click="submit"><span class="btn-text">匿名提交</span></button></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import { submitSuggestion } from '@/api/suggestion'
+<script setup lang="ts">
 
+
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { submitSuggestion } from '@/api/suggestion'
 const title = ref('')
 const content = ref('')
 const category = ref('')
@@ -35,11 +37,11 @@ const categories = ['学习', '生活', '纪律', '活动', '其他']
 
 async function submit() {
   if (!content.value || content.value.trim().length < 5) {
-    uni.showToast({ title: '请填写完整内容（至少 5 字）', icon: 'none' })
+    showToast('请填写完整内容（至少 5 字）')
     return
   }
   if (!category.value) {
-    uni.showToast({ title: '请选择分类', icon: 'none' })
+    showToast('请选择分类')
     return
   }
   const finalContent = title.value.trim()
@@ -49,18 +51,18 @@ async function submit() {
   uni.showLoading({ title: '提交中...' })
   try {
     await submitSuggestion({ content: finalContent, category: category.value })
-    uni.hideLoading()
-    uni.showToast({ title: '已匿名提交', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 800)
+    
+    showToast('已匿名提交')
+    setTimeout(() => router.back(), 800)
   } catch (e) {
-    uni.hideLoading()
+    
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.submit-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.submit-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); padding-bottom: 140rpx; }
 
 .privacy-notice {

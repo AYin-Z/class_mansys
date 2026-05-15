@@ -1,54 +1,55 @@
 <template>
-  <view class="suggestion-page">
+  <div class="suggestion-page">
     <custom-nav-bar title="建议箱" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="intro-card">
-        <text class="intro-title">您的声音，我们倾听</text>
-        <text class="intro-desc">匿名提交建议和意见，区队干部会认真处理每一条反馈</text>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="intro-card">
+        <span class="intro-title">您的声音，我们倾听</span>
+        <span class="intro-desc">匿名提交建议和意见，区队干部会认真处理每一条反馈</span>
+      </div>
 
-      <button class="submit-entry" @tap="goSubmit"><text class="entry-text">✉️ 提交建议</text></button>
+      <button class="submit-entry" @tap="goSubmit"><span class="entry-text">✉️ 提交建议</span></button>
 
-      <view class="tab-row" v-if="canViewAll">
-        <view :class="['tab-item', { active: tab === 'mine' }]" @tap="switchTab('mine')">
-          <text class="tab-text">我的提交</text>
-        </view>
-        <view :class="['tab-item', { active: tab === 'all' }]" @tap="switchTab('all')">
-          <text class="tab-text">全部</text>
-        </view>
-      </view>
+      <div class="tab-row" v-if="canViewAll">
+        <div :class="['tab-item', { active: tab === 'mine' }]" @tap="switchTab('mine')">
+          <span class="tab-text">我的提交</span>
+        </div>
+        <div :class="['tab-item', { active: tab === 'all' }]" @tap="switchTab('all')">
+          <span class="tab-text">全部</span>
+        </div>
+      </div>
 
-      <view class="section-header" v-else><text class="section-title">我的提交</text></view>
+      <div class="section-header" v-else><span class="section-title">我的提交</span></div>
 
-      <view class="sug-list">
-        <view v-for="item in suggestions" :key="item.id" class="sug-card" @tap="goStatus(item)">
-          <view :class="['status-bar', statusKey(item.status)]"></view>
-          <view class="sug-body">
-            <view class="sug-top">
-              <text class="sug-cat">{{ item.category }}</text>
-              <view :class="['status-tag', statusKey(item.status)]">{{ statusLabel(item.status) }}</view>
-            </view>
-            <text class="sug-title">{{ item.content }}</text>
-            <text class="sug-time">{{ formatTime(item.created_at) }}</text>
-          </view>
-        </view>
+      <div class="sug-list">
+        <div v-for="item in suggestions" :key="item.id" class="sug-card" @tap="goStatus(item)">
+          <div :class="['status-bar', statusKey(item.status)]"></div>
+          <div class="sug-body">
+            <div class="sug-top">
+              <span class="sug-cat">{{ item.category }}</span>
+              <div :class="['status-tag', statusKey(item.status)]">{{ statusLabel(item.status) }}</div>
+            </div>
+            <span class="sug-title">{{ item.content }}</span>
+            <span class="sug-time">{{ formatTime(item.created_at) }}</span>
+          </div>
+        </div>
 
-        <view v-if="suggestions.length === 0 && !loading" class="empty-state">
-          <text class="empty-text">{{ tab === 'mine' ? '暂无提交记录' : '暂无建议' }}</text>
-        </view>
-      </view>
+        <div v-if="suggestions.length === 0 && !loading" class="empty-state">
+          <span class="empty-text">{{ tab === 'mine' ? '暂无提交记录' : '暂无建议' }}</span>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { getMineSuggestions, getAllSuggestions, SUGGESTION_STATUS_LABEL } from '@/api/suggestion'
 import { isAdmin } from '@/utils/auth'
-
 const suggestions = ref([])
 const tab = ref('mine')
 const canViewAll = ref(false)
@@ -88,13 +89,14 @@ function switchTab(t) {
   fetchData()
 }
 
-function goSubmit() { uni.navigateTo({ url: '/pages/suggestion/submit' }) }
+function goSubmit() { router.push('/pages/suggestion/submit') }
 function goStatus(item) { uni.navigateTo({ url: `/pages/suggestion/status?id=${item.id}` }) }
 
 onShow(() => {
   canViewAll.value = isAdmin()
   fetchData()
 })
+
 </script>
 
 <style lang="scss" scoped>

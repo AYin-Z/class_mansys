@@ -1,37 +1,37 @@
 <template>
-  <view class="detail-page">
+  <div class="detail-page">
     <custom-nav-bar title="投票详情" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view v-if="vote.id" class="vote-info">
-        <text class="vote-title">{{ vote.title }}</text>
-        <text v-if="vote.description" class="vote-desc">{{ vote.description }}</text>
-        <view class="meta-row">
-          <view :class="['status-badge', status]">{{ statusText(status) }}</view>
-          <text class="meta-text">{{ isSingle ? '单选' : '多选' }} · {{ totalVotes }}票</text>
-        </view>
-        <text class="period">{{ formatTime(vote.start_time) }} 至 {{ formatTime(vote.end_time) }}</text>
-        <view class="scope-row">
-          <view class="scope-tag visible">{{ vote.visible_scope === 'admin' ? '仅班干部可见' : '全部可见' }}</view>
-          <view class="scope-tag votable">{{ vote.vote_scope === 'admin' ? '仅班干部可投' : '全部可投' }}</view>
-        </view>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div v-if="vote.id" class="vote-info">
+        <span class="vote-title">{{ vote.title }}</span>
+        <span v-if="vote.description" class="vote-desc">{{ vote.description }}</span>
+        <div class="meta-row">
+          <div :class="['status-badge', status]">{{ statusText(status) }}</div>
+          <span class="meta-text">{{ isSingle ? '单选' : '多选' }} · {{ totalVotes }}票</span>
+        </div>
+        <span class="period">{{ formatTime(vote.start_time) }} 至 {{ formatTime(vote.end_time) }}</span>
+        <div class="scope-row">
+          <div class="scope-tag visible">{{ vote.visible_scope === 'admin' ? '仅班干部可见' : '全部可见' }}</div>
+          <div class="scope-tag votable">{{ vote.vote_scope === 'admin' ? '仅班干部可投' : '全部可投' }}</div>
+        </div>
+      </div>
 
-      <view class="options-section">
-        <text class="section-label">投票选项</text>
-        <view v-for="opt in options" :key="opt.id"
+      <div class="options-section">
+        <span class="section-label">投票选项</span>
+        <div v-for="opt in options" :key="opt.id"
               :class="['option-card', { selected: isSelected(opt.id), voted: hasVoted }]"
               @tap="selectOption(opt.id)">
-          <view class="option-header">
-            <view :class="['mark', isSingle ? 'radio' : 'check', { selected: isSelected(opt.id) }]"></view>
-            <text class="option-label">{{ opt.content }}</text>
-            <text v-if="showResults" class="option-count">{{ opt.vote_count }}票</text>
-          </view>
-          <view v-if="showResults" class="progress-bar-sm">
-            <view class="progress-fill" :style="{ width: (opt.rate || 0) + '%' }"></view>
-          </view>
-          <text v-if="showResults" class="rate-text">{{ opt.rate || 0 }}%</text>
-        </view>
-      </view>
+          <div class="option-header">
+            <div :class="['mark', isSingle ? 'radio' : 'check', { selected: isSelected(opt.id) }]"></div>
+            <span class="option-label">{{ opt.content }}</span>
+            <span v-if="showResults" class="option-count">{{ opt.vote_count }}票</span>
+          </div>
+          <div v-if="showResults" class="progress-bar-sm">
+            <div class="progress-fill" :style="{ width: (opt.rate || 0) + '%' }"></div>
+          </div>
+          <span v-if="showResults" class="rate-text">{{ opt.rate || 0 }}%</span>
+        </div>
+      </div>
 
       <button v-if="canVote" class="submit-btn" :disabled="loading" @click="onCastVote">
         {{ hasVoted ? (isSingle ? '修改投票' : '已投票') : (loading ? '提交中…' : '提交投票') }}
@@ -39,17 +39,18 @@
 
       <button v-if="canClose" class="close-btn" @click="onClose">关闭投票</button>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { getVoteDetail, castVote, closeVote, isVoteSingle, getVoteStatus } from '@/api/vote'
 import { isAdmin } from '@/utils/auth'
-
 const vote = ref({})
 const options = ref([])
 const myChoices = ref([])
@@ -110,13 +111,13 @@ async function fetchDetail(id) {
 
 async function onCastVote() {
   if (selectedIds.value.length === 0) {
-    uni.showToast({ title: '请选择选项', icon: 'none' })
+    showToast('请选择选项')
     return
   }
   loading.value = true
   try {
     await castVote(vote.value.id, selectedIds.value)
-    uni.showToast({ title: '投票成功', icon: 'success' })
+    showToast('投票成功')
     fetchDetail(vote.value.id)
   } catch (e) {}
   finally { loading.value = false }
@@ -129,7 +130,7 @@ function onClose() {
       if (!r.confirm) return
       try {
         await closeVote(vote.value.id)
-        uni.showToast({ title: '已关闭', icon: 'success' })
+        showToast('已关闭')
         fetchDetail(vote.value.id)
       } catch (e) {}
     }
@@ -140,11 +141,11 @@ onLoad((opts) => {
   isAdminUser.value = isAdmin()
   if (opts?.id) fetchDetail(Number(opts.id))
 })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.detail-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.detail-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .vote-info { margin: 24rpx 32rpx; padding: 28rpx 24rpx; background: #fff; border-radius: 20rpx; }

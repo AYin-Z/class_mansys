@@ -1,44 +1,46 @@
 <template>
-  <view class="publish-page">
+  <div class="publish-page">
     <custom-nav-bar title="发布公告" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="form-area">
-        <view class="form-card">
-          <view class="form-row"><text class="row-label block">公告标题</text><input class="solid-input" placeholder="请输入标题" v-model="title" /></view>
-          <view class="divider"></view>
-          <view class="textarea-wrap"><text class="row-label block">公告内容</text><textarea class="solid-textarea" v-model="content" placeholder="请输入公告内容..." /></view>
-        </view>
-      </view>
-      <view class="bottom-action"><button class="primary-btn" @click="submit"><text class="btn-text">发布</text></button></view>
-    </scroll-view>
-  </view>
+    <div scroll-y class="main-scroll">
+      <div class="form-area">
+        <div class="form-card">
+          <div class="form-row"><span class="row-label block">公告标题</span><input class="solid-input" placeholder="请输入标题" v-model="title" /></div>
+          <div class="divider"></div>
+          <div class="textarea-wrap"><span class="row-label block">公告内容</span><textarea class="solid-textarea" v-model="content" placeholder="请输入公告内容..." /></div>
+        </div>
+      </div>
+      <div class="bottom-action"><button class="primary-btn" @click="submit"><span class="btn-text">发布</span></button></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import { createAnnouncement } from '@/api/announcement'
+<script setup lang="ts">
 
+
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { createAnnouncement } from '@/api/announcement'
 const title = ref('')
 const content = ref('')
 
 async function submit() {
-  if (!title.value.trim()) { uni.showToast({ title: '请输入标题', icon: 'none' }); return }
-  if (!content.value.trim()) { uni.showToast({ title: '请输入内容', icon: 'none' }); return }
+  if (!title.value.trim()) { showToast('请输入标题'); return }
+  if (!content.value.trim()) { showToast('请输入内容'); return }
   uni.showLoading({ title: '发布中...' })
   try {
     await createAnnouncement({ title: title.value.trim(), content: content.value.trim() })
-    uni.hideLoading()
-    uni.showToast({ title: '发布成功', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 1000)
+    
+    showToast('发布成功')
+    setTimeout(() => router.back(), 1000)
   } catch (e) {
-    uni.hideLoading()
+    
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.publish-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.publish-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); padding-bottom: 140rpx; }
 .form-area { padding: 32rpx; }
 .form-card { background: #fff; border-radius: 20rpx; overflow: hidden; }

@@ -1,24 +1,26 @@
 <template>
-  <view class="system-status">
-    <view class="section-header">
-      <text class="section-title">本人状态</text>
-      <text class="section-sub">实时数据</text>
-    </view>
-    <view class="status-grid">
-      <view v-for="stat in statusData" :key="stat.key" class="status-card" @tap="$emit('tap', stat)">
-        <text class="stat-value">{{ stat.value }}</text>
-        <text class="stat-label">{{ stat.label }}</text>
-      </view>
-    </view>
-  </view>
+  <div class="system-status">
+    <div class="section-header">
+      <span class="section-title">本人状态</span>
+      <span class="section-sub">实时数据</span>
+    </div>
+    <div class="status-grid">
+      <div v-for="stat in statusData" :key="stat.key" class="status-card" @tap="$emit('tap', stat)">
+        <span class="stat-value">{{ stat.value }}</span>
+        <span class="stat-label">{{ stat.label }}</span>
+      </div>
+    </div>
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+
 defineProps({
   statusData: { type: Array, default: () => [] }
 })
 
 defineEmits(['tap'])
+
 </script>
 
 <style lang="scss" scoped>

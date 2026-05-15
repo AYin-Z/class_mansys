@@ -1,63 +1,64 @@
 <template>
-  <view class="collection-page">
+  <div class="collection-page">
     <custom-nav-bar title="班费收缴" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="summary-card" v-if="currentCollection">
-        <view class="accent-bar"></view>
-        <view class="summary-content">
-          <text class="summary-title">{{ currentCollection.title }}</text>
-          <view class="amount-row">
-            <text class="currency">¥</text>
-            <text class="amount">{{ currentCollection.amount_per_person }}</text>
-            <text class="per-person">/人</text>
-          </view>
-          <view class="progress-wrap">
-            <view class="progress-bar">
-              <view class="progress-fill" :style="{ width: progressPercent + '%' }"></view>
-            </view>
-            <text class="progress-text">{{ currentCollection.paid_count }}/{{ currentCollection.total_count }}人已缴纳</text>
-          </view>
-        </view>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="summary-card" v-if="currentCollection">
+        <div class="accent-bar"></div>
+        <div class="summary-content">
+          <span class="summary-title">{{ currentCollection.title }}</span>
+          <div class="amount-row">
+            <span class="currency">¥</span>
+            <span class="amount">{{ currentCollection.amount_per_person }}</span>
+            <span class="per-person">/人</span>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+            </div>
+            <span class="progress-text">{{ currentCollection.paid_count }}/{{ currentCollection.total_count }}人已缴纳</span>
+          </div>
+        </div>
+      </div>
 
-      <view class="section-header">
-        <text class="section-title">缴纳状态</text>
-        <view class="header-actions">
+      <div class="section-header">
+        <span class="section-title">缴纳状态</span>
+        <div class="header-actions">
           <button class="action-btn" v-if="canManage && !currentCollection" @tap="handleCreateCollection">发起收缴</button>
           <button class="action-btn" v-if="canManage && currentCollection && !currentCollection.closed_at" @tap="handleClose">截止收缴</button>
           <button class="refresh-btn" @tap="loadCollections">刷新</button>
-        </view>
-      </view>
+        </div>
+      </div>
 
-      <view class="member-list">
-        <view v-for="m in memberRecords" :key="m.user_id" class="member-card">
-          <view class="avatar-box" :style="{ background: m.paid_at ? 'linear-gradient(135deg, #001e40, #003366)' : '#f2f4f7' }">
-            <text class="avatar-text" :class="{ dim: !m.paid_at }">{{ (m.name || '?').charAt(0) }}</text>
-          </view>
-          <view class="member-info">
-            <text class="member-name">{{ m.name || '未知' }}</text>
-            <text class="member-id">{{ m.student_id || '' }}</text>
-          </view>
-          <view :class="['status-tag', m.paid_at ? 'paid' : 'unpaid']">
+      <div class="member-list">
+        <div v-for="m in memberRecords" :key="m.user_id" class="member-card">
+          <div class="avatar-box" :style="{ background: m.paid_at ? 'linear-gradient(135deg, #001e40, #003366)' : '#f2f4f7' }">
+            <span class="avatar-text" :class="{ dim: !m.paid_at }">{{ (m.name || '?').charAt(0) }}</span>
+          </div>
+          <div class="member-info">
+            <span class="member-name">{{ m.name || '未知' }}</span>
+            <span class="member-id">{{ m.student_id || '' }}</span>
+          </div>
+          <div :class="['status-tag', m.paid_at ? 'paid' : 'unpaid']">
             {{ m.paid_at ? '已缴纳' : (m.is_exempt ? '免缴' : '未缴纳') }}
-          </view>
-          <view class="member-actions" v-if="!m.paid_at && !m.is_exempt">
+          </div>
+          <div class="member-actions" v-if="!m.paid_at && !m.is_exempt">
             <button class="pay-btn" @tap="handlePay(m)">缴纳</button>
             <button class="exempt-btn" v-if="canManage" @tap="handleExempt(m)">免缴</button>
-          </view>
-        </view>
-      </view>
+          </div>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
+<script setup lang="ts">
+
+
+import { computed, onMounted, ref } from 'vue'
 import { getCollections, getCollectionDetail, getCollectionRecords, createCollection, payCollection, exemptCollection, closeCollection } from '@/api/fee'
 import { useUserStore } from '@/stores/user'
-
 const userStore = useUserStore()
 const currentCollection = ref(null)
 const memberRecords = ref([])
@@ -85,9 +86,9 @@ async function loadCollections() {
       memberRecords.value = []
     }
   } catch (err) {
-    uni.showToast({ title: '加载失败', icon: 'none' })
+    showToast('加载失败')
   } finally {
-    uni.hideLoading()
+    
   }
 }
 
@@ -97,11 +98,11 @@ onMounted(loadCollections)
 function validateAmount(amountStr) {
   const amount = parseFloat(amountStr)
   if (isNaN(amount) || amount <= 0) {
-    uni.showToast({ title: '金额必须为正数', icon: 'none' })
+    showToast('金额必须为正数')
     return null
   }
   if (amount > 100000) {
-    uni.showToast({ title: '金额不能超过 100,000 元', icon: 'none' })
+    showToast('金额不能超过 100,000 元')
     return null
   }
   return amount
@@ -118,20 +119,10 @@ function deriveSemester() {
 
 /** 发起收缴（管理员） */
 async function handleCreateCollection() {
-  const titleRes = await uni.showModal({
-    title: '发起收缴',
-    content: '请输入收缴标题：',
-    editable: true,
-    placeholderText: '例如：2026年上学期班费'
-  })
+  const titleRes = await showConfirm('', '请输入收缴标题：')
   if (!titleRes?.confirm || !titleRes.content?.trim()) return
 
-  const amountRes = await uni.showModal({
-    title: '输入金额',
-    content: '请输入每人应缴金额（元）：',
-    editable: true,
-    placeholderText: '例如：50'
-  })
+  const amountRes = await showConfirm('', '请输入每人应缴金额（元）：')
   if (!amountRes?.confirm) return
 
   const amount = validateAmount(amountRes.content)
@@ -145,15 +136,15 @@ async function handleCreateCollection() {
       semester: deriveSemester()
     })
     if (res.success) {
-      uni.showToast({ title: '收缴已发起', icon: 'success' })
+      showToast('收缴已发起')
       await loadCollections()
     } else {
       uni.showToast({ title: res.message || '发起失败', icon: 'none' })
     }
   } catch (e) {
-    uni.showToast({ title: '发起失败', icon: 'none' })
+    showToast('发起失败')
   } finally {
-    uni.hideLoading()
+    
   }
 }
 
@@ -176,15 +167,15 @@ async function handlePay(record) {
   try {
     const result = await payCollection(currentCollection.value.id, amount)
     if (result.success) {
-      uni.showToast({ title: '缴纳成功', icon: 'success' })
+      showToast('缴纳成功')
       await loadCollections()
     } else {
       uni.showToast({ title: result.message || '缴纳失败', icon: 'none' })
     }
   } catch (e) {
-    uni.showToast({ title: '缴纳失败', icon: 'none' })
+    showToast('缴纳失败')
   } finally {
-    uni.hideLoading()
+    
   }
 }
 
@@ -202,46 +193,43 @@ async function handleExempt(record) {
   try {
     const result = await exemptCollection(currentCollection.value.id, record.user_id, res.content || '')
     if (result.success) {
-      uni.showToast({ title: '已标记免缴', icon: 'success' })
+      showToast('已标记免缴')
       await loadCollections()
     } else {
       uni.showToast({ title: result.message || '操作失败', icon: 'none' })
     }
   } catch (e) {
-    uni.showToast({ title: '操作失败', icon: 'none' })
+    showToast('操作失败')
   } finally {
-    uni.hideLoading()
+    
   }
 }
 
 /** 截止收缴（管理员） */
 async function handleClose() {
-  const res = await uni.showModal({
-    title: '截止收缴',
-    content: '确定截止本次收缴？截止后不可再缴纳。'
-  })
+  const res = await showConfirm('', '确定截止本次收缴？截止后不可再缴纳。')
   if (!res?.confirm) return
 
   uni.showLoading({ title: '处理中...' })
   try {
     const result = await closeCollection(currentCollection.value.id)
     if (result.success) {
-      uni.showToast({ title: '已截止', icon: 'success' })
+      showToast('已截止')
       await loadCollections()
     } else {
       uni.showToast({ title: result.message || '操作失败', icon: 'none' })
     }
   } catch (e) {
-    uni.showToast({ title: '操作失败', icon: 'none' })
+    showToast('操作失败')
   } finally {
-    uni.hideLoading()
+    
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.collection-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.collection-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .summary-card { position: relative; margin: 24rpx 32rpx; background: #ffffff; border-radius: 20rpx; overflow: hidden; }

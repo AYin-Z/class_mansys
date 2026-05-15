@@ -340,8 +340,8 @@ export const logout = async () => {
     // 清除后端 token
     clearToken();
     // 清除本地用户信息
-    uni.removeStorageSync('userInfo');
-    uni.removeStorageSync('isRegistered');
+    localStorage.removeItem('userInfo');
+    localStorage.removeItem('isRegistered');
     return { success: true, message: '已成功退出登录' };
   } catch (error) {
     console.error('退出登录失败:', error);

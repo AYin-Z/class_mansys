@@ -1,70 +1,71 @@
 <template>
-  <view class="page">
+  <div class="page">
     <custom-nav-bar title="待办完成情况" :showBack="true" />
 
-    <scroll-view scroll-y class="main-scroll">
-      <view class="hero-strip">
-        <view class="hero-text">
-          <text class="hero-title">{{ notice?.title || '通知' }}</text>
-          <text class="hero-sub">已完成 {{ data.completed.length }} / {{ data.total }} 人</text>
-        </view>
-        <view class="hero-stat">
-          <text class="stat-num">{{ data.total }}</text>
-          <text class="stat-label">全班</text>
-        </view>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="hero-strip">
+        <div class="hero-text">
+          <span class="hero-title">{{ notice?.title || '通知' }}</span>
+          <span class="hero-sub">已完成 {{ data.completed.length }} / {{ data.total }} 人</span>
+        </div>
+        <div class="hero-stat">
+          <span class="stat-num">{{ data.total }}</span>
+          <span class="stat-label">全班</span>
+        </div>
+      </div>
 
       <!-- 完成率进度条 -->
-      <view class="progress-wrap">
-        <view class="progress-track">
-          <view class="progress-fill" :style="{ width: percent + '%' }"></view>
-        </view>
-        <text class="progress-text">{{ percent }}%</text>
-      </view>
+      <div class="progress-wrap">
+        <div class="progress-track">
+          <div class="progress-fill" :style="{ width: percent + '%' }"></div>
+        </div>
+        <span class="progress-text">{{ percent }}%</span>
+      </div>
 
       <!-- 筛选 tab -->
-      <scroll-view scroll-x class="filter-scroll" show-scrollbar="false">
-        <view
+      <div scroll-x class="filter-scroll" show-scrollbar="false">
+        <div
           v-for="tab in filterTabs"
           :key="tab.key"
           :class="['filter-tab', { active: activeTab === tab.key }]"
           @tap="activeTab = tab.key"
         >
-          <text class="ft-text">{{ tab.label }}</text>
-          <text class="ft-count">{{ tab.count }}</text>
-        </view>
-      </scroll-view>
+          <span class="ft-text">{{ tab.label }}</span>
+          <span class="ft-count">{{ tab.count }}</span>
+        </div>
+      </div>
 
       <!-- 名单 -->
-      <view class="list">
-        <view
+      <div class="list">
+        <div
           v-for="item in displayList"
           :key="item.id"
           :class="['list-row', item._done ? 'done' : 'pending']"
         >
-          <text class="lr-name">{{ item.name }}</text>
-          <text class="lr-id">{{ item.student_id }}</text>
-          <view class="lr-status">
-            <text v-if="item._done" class="badge-done">✅ 已完成</text>
-            <text v-else class="badge-pending">⏳ 未完成</text>
-          </view>
-        </view>
+          <span class="lr-name">{{ item.name }}</span>
+          <span class="lr-id">{{ item.student_id }}</span>
+          <div class="lr-status">
+            <span v-if="item._done" class="badge-done">✅ 已完成</span>
+            <span v-else class="badge-pending">⏳ 未完成</span>
+          </div>
+        </div>
 
-        <view v-if="displayList.length === 0" class="empty-state">
-          <text class="empty-text">暂无数据</text>
-        </view>
-      </view>
+        <div v-if="displayList.length === 0" class="empty-state">
+          <span class="empty-text">暂无数据</span>
+        </div>
+      </div>
 
-      <view class="page-spacer"></view>
-    </scroll-view>
-  </view>
+      <div class="page-spacer"></div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
-import { getTodoCompletion } from '@/api/notice'
 
+
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { getTodoCompletion } from '@/api/notice'
 const notice = ref<any>(null)
 const data = ref<{ completed: any[]; pending: any[]; total: number }>({
   completed: [], pending: [], total: 0
@@ -94,7 +95,7 @@ const displayList = computed(() => {
 onLoad(async (opts: any) => {
   const id = parseInt(opts?.id || '', 10)
   if (Number.isNaN(id)) {
-    uni.showToast({ title: '参数错误', icon: 'none' })
+    showToast('参数错误')
     return
   }
   try {
@@ -111,15 +112,14 @@ onLoad(async (opts: any) => {
       if (detail.success) notice.value = detail.notice
     }
   } catch (_) {
-    uni.showToast({ title: '加载失败', icon: 'none' })
+    showToast('加载失败')
   }
 })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-
-.page {
+@import "@/uni.scss";.page {
   min-height: 100vh;
   background: $surface;
 }

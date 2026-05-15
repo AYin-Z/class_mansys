@@ -1,69 +1,70 @@
+import { ref, computed } from 'vue'
 <template>
-  <view class="quick-actions">
+  <div class="quick-actions">
     <!-- Section Header -->
-    <view class="section-header">
-      <view class="header-left">
-        <text class="section-title">快捷功能</text>
-        <text class="section-sub">常用模块</text>
-      </view>
-      <view class="header-right" @tap="showAll = true">
-        <text class="all-link">全部功能</text>
-        <text class="all-arrow">›</text>
-      </view>
-    </view>
+    <div class="section-header">
+      <div class="header-left">
+        <span class="section-title">快捷功能</span>
+        <span class="section-sub">常用模块</span>
+      </div>
+      <div class="header-right" @tap="showAll = true">
+        <span class="all-link">全部功能</span>
+        <span class="all-arrow">›</span>
+      </div>
+    </div>
 
     <!-- 4 Most Used -->
-    <view class="actions-row">
-      <view v-for="action in quickActions" :key="action.key" class="action-card" @tap="$emit('navigate', action)">
-        <view class="action-icon">{{ action.icon }}</view>
-        <text class="action-label">{{ action.label }}</text>
-      </view>
-    </view>
+    <div class="actions-row">
+      <div v-for="action in quickActions" :key="action.key" class="action-card" @tap="$emit('navigate', action)">
+        <div class="action-icon">{{ action.icon }}</div>
+        <span class="action-label">{{ action.label }}</span>
+      </div>
+    </div>
 
     <!-- Resource Cards Row -->
-    <view class="resource-row">
-      <view class="resource-card" @tap="goResource('announcement')">
-        <view class="resource-icon-wrap">
-          <text class="resource-icon">📰</text>
-        </view>
-        <view class="resource-info">
-          <text class="resource-title">公共资源</text>
-          <text class="resource-desc">通知公告与附件</text>
-        </view>
-        <text class="resource-arrow">›</text>
-      </view>
-      <view class="resource-card" @tap="goResource('album')">
-        <view class="resource-icon-wrap accent">
-          <text class="resource-icon">📷</text>
-        </view>
-        <view class="resource-info">
-          <text class="resource-title">区队相册</text>
-          <text class="resource-desc">活动照片与回忆</text>
-        </view>
-        <text class="resource-arrow">›</text>
-      </view>
-    </view>
+    <div class="resource-row">
+      <div class="resource-card" @tap="goResource('announcement')">
+        <div class="resource-icon-wrap">
+          <span class="resource-icon">📰</span>
+        </div>
+        <div class="resource-info">
+          <span class="resource-title">公共资源</span>
+          <span class="resource-desc">通知公告与附件</span>
+        </div>
+        <span class="resource-arrow">›</span>
+      </div>
+      <div class="resource-card" @tap="goResource('album')">
+        <div class="resource-icon-wrap accent">
+          <span class="resource-icon">📷</span>
+        </div>
+        <div class="resource-info">
+          <span class="resource-title">区队相册</span>
+          <span class="resource-desc">活动照片与回忆</span>
+        </div>
+        <span class="resource-arrow">›</span>
+      </div>
+    </div>
 
     <!-- All Functions Modal -->
-    <view v-if="showAll" class="modal-overlay" @tap="showAll = false">
-      <view class="modal-content" @tap.stop>
-        <view class="modal-header">
-          <text class="modal-title">全部功能</text>
-          <text class="modal-close" @tap="showAll = false">✕</text>
-        </view>
-        <view class="modal-grid">
-          <view v-for="action in allActions" :key="action.key" class="modal-item" @tap="onSelect(action)">
-            <view class="modal-icon">{{ action.icon }}</view>
-            <text class="modal-label">{{ action.label }}</text>
-          </view>
-        </view>
-      </view>
-    </view>
-  </view>
+    <div v-if="showAll" class="modal-overlay" @tap="showAll = false">
+      <div class="modal-content" @tap.stop>
+        <div class="modal-header">
+          <span class="modal-title">全部功能</span>
+          <span class="modal-close" @tap="showAll = false">✕</span>
+        </div>
+        <div class="modal-grid">
+          <div v-for="action in allActions" :key="action.key" class="modal-item" @tap="onSelect(action)">
+            <div class="modal-icon">{{ action.icon }}</div>
+            <span class="modal-label">{{ action.label }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
+<script setup lang="ts">
+
 
 const props = defineProps({
   actions: { type: Array, default: () => [] }
@@ -85,6 +86,7 @@ function onSelect(action) {
   showAll.value = false
   emit('navigate', action)
 }
+
 </script>
 
 <style lang="scss" scoped>

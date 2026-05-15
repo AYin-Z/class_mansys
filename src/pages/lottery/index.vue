@@ -1,54 +1,55 @@
 <template>
-  <view class="lottery-page">
+  <div class="lottery-page">
     <custom-nav-bar title="抽奖活动" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="active-lottery" v-if="activeList.length">
-        <text class="section-label">进行中</text>
-        <view v-for="lot in activeList" :key="lot.id" class="lottery-card" @tap="goDetail(lot)">
-          <view class="prize-area">
-            <text class="prize-icon">🎁</text>
-            <view class="prize-info">
-              <text class="prize-name">{{ lot.name }}</text>
-              <text class="prize-desc">{{ lot.description || lot.rules }}</text>
-            </view>
-          </view>
-          <view class="lottery-meta">
-            <text class="meta-item">已参与 {{ lot.participant_count || 0 }} 人</text>
-            <text class="meta-dot">·</text>
-            <text class="meta-item">截止 {{ formatDate(lot.end_time) }}</text>
-          </view>
-        </view>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="active-lottery" v-if="activeList.length">
+        <span class="section-label">进行中</span>
+        <div v-for="lot in activeList" :key="lot.id" class="lottery-card" @tap="goDetail(lot)">
+          <div class="prize-area">
+            <span class="prize-icon">🎁</span>
+            <div class="prize-info">
+              <span class="prize-name">{{ lot.name }}</span>
+              <span class="prize-desc">{{ lot.description || lot.rules }}</span>
+            </div>
+          </div>
+          <div class="lottery-meta">
+            <span class="meta-item">已参与 {{ lot.participant_count || 0 }} 人</span>
+            <span class="meta-dot">·</span>
+            <span class="meta-item">截止 {{ formatDate(lot.end_time) }}</span>
+          </div>
+        </div>
+      </div>
 
-      <view class="history-section">
-        <text class="section-label">历史记录</text>
-        <view v-for="item in endedList" :key="item.id" class="hist-card" @tap="goDetail(item)">
-          <view class="hist-body">
-            <text class="hist-name">{{ item.name }}</text>
-            <text class="hist-time">{{ formatDate(item.end_time) }}</text>
-            <view class="hist-status won" v-if="item.winner_count">🏆 已开奖</view>
-            <view class="hist-status lost" v-else>未开奖</view>
-          </view>
-        </view>
+      <div class="history-section">
+        <span class="section-label">历史记录</span>
+        <div v-for="item in endedList" :key="item.id" class="hist-card" @tap="goDetail(item)">
+          <div class="hist-body">
+            <span class="hist-name">{{ item.name }}</span>
+            <span class="hist-time">{{ formatDate(item.end_time) }}</span>
+            <div class="hist-status won" v-if="item.winner_count">🏆 已开奖</div>
+            <div class="hist-status lost" v-else>未开奖</div>
+          </div>
+        </div>
 
-        <view v-if="!loading && lotteries.length === 0" class="empty-state"><text class="empty-text">暂无抽奖活动</text></view>
-      </view>
+        <div v-if="!loading && lotteries.length === 0" class="empty-state"><span class="empty-text">暂无抽奖活动</span></div>
+      </div>
 
-      <button class="create-btn" v-if="isAdminUser" @tap="goCreate"><text class="create-text">+ 创建抽奖</text></button>
+      <button class="create-btn" v-if="isAdminUser" @tap="goCreate"><span class="create-text">+ 创建抽奖</span></button>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { getLotteries } from '@/api/lottery'
-
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
@@ -75,9 +76,10 @@ async function fetchList() {
 }
 
 function goDetail(item) { uni.navigateTo({ url: `/pages/lottery/detail?id=${item.id}` }) }
-function goCreate() { uni.navigateTo({ url: '/pages/lottery/create' }) }
+function goCreate() { router.push('/pages/lottery/create') }
 
 onShow(() => fetchList())
+
 </script>
 
 <style lang="scss" scoped>

@@ -1,105 +1,106 @@
 <template>
-  <view class="leave-page">
+  <div class="leave-page">
     <custom-nav-bar title="请假销假" />
 
-    <scroll-view scroll-y class="main-scroll">
-      <view class="hero-strip">
-        <text class="hero-kicker">区队事务</text>
-        <text class="hero-title">请假与销假</text>
-        <text class="hero-sub">记录与审批状态与后台实时同步</text>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="hero-strip">
+        <span class="hero-kicker">区队事务</span>
+        <span class="hero-title">请假与销假</span>
+        <span class="hero-sub">记录与审批状态与后台实时同步</span>
+      </div>
 
-      <view class="stats-row">
-        <view class="stat-card">
-          <text class="stat-num">{{ stats.pending }}</text>
-          <text class="stat-label">待审批</text>
-        </view>
-        <view class="stat-card accent">
-          <text class="stat-num">{{ stats.approved }}</text>
-          <text class="stat-label">已通过</text>
-        </view>
-        <view class="stat-card">
-          <text class="stat-num">{{ stats.rejected }}</text>
-          <text class="stat-label">已驳回</text>
-        </view>
-      </view>
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-num">{{ stats.pending }}</span>
+          <span class="stat-label">待审批</span>
+        </div>
+        <div class="stat-card accent">
+          <span class="stat-num">{{ stats.approved }}</span>
+          <span class="stat-label">已通过</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-num">{{ stats.rejected }}</span>
+          <span class="stat-label">已驳回</span>
+        </div>
+      </div>
 
-      <view class="action-bar">
-        <navigator url="/pages/leave/apply" class="action-btn primary">
-          <text class="action-icon">＋</text>
-          <text class="action-text">申请请假</text>
-        </navigator>
-        <navigator url="/pages/leave/cancel" class="action-btn secondary" v-if="hasActiveLeave">
-          <text class="action-icon">✓</text>
-          <text class="action-text">销假</text>
-        </navigator>
-      </view>
+      <div class="action-bar">
+        <router-link to="/pages/leave/apply" class="action-btn primary">
+          <span class="action-icon">＋</span>
+          <span class="action-text">申请请假</span>
+        </router-link>
+        <router-link to="/pages/leave/cancel" class="action-btn secondary" v-if="hasActiveLeave">
+          <span class="action-icon">✓</span>
+          <span class="action-text">销假</span>
+        </router-link>
+      </div>
 
-      <view class="section-header">
-        <text class="section-title">请假记录</text>
-        <text class="count-badge">{{ leaveList.length }} 条</text>
-      </view>
+      <div class="section-header">
+        <span class="section-title">请假记录</span>
+        <span class="count-badge">{{ leaveList.length }} 条</span>
+      </div>
 
-      <view class="leave-list">
-        <view v-for="item in leaveList" :key="item.id" class="leave-card" @tap="goDetail(item)">
-          <view class="card-accent" :class="statusClass(item)"></view>
-          <view class="card-body">
-            <view class="card-top">
-              <text class="leave-type">{{ leaveTypeLabel(item) }}</text>
-              <view :class="['status-badge', statusClass(item)]">
+      <div class="leave-list">
+        <div v-for="item in leaveList" :key="item.id" class="leave-card" @tap="goDetail(item)">
+          <div class="card-accent" :class="statusClass(item)"></div>
+          <div class="card-body">
+            <div class="card-top">
+              <span class="leave-type">{{ leaveTypeLabel(item) }}</span>
+              <div :class="['status-badge', statusClass(item)]">
                 {{ statusLabel(item) }}
-              </view>
-            </view>
-            <text class="leave-reason">{{ item.reason || '—' }}</text>
-            <view class="card-meta">
-              <text class="meta-text">{{ formatLeaveDateTime(item.start_time) }} ~ {{ formatLeaveDateTime(item.end_time) }}</text>
-            </view>
-          </view>
-        </view>
+              </div>
+            </div>
+            <span class="leave-reason">{{ item.reason || '—' }}</span>
+            <div class="card-meta">
+              <span class="meta-text">{{ formatLeaveDateTime(item.start_time) }} ~ {{ formatLeaveDateTime(item.end_time) }}</span>
+            </div>
+          </div>
+        </div>
 
-        <view v-if="leaveList.length === 0" class="empty-state">
-          <text class="empty-icon">📋</text>
-          <text class="empty-text">暂无请假记录</text>
-          <text class="empty-hint">登录并提交申请后将在此展示</text>
-        </view>
-      </view>
+        <div v-if="leaveList.length === 0" class="empty-state">
+          <span class="empty-icon">📋</span>
+          <span class="empty-text">暂无请假记录</span>
+          <span class="empty-hint">登录并提交申请后将在此展示</span>
+        </div>
+      </div>
 
-      <view class="admin-entry" @tap="goOverview">
-        <view class="admin-icon-wrap">
-          <text class="admin-icon">📋</text>
-        </view>
-        <view class="admin-info">
-          <text class="admin-title">今日请假一览</text>
-          <text class="admin-desc">查看当天各类请假情况</text>
-        </view>
-        <text class="admin-arrow">›</text>
-      </view>
+      <div class="admin-entry" @tap="goOverview">
+        <div class="admin-icon-wrap">
+          <span class="admin-icon">📋</span>
+        </div>
+        <div class="admin-info">
+          <span class="admin-title">今日请假一览</span>
+          <span class="admin-desc">查看当天各类请假情况</span>
+        </div>
+        <span class="admin-arrow">›</span>
+      </div>
 
-      <view class="admin-entry" v-if="isAdmin" @tap="goApprove">
-        <view class="admin-icon-wrap">
-          <text class="admin-icon">◎</text>
-        </view>
-        <view class="admin-info">
-          <text class="admin-title">审批管理</text>
-          <text class="admin-desc">{{ pendingCount }} 条待处理</text>
-        </view>
-        <text class="admin-arrow">›</text>
-      </view>
+      <div class="admin-entry" v-if="isAdmin" @tap="goApprove">
+        <div class="admin-icon-wrap">
+          <span class="admin-icon">◎</span>
+        </div>
+        <div class="admin-info">
+          <span class="admin-title">审批管理</span>
+          <span class="admin-desc">{{ pendingCount }} 条待处理</span>
+        </div>
+        <span class="admin-arrow">›</span>
+      </div>
 
-      <view class="page-spacer"></view>
-    </scroll-view>
+      <div class="page-spacer"></div>
+    </div>
     <custom-tab-bar current="leave" />
-  </view>
+  </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { isAdmin as checkAdmin, canApproveLeave } from '@/utils/auth'
 import { getMyLeaves, getAllLeaves } from '@/api/leave'
 import { hasBackendToken } from '@/utils/request'
 import { formatLeaveDateTime } from '@/utils/index'
-
 const isAdmin = ref(false)
 const hasActiveLeave = ref(false)
 const pendingCount = ref(0)
@@ -141,14 +142,14 @@ function goDetail(item) {
 
 function goApprove() {
   if (!canApproveLeave()) {
-    uni.showToast({ title: '无审批权限', icon: 'none' })
+    showToast('无审批权限')
     return
   }
-  uni.navigateTo({ url: '/pages/leave/approve' })
+  router.push('/pages/leave/approve')
 }
 
 function goOverview() {
-  uni.navigateTo({ url: '/pages/leave/overview' })
+  router.push('/pages/leave/overview')
 }
 
 function recomputeStats(leaves) {
@@ -184,7 +185,7 @@ async function fetchLeaveData() {
     }
   } catch (error) {
     console.error('获取请假数据失败:', error)
-    uni.showToast({ title: '获取数据失败', icon: 'none' })
+    showToast('获取数据失败')
   } finally {
     loading.value = false
   }
@@ -198,11 +199,11 @@ onMounted(() => {
 onShow(() => {
   fetchLeaveData()
 })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.leave-page {
+@import "@/uni.scss";.leave-page {
   min-height: 100vh;
   background: $surface;
 }

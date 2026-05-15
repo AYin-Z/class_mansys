@@ -1,66 +1,67 @@
 <template>
-  <view class="settings-page">
+  <div class="settings-page">
     <custom-nav-bar title="系统设置" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
+    <div scroll-y class="main-scroll">
       <!-- 个人资料 -->
-      <view class="section">
-        <text class="section-title">个人资料</text>
-        <view class="form-card">
-          <view class="form-row">
-            <text class="row-label">姓名</text>
+      <div class="section">
+        <span class="section-title">个人资料</span>
+        <div class="form-card">
+          <div class="form-row">
+            <span class="row-label">姓名</span>
             <input class="row-input" v-model="form.name" placeholder="请输入姓名" />
-          </view>
-          <view class="divider"></view>
-          <view class="form-row">
-            <text class="row-label">手机号</text>
+          </div>
+          <div class="divider"></div>
+          <div class="form-row">
+            <span class="row-label">手机号</span>
             <input class="row-input" v-model="form.phone" placeholder="请输入手机号" type="number" maxlength="11" />
-          </view>
-          <view class="divider"></view>
-          <view class="form-row">
-            <text class="row-label">邮箱</text>
+          </div>
+          <div class="divider"></div>
+          <div class="form-row">
+            <span class="row-label">邮箱</span>
             <input class="row-input" v-model="form.email" placeholder="请输入邮箱" type="email" />
-          </view>
-        </view>
+          </div>
+        </div>
         <button class="save-btn" @click="saveProfile" :disabled="saving">
           {{ saving ? '保存中...' : '保存资料' }}
         </button>
-      </view>
+      </div>
 
       <!-- 修改密码 -->
-      <view class="section">
-        <text class="section-title">修改密码</text>
-        <view class="form-card">
-          <view class="form-row">
-            <text class="row-label">旧密码</text>
+      <div class="section">
+        <span class="section-title">修改密码</span>
+        <div class="form-card">
+          <div class="form-row">
+            <span class="row-label">旧密码</span>
             <input class="row-input" v-model="pwForm.oldPassword" placeholder="输入旧密码" password />
-          </view>
-          <view class="divider"></view>
-          <view class="form-row">
-            <text class="row-label">新密码</text>
+          </div>
+          <div class="divider"></div>
+          <div class="form-row">
+            <span class="row-label">新密码</span>
             <input class="row-input" v-model="pwForm.newPassword" placeholder="至少6位" password />
-          </view>
-          <view class="divider"></view>
-          <view class="form-row">
-            <text class="row-label">确认新密码</text>
+          </div>
+          <div class="divider"></div>
+          <div class="form-row">
+            <span class="row-label">确认新密码</span>
             <input class="row-input" v-model="pwForm.confirmPassword" placeholder="再次输入新密码" password />
-          </view>
-        </view>
+          </div>
+        </div>
         <button class="save-btn" @click="changePassword" :disabled="pwSaving">
           {{ pwSaving ? '修改中...' : '修改密码' }}
         </button>
-      </view>
+      </div>
 
-      <view style="height: 60rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 60rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
+<script setup lang="ts">
+
+
+import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { put, post } from '@/utils/request'
-
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 
@@ -80,7 +81,7 @@ onMounted(() => {
 
 async function saveProfile() {
   if (!form.value.name.trim()) {
-    return uni.showToast({ title: '姓名不能为空', icon: 'none' })
+    return showToast('姓名不能为空')
   }
   saving.value = true
   try {
@@ -90,13 +91,13 @@ async function saveProfile() {
       email: form.value.email.trim()
     })
     if (res.success) {
-      uni.showToast({ title: '保存成功', icon: 'success' })
+      showToast('保存成功')
       userStore.hydrate()
     } else {
       uni.showToast({ title: res.error || '保存失败', icon: 'none' })
     }
   } catch (e) {
-    uni.showToast({ title: '保存失败', icon: 'none' })
+    showToast('保存失败')
   } finally {
     saving.value = false
   }
@@ -104,30 +105,30 @@ async function saveProfile() {
 
 async function changePassword() {
   const { oldPassword, newPassword, confirmPassword } = pwForm.value
-  if (!oldPassword) return uni.showToast({ title: '请输入旧密码', icon: 'none' })
-  if (newPassword.length < 6) return uni.showToast({ title: '新密码至少6位', icon: 'none' })
-  if (newPassword !== confirmPassword) return uni.showToast({ title: '两次密码不一致', icon: 'none' })
+  if (!oldPassword) return showToast('请输入旧密码')
+  if (newPassword.length < 6) return showToast('新密码至少6位')
+  if (newPassword !== confirmPassword) return showToast('两次密码不一致')
 
   pwSaving.value = true
   try {
     const res = await post('/api/auth/change-password', { oldPassword, newPassword })
     if (res.success) {
-      uni.showToast({ title: '密码修改成功', icon: 'success' })
+      showToast('密码修改成功')
       pwForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
     } else {
       uni.showToast({ title: res.error || '修改失败', icon: 'none' })
     }
   } catch (e) {
-    uni.showToast({ title: '修改失败', icon: 'none' })
+    showToast('修改失败')
   } finally {
     pwSaving.value = false
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.settings-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.settings-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .section { padding: 24rpx 32rpx; }

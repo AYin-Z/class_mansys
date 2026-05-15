@@ -1,7 +1,7 @@
 <template>
-  <view class="home-page">
+  <div class="home-page">
     <custom-nav-bar title="区队管理系统" />
-    <scroll-view scroll-y class="main-scroll" enable-back-to-top>
+    <div scroll-y class="main-scroll" enable-back-to-top>
       <home-hero
         :avatar="avatar"
         :display-name="displayName"
@@ -32,21 +32,24 @@
         @view="goToNoticeDetail"
       />
 
-      <view style="height: 60rpx;"></view>
-    </scroll-view>
+      <div style="height: 60rpx;"></div>
+    </div>
 
     <!-- Floating Publish Button (admins) -->
-    <view v-if="canPublishNotice()" class="fab" @tap="goToPublish">
-      <text class="fab-icon">+</text>
-    </view>
+    <div v-if="canPublishNotice()" class="fab" @tap="goToPublish">
+      <span class="fab-icon">+</span>
+    </div>
 
     <custom-tab-bar current="home" />
-  </view>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { canPublishNotice } from '@/utils/auth'
@@ -55,13 +58,11 @@ import { getMyLeaves } from '@/api/leave'
 import { getPendingHomeworkCount } from '@/api/homework'
 import { hasBackendToken } from '@/utils/request'
 import { getDefaultAvatar } from '@/utils/avatar'
-
 import HomeHero from '@/components/home-hero.vue'
 import HomePinnedNotices from '@/components/home-pinned-notices.vue'
 import HomeQuickActions from '@/components/home-quick-actions.vue'
 import HomeStatusCards from '@/components/home-status-cards.vue'
 import HomeRecentUpdates from '@/components/home-recent-updates.vue'
-
 const userStore = useUserStore()
 const { profile, displayName, roleLabel } = storeToRefs(userStore)
 
@@ -191,10 +192,11 @@ function goToNoticeDetail(item) {
 }
 
 function goToPublish() {
-  uni.navigateTo({ url: '/pages/notice/publish' })
+  router.push('/pages/notice/publish')
 }
 
 onShow(() => { refreshAll() })
+
 </script>
 
 <style lang="scss" scoped>

@@ -40,7 +40,7 @@ export const useUserStore = defineStore('user', () => {
   function hydrate() {
     if (_hydrated.value) return;
     try {
-      const raw = uni.getStorageSync(STORAGE_KEY);
+      const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         profile.value = typeof raw === 'string' ? JSON.parse(raw) : raw;
       }
@@ -53,7 +53,7 @@ export const useUserStore = defineStore('user', () => {
 
   function setProfile(p: UserProfile) {
     profile.value = p;
-    uni.setStorageSync(STORAGE_KEY, p);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
   }
 
   function setTokenAndProfile(token: string, p: UserProfile) {
@@ -91,9 +91,9 @@ export const useUserStore = defineStore('user', () => {
     try { await apiLogout(); } catch (_) { /* ignore */ }
     profile.value = null;
     clearToken();
-    uni.removeStorageSync(STORAGE_KEY);
-    uni.removeStorageSync('userInfo');     // 清旧 key
-    uni.removeStorageSync('isRegistered');
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('userInfo');     // 清旧 key
+    localStorage.removeItem('isRegistered');
   }
 
   function hasPermission(perm: PermissionKey): boolean {

@@ -1,104 +1,102 @@
 <template>
-  <view class="profile-page">
+  <div class="profile-page">
     <custom-nav-bar title="我的" />
-    <scroll-view scroll-y class="main-scroll">
+    <div scroll-y class="main-scroll">
       <!-- Profile Header -->
-      <view class="profile-header">
-        <view class="header-bg"></view>
-        <view class="user-info">
-          <image class="avatar" :src="avatar" mode="aspectFill" />
-          <text class="username">{{ displayName }}</text>
-          <text class="role-badge">{{ roleLabel }}</text>
-          <text v-if="profile?.student_id" class="sub-line">学号 {{ profile.student_id }}</text>
-        </view>
-        <view class="stats-row">
-          <view class="stat-item">
-            <text class="stat-val">{{ profile?.class_id || '—' }}</text>
-            <text class="stat-label">班级</text>
-          </view>
-          <view class="stat-divider"></view>
-          <view class="stat-item">
-            <text class="stat-val">{{ profile?.phone ? maskPhone(profile.phone) : '—' }}</text>
-            <text class="stat-label">手机</text>
-          </view>
-          <view class="stat-divider"></view>
-          <view class="stat-item">
-            <text class="stat-val">{{ isAdminUser ? '管理员' : '学员' }}</text>
-            <text class="stat-label">身份</text>
-          </view>
-        </view>
-      </view>
+      <div class="profile-header">
+        <div class="header-bg"></div>
+        <div class="user-info">
+          <img class="avatar" :src="avatar" mode="aspectFill" />
+          <span class="username">{{ displayName }}</span>
+          <span class="role-badge">{{ roleLabel }}</span>
+          <span v-if="profile?.student_id" class="sub-line">学号 {{ profile.student_id }}</span>
+        </div>
+        <div class="stats-row">
+          <div class="stat-item">
+            <span class="stat-val">{{ profile?.class_id || '—' }}</span>
+            <span class="stat-label">班级</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-val">{{ profile?.phone ? maskPhone(profile.phone) : '—' }}</span>
+            <span class="stat-label">手机</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-val">{{ isAdminUser ? '管理员' : '学员' }}</span>
+            <span class="stat-label">身份</span>
+          </div>
+        </div>
+      </div>
 
       <!-- Menu Sections -->
-      <view class="menu-section">
-        <view v-if="isAdminUser" class="menu-group">
-          <text class="group-title">管理员后台</text>
-          <view class="menu-item" @tap="goPage({ url: '/pages/admin/members/index' })">
-            <text class="menu-icon">👥</text>
-            <text class="menu-label">成员管理</text>
-            <text class="menu-arrow">›</text>
-          </view>
-        </view>
-        <view v-for="group in menuGroups" :key="group.title" class="menu-group">
-          <text class="group-title">{{ group.title }}</text>
-          <view v-for="item in group.items" :key="item.key" class="menu-item" @tap="goPage(item)">
-            <text class="menu-icon">{{ item.icon }}</text>
-            <text class="menu-label">{{ item.label }}</text>
-            <text class="menu-arrow">›</text>
-          </view>
-        </view>
-      </view>
+      <div class="menu-section">
+        <div v-if="isAdminUser" class="menu-group">
+          <span class="group-title">管理员后台</span>
+          <div class="menu-item" @tap="goPage({ url: '/pages/admin/members/index' })">
+            <span class="menu-icon">👥</span>
+            <span class="menu-label">成员管理</span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </div>
+        <div v-for="group in menuGroups" :key="group.title" class="menu-group">
+          <span class="group-title">{{ group.title }}</span>
+          <div v-for="item in group.items" :key="item.key" class="menu-item" @tap="goPage(item)">
+            <span class="menu-icon">{{ item.icon }}</span>
+            <span class="menu-label">{{ item.label }}</span>
+            <span class="menu-arrow">›</span>
+          </div>
+        </div>
+      </div>
 
       <!-- Settings Section -->
-      <view class="settings-section">
-        <text class="group-title">设置</text>
-        <view class="menu-item" @tap="goToSettings">
-          <text class="menu-icon">⚙️</text>
-          <text class="menu-label">系统设置</text>
-          <text class="menu-arrow">›</text>
-        </view>
-        <view class="menu-item" @tap="goToAbout">
-          <text class="menu-icon">ℹ️</text>
-          <text class="menu-label">关于我们</text>
-          <text class="menu-arrow">›</text>
-        </view>
-        <view class="menu-item" @tap="goToFeedback">
-          <text class="menu-icon">📝</text>
-          <text class="menu-label">意见反馈</text>
-          <text class="menu-arrow">›</text>
-        </view>
-        <!-- #ifdef APP-PLUS -->
-        <view class="menu-item" @tap="handleCheckUpdate">
-          <text class="menu-icon">🔄</text>
-          <text class="menu-label">检查更新</text>
-          <text class="menu-version">v{{ currentVersionName }}</text>
-          <text class="menu-arrow">›</text>
-        </view>
-        <!-- #endif -->
-      </view>
+      <div class="settings-section">
+        <span class="group-title">设置</span>
+        <div class="menu-item" @tap="goToSettings">
+          <span class="menu-icon">⚙️</span>
+          <span class="menu-label">系统设置</span>
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" @tap="goToAbout">
+          <span class="menu-icon">ℹ️</span>
+          <span class="menu-label">关于我们</span>
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" @tap="goToFeedback">
+          <span class="menu-icon">📝</span>
+          <span class="menu-label">意见反馈</span>
+          <span class="menu-arrow">›</span>
+        </div>
+        <div class="menu-item" @tap="handleCheckUpdate">
+          <span class="menu-icon">🔄</span>
+          <span class="menu-label">检查更新</span>
+          <span class="menu-version">v{{ currentVersionName }}</span>
+          <span class="menu-arrow">›</span>
+        </div>
+      </div>
 
       <!-- Logout Button -->
       <button class="logout-btn" @click="handleLogout">
-        <text class="logout-text">退出登录</text>
+        <span class="logout-text">退出登录</span>
       </button>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
+      <div style="height: 40rpx;"></div>
+    </div>
 
     <custom-tab-bar current="profile" />
-  </view>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { getDefaultAvatar } from '@/utils/avatar'
-// #ifdef APP-PLUS
 import { checkAppUpdate, getCurrentAppVersion } from '@/utils/update-checker'
-// #endif
-
+import { showConfirm, showToast } from '@/utils/ui'
+const router = useRouter()
 const userStore = useUserStore()
 const { profile, isAdmin: isAdminUser, displayName, roleLabel } = storeToRefs(userStore)
 
@@ -144,51 +142,41 @@ async function refresh() {
 
 function goPage(item) {
   if (!item.url) return
-  uni.navigateTo({ url: item.url })
+  router.push(item.url)
 }
 
 function goToSettings() {
-  uni.navigateTo({ url: '/pages/profile/settings' })
+  router.push('/pages/profile/settings')
 }
 
 function goToAbout() {
-  uni.showModal({
-    title: '关于',
-    content: '区队管理系统 v1.0\n基于 UniApp + Express',
-    showCancel: false
-  })
+  showConfirm('', '区队管理系统 v1.0\n基于 UniApp + Express')
 }
 
 function goToFeedback() {
-  uni.navigateTo({ url: '/pages/suggestion/submit' })
+  router.push('/pages/suggestion/submit')
 }
 
-// #ifdef APP-PLUS
 const currentVersionName = ref(getCurrentAppVersion()?.versionName || '1.0.0')
 
 async function handleCheckUpdate() {
-  uni.showLoading({ title: '检查中...', mask: true })
+  showToast('检查中...')
   try {
     await checkAppUpdate({ silent: false })
   } finally {
-    uni.hideLoading()
+    
   }
 }
-// #endif
 
 async function handleLogout() {
-  uni.showModal({
-    title: '确认退出',
-    content: '确定要退出当前账号吗？',
-    success: async (res) => {
-      if (!res.confirm) return
-      userStore.logout()
-      uni.reLaunch({ url: '/pages/login/password-login' })
-    }
-  })
+  const confirmed = await showConfirm('确认退出', '确定要退出当前账号吗？')
+  if (!confirmed) return
+  userStore.logout()
+  router.replace('/pages/login/password-login')
 }
 
-onShow(() => refresh())
+onActivated(() => refresh())
+
 </script>
 
 <style lang="scss" scoped>
@@ -202,24 +190,22 @@ onShow(() => refresh())
 .main-scroll {
   height: 100vh;
   padding-top: calc(env(safe-area-inset-top) + 88rpx);
-  padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
 }
 
-/* Profile Header */
 .profile-header {
   position: relative;
+  padding: $spacing-lg;
   margin-bottom: $spacing-lg;
-  overflow: hidden;
 }
 
 .header-bg {
   position: absolute;
   top: 0;
-  left: -20%;
-  right: -20%;
-  height: 320rpx;
-  background: $gradient-primary;
-  border-radius: 0 0 50% 50%;
+  left: 0;
+  right: 0;
+  height: 240rpx;
+  background: linear-gradient(135deg, $primary, $primary-container);
+  border-radius: 0 0 40rpx 40rpx;
 }
 
 .user-info {
@@ -228,82 +214,77 @@ onShow(() => refresh())
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: $spacing-sm;
-  padding: 48rpx $spacing-md 24rpx;
+  gap: $spacing-xs;
 }
 
 .avatar {
-  width: 120rpx;
-  height: 120rpx;
+  width: 128rpx;
+  height: 128rpx;
   border-radius: 50%;
-  border: 4rpx solid rgba(255, 255, 255, 0.25);
+  border: 4rpx solid white;
+  object-fit: cover;
 }
 
 .username {
   font-family: $font-display;
-  font-size: 34rpx;
-  font-weight: $font-weight-bold;
-  color: #ffffff;
-  display: block;
+  font-size: $title-md;
+  font-weight: $font-weight-semibold;
+  color: $on-primary;
+  letter-spacing: 2rpx;
 }
 
 .role-badge {
-  margin-top: $spacing-xs;
+  display: inline-block;
   padding: 4rpx 20rpx;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: $radius-full;
-  font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: $font-weight-medium;
+  background: rgba(255,255,255,0.2);
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  color: $on-primary;
 }
 
 .sub-line {
-  margin-top: 8rpx;
-  font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.7);
-  letter-spacing: 1rpx;
+  font-size: $body-sm;
+  color: rgba(255,255,255,0.7);
 }
 
 .stats-row {
   position: relative;
   z-index: 1;
   display: flex;
-  margin: 0 $spacing-md;
-  background: $surface-container-lowest;
+  justify-content: space-around;
+  background: $surface;
   border-radius: $radius-lg;
+  padding: $spacing-md 0;
+  margin-top: $spacing-md;
   box-shadow: $shadow-ambient;
-  overflow: hidden;
 }
 
 .stat-item {
-  flex: 1;
-  text-align: center;
-  padding: $spacing-md $spacing-sm;
-}
-
-.stat-val {
-  display: block;
-  font-family: $font-display;
-  font-size: 34rpx;
-  font-weight: $font-weight-bold;
-  color: $primary;
-  margin-bottom: $spacing-xs;
-  line-height: 1;
-}
-
-.stat-label {
-  font-size: $body-md;
-  color: $on-surface-variant;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
 }
 
 .stat-divider {
-  width: 1rpx;
-  background: $surface-container-low;
+  width: 1px;
+  background: $outline-variant;
+}
+
+.stat-val {
+  font-size: $body-md;
+  font-weight: $font-weight-semibold;
+  color: $on-surface;
+}
+
+.stat-label {
+  font-size: 22rpx;
+  color: $on-surface-tertiary;
 }
 
 /* Menu Sections */
 .menu-section {
-  padding: 0 $spacing-md $spacing-md;
+  padding: 0 $spacing-md;
 }
 
 .menu-group {
@@ -389,3 +370,4 @@ onShow(() => refresh())
   color: $tertiary;
 }
 </style>
+

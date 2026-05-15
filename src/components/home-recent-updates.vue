@@ -1,31 +1,32 @@
 <template>
-  <view class="recent-updates">
-    <view class="section-header">
-      <text class="section-title">最新动态</text>
-      <text class="section-sub">区队最新通知</text>
-    </view>
-    <view v-if="updates.length === 0" class="empty-card">
-      <text class="empty-text">暂无通知</text>
-    </view>
-    <view
+  <div class="recent-updates">
+    <div class="section-header">
+      <span class="section-title">最新动态</span>
+      <span class="section-sub">区队最新通知</span>
+    </div>
+    <div v-if="updates.length === 0" class="empty-card">
+      <span class="empty-text">暂无通知</span>
+    </div>
+    <div
       v-for="update in updates"
       :key="update.id"
       class="update-card"
       @tap="$emit('view', update)"
     >
-      <view class="update-icon" :class="priorityClass(update.priority)">
-        <text class="update-icon-text">{{ priorityIcon(update.priority) }}</text>
-      </view>
-      <view class="update-content">
-        <text class="update-title">{{ update.title }}</text>
-        <text class="update-time">{{ formatDate(update.created_at) }} · {{ update.creator_nickname || update.creator_name || '系统' }}</text>
-      </view>
-      <text class="update-arrow">›</text>
-    </view>
-  </view>
+      <div class="update-icon" :class="priorityClass(update.priority)">
+        <span class="update-icon-text">{{ priorityIcon(update.priority) }}</span>
+      </div>
+      <div class="update-content">
+        <span class="update-title">{{ update.title }}</span>
+        <span class="update-time">{{ formatDate(update.created_at) }} · {{ update.creator_nickname || update.creator_name || '系统' }}</span>
+      </div>
+      <span class="update-arrow">›</span>
+    </div>
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+
 defineProps({
   updates: { type: Array, default: () => [] }
 })
@@ -52,6 +53,7 @@ function formatDate(s) {
   const mm = String(d.getMinutes()).padStart(2, '0')
   return `${m}-${day} ${hh}:${mm}`
 }
+
 </script>
 
 <style lang="scss" scoped>

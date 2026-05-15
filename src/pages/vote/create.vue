@@ -1,66 +1,68 @@
 <template>
-  <view class="create-page">
+  <div class="create-page">
     <custom-nav-bar title="创建投票" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="form-area">
-        <view class="form-card">
-          <view class="form-row"><text class="row-label block">投票标题</text><input class="solid-input" placeholder="请输入标题" v-model="form.title" /></view>
-          <view class="divider"></view>
-          <view class="textarea-wrap"><text class="row-label block">投票描述</text><textarea class="solid-textarea small" v-model="form.desc" placeholder="简要说明（选填）" /></view>
-          <view class="divider"></view>
+    <div scroll-y class="main-scroll">
+      <div class="form-area">
+        <div class="form-card">
+          <div class="form-row"><span class="row-label block">投票标题</span><input class="solid-input" placeholder="请输入标题" v-model="form.title" /></div>
+          <div class="divider"></div>
+          <div class="textarea-wrap"><span class="row-label block">投票描述</span><textarea class="solid-textarea small" v-model="form.desc" placeholder="简要说明（选填）" /></div>
+          <div class="divider"></div>
           <picker mode="selector" :range="['单选', '多选']" @change="(e) => form.type = e.detail.value === 0 ? 'single' : 'multiple'">
-            <view class="form-row"><text class="row-label">投票类型</text><view class="row-value"><text class="value-text">{{ form.type === 'single' ? '单选' : '多选' }}</text><text class="arrow">›</text></view></view>
+            <div class="form-row"><span class="row-label">投票类型</span><div class="row-value"><span class="value-text">{{ form.type === 'single' ? '单选' : '多选' }}</span><span class="arrow">›</span></div></div>
           </picker>
-          <view class="divider"></view>
+          <div class="divider"></div>
 
           <picker mode="date" :value="form.startDate" @change="(e) => form.startDate = e.detail.value">
-            <view class="form-row"><text class="row-label">开始日期</text><view class="row-value"><text class="value-text">{{ form.startDate }}</text><text class="arrow">›</text></view></view>
+            <div class="form-row"><span class="row-label">开始日期</span><div class="row-value"><span class="value-text">{{ form.startDate }}</span><span class="arrow">›</span></div></div>
           </picker>
-          <view class="divider"></view>
+          <div class="divider"></div>
           <picker mode="time" :value="form.startTime" @change="(e) => form.startTime = e.detail.value">
-            <view class="form-row"><text class="row-label">开始时间</text><view class="row-value"><text class="value-text">{{ form.startTime }}</text><text class="arrow">›</text></view></view>
+            <div class="form-row"><span class="row-label">开始时间</span><div class="row-value"><span class="value-text">{{ form.startTime }}</span><span class="arrow">›</span></div></div>
           </picker>
-          <view class="divider"></view>
+          <div class="divider"></div>
           <picker mode="date" :value="form.endDate" @change="(e) => form.endDate = e.detail.value">
-            <view class="form-row"><text class="row-label">结束日期</text><view class="row-value"><text class="value-text">{{ form.endDate }}</text><text class="arrow">›</text></view></view>
+            <div class="form-row"><span class="row-label">结束日期</span><div class="row-value"><span class="value-text">{{ form.endDate }}</span><span class="arrow">›</span></div></div>
           </picker>
-          <view class="divider"></view>
+          <div class="divider"></div>
           <picker mode="time" :value="form.endTime" @change="(e) => form.endTime = e.detail.value">
-            <view class="form-row"><text class="row-label">结束时间</text><view class="row-value"><text class="value-text">{{ form.endTime }}</text><text class="arrow">›</text></view></view>
+            <div class="form-row"><span class="row-label">结束时间</span><div class="row-value"><span class="value-text">{{ form.endTime }}</span><span class="arrow">›</span></div></div>
           </picker>
-          <view class="divider"></view>
+          <div class="divider"></div>
 
           <!-- 可见范围 -->
           <picker mode="selector" :range="['全部可见', '仅班干部']" @change="(e) => form.visible_scope = e.detail.value === 0 ? 'all' : 'admin'">
-            <view class="form-row"><text class="row-label">可见范围</text><view class="row-value"><text class="value-text">{{ form.visible_scope === 'all' ? '全部可见' : '仅班干部' }}</text><text class="arrow">›</text></view></view>
+            <div class="form-row"><span class="row-label">可见范围</span><div class="row-value"><span class="value-text">{{ form.visible_scope === 'all' ? '全部可见' : '仅班干部' }}</span><span class="arrow">›</span></div></div>
           </picker>
-          <view class="divider"></view>
+          <div class="divider"></div>
 
           <!-- 可投范围 -->
           <picker mode="selector" :range="['全部可投', '仅班干部']" @change="(e) => form.vote_scope = e.detail.value === 0 ? 'all' : 'admin'">
-            <view class="form-row"><text class="row-label">可投范围</text><view class="row-value"><text class="value-text">{{ form.vote_scope === 'all' ? '全部可投' : '仅班干部' }}</text><text class="arrow">›</text></view></view>
+            <div class="form-row"><span class="row-label">可投范围</span><div class="row-value"><span class="value-text">{{ form.vote_scope === 'all' ? '全部可投' : '仅班干部' }}</span><span class="arrow">›</span></div></div>
           </picker>
 
           <!-- Options -->
-          <view class="options-area">
-            <text class="section-sub">选项列表</text>
-            <view v-for="(opt, idx) in options" :key="idx" class="option-row">
+          <div class="options-area">
+            <span class="section-sub">选项列表</span>
+            <div v-for="(opt, idx) in options" :key="idx" class="option-row">
               <input class="opt-input" :placeholder="'选项' + (idx + 1)" v-model="options[idx]" />
-              <text class="remove-opt" @tap="removeOption(idx)" v-if="options.length > 2">×</text>
-            </view>
-            <button class="add-option-btn" @click="addOption"><text class="add-opt-text">+ 添加选项</text></button>
-          </view>
-        </view>
-      </view>
-      <view class="bottom-action"><button class="primary-btn" @click="submit"><text class="btn-text">发布投票</text></button></view>
-    </scroll-view>
-  </view>
+              <span class="remove-opt" @tap="removeOption(idx)" v-if="options.length > 2">×</span>
+            </div>
+            <button class="add-option-btn" @click="addOption"><span class="add-opt-text">+ 添加选项</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-action"><button class="primary-btn" @click="submit"><span class="btn-text">发布投票</span></button></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { reactive } from 'vue'
-import { createVote } from '@/api/vote'
+<script setup lang="ts">
 
+
+import { reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { createVote } from '@/api/vote'
 function pad(n) { return String(n).padStart(2, '0') }
 
 function todayStr() {
@@ -94,13 +96,13 @@ function buildDateTime(date, time) {
 }
 
 async function submit() {
-  if (!form.title.trim()) { uni.showToast({ title: '请输入标题', icon: 'none' }); return }
+  if (!form.title.trim()) { showToast('请输入标题'); return }
   const validOpts = options.filter(o => o.trim())
-  if (validOpts.length < 2) { uni.showToast({ title: '至少需要 2 个选项', icon: 'none' }); return }
+  if (validOpts.length < 2) { showToast('至少需要 2 个选项'); return }
   const start = buildDateTime(form.startDate, form.startTime)
   const end = buildDateTime(form.endDate, form.endTime)
   if (new Date(end) <= new Date(start)) {
-    uni.showToast({ title: '结束时间需晚于开始时间', icon: 'none' })
+    showToast('结束时间需晚于开始时间')
     return
   }
   uni.showLoading({ title: '发布中...' })
@@ -115,18 +117,18 @@ async function submit() {
       vote_scope: form.vote_scope,
       options: validOpts
     })
-    uni.hideLoading()
-    uni.showToast({ title: '发布成功', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 800)
+    
+    showToast('发布成功')
+    setTimeout(() => router.back(), 800)
   } catch (e) {
-    uni.hideLoading()
+    
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.create-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.create-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); padding-bottom: 140rpx; }
 
 .form-area { padding: 32rpx; }

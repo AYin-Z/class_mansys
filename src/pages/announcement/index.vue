@@ -1,60 +1,61 @@
 <template>
-  <view class="announcement-page">
+  <div class="announcement-page">
     <custom-nav-bar title="公告资源" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="tab-row">
-        <view :class="['tab-item', { active: currentTab === 'notice' }]" @tap="currentTab = 'notice'">
-          <text class="tab-text">公告</text>
-        </view>
-        <view :class="['tab-item', { active: currentTab === 'resource' }]" @tap="currentTab = 'resource'">
-          <text class="tab-text">资源共享</text>
-        </view>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="tab-row">
+        <div :class="['tab-item', { active: currentTab === 'notice' }]" @tap="currentTab = 'notice'">
+          <span class="tab-text">公告</span>
+        </div>
+        <div :class="['tab-item', { active: currentTab === 'resource' }]" @tap="currentTab = 'resource'">
+          <span class="tab-text">资源共享</span>
+        </div>
+      </div>
 
       <!-- Notice Tab -->
-      <view v-if="currentTab === 'notice'" class="content-list">
-        <view v-for="item in notices" :key="item.id" class="list-card" @tap="goDetail(item)">
-          <view class="card-accent"></view>
-          <view class="card-body">
-            <text class="card-title">{{ item.title }}</text>
-            <text class="card-summary">{{ item.summary }}</text>
-            <view class="card-meta">
-              <text class="meta-time">{{ item.time }}</text>
-              <text class="meta-author">{{ item.author }}</text>
-            </view>
-          </view>
-        </view>
-      </view>
+      <div v-if="currentTab === 'notice'" class="content-list">
+        <div v-for="item in notices" :key="item.id" class="list-card" @tap="goDetail(item)">
+          <div class="card-accent"></div>
+          <div class="card-body">
+            <span class="card-title">{{ item.title }}</span>
+            <span class="card-summary">{{ item.summary }}</span>
+            <div class="card-meta">
+              <span class="meta-time">{{ item.time }}</span>
+              <span class="meta-author">{{ item.author }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Resource Tab -->
-      <view v-else class="resource-grid">
-        <view v-for="item in resources" :key="item.id" class="resource-card" @tap="downloadResource(item)">
-          <view :class="['file-icon', item.type]">
-            <text class="icon-text">{{ fileIcon(item.type) }}</text>
-          </view>
-          <view class="file-info">
-            <text class="file-name">{{ item.name }}</text>
-            <text class="file-size">{{ item.size }} · {{ item.uploader }}</text>
-          </view>
-          <text class="download-icon">↓</text>
-        </view>
-      </view>
+      <div v-else class="resource-grid">
+        <div v-for="item in resources" :key="item.id" class="resource-card" @tap="downloadResource(item)">
+          <div :class="['file-icon', item.type]">
+            <span class="icon-text">{{ fileIcon(item.type) }}</span>
+          </div>
+          <div class="file-info">
+            <span class="file-name">{{ item.name }}</span>
+            <span class="file-size">{{ item.size }} · {{ item.uploader }}</span>
+          </div>
+          <span class="download-icon">↓</span>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
+      <div style="height: 40rpx;"></div>
+    </div>
 
-    <view v-if="canPublish" class="fab-btn" @tap="onFabTap">
-      <text class="fab-icon">+</text>
-    </view>
-  </view>
+    <div v-if="canPublish" class="fab-btn" @tap="onFabTap">
+      <span class="fab-icon">+</span>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { getAnnouncements, getResources, deleteAnnouncement, deleteResource } from '@/api/announcement'
 import { canPublishNotice, isAdmin } from '@/utils/auth'
-
 const currentTab = ref('notice')
 const notices = ref([])
 const resources = ref([])
@@ -133,7 +134,7 @@ function goDetail(item) {
       if (r.cancel && canPublish.value) {
         try {
           await deleteAnnouncement(item.id)
-          uni.showToast({ title: '已删除', icon: 'success' })
+          showToast('已删除')
           fetchNotices()
         } catch (e) {}
       }
@@ -143,20 +144,20 @@ function goDetail(item) {
 
 function downloadResource(item) {
   if (!item.url) {
-    uni.showToast({ title: '资源链接为空', icon: 'none' })
+    showToast('资源链接为空')
     return
   }
   uni.setClipboardData({
     data: item.url,
-    success: () => uni.showToast({ title: '链接已复制', icon: 'success' })
+    success: () => showToast('链接已复制')
   })
 }
 
 function onFabTap() {
   if (currentTab.value === 'notice') {
-    uni.navigateTo({ url: '/pages/announcement/publish' })
+    router.push('/pages/announcement/publish')
   } else {
-    uni.navigateTo({ url: '/pages/announcement/upload' })
+    router.push('/pages/announcement/upload')
   }
 }
 
@@ -167,14 +168,13 @@ function refresh() {
 }
 
 onShow(() => refresh())
+
 </script>
 
 <style lang="scss" scoped>
 @import "@/uni.scss";
 
-@import "@/uni.scss";
-
-.announcement-page { min-height: 100vh; background-color: $surface; }
+@import "@/uni.scss";.announcement-page { min-height: 100vh; background-color: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .tab-row { display: flex; gap: 16rpx; padding: 20rpx 32rpx; background: $surface-container-lowest; }

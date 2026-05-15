@@ -1,26 +1,27 @@
 <template>
-  <view v-if="notices.length" class="pinned-section">
-    <view class="pinned-header">
-      <text class="pinned-tag">置顶</text>
-      <text class="pinned-title-main">重要通知</text>
-    </view>
-    <view
+  <div v-if="notices.length" class="pinned-section">
+    <div class="pinned-header">
+      <span class="pinned-tag">置顶</span>
+      <span class="pinned-title-main">重要通知</span>
+    </div>
+    <div
       v-for="n in notices"
       :key="n.id"
       class="pinned-card"
       :class="priorityClass(n.priority)"
       @tap="$emit('view', n)"
     >
-      <view class="pinned-line">
-        <text class="pinned-prio">{{ priorityLabel(n.priority) }}</text>
-        <text class="pinned-time">{{ formatDate(n.created_at) }}</text>
-      </view>
-      <text class="pinned-title">{{ n.title }}</text>
-    </view>
-  </view>
+      <div class="pinned-line">
+        <span class="pinned-prio">{{ priorityLabel(n.priority) }}</span>
+        <span class="pinned-time">{{ formatDate(n.created_at) }}</span>
+      </div>
+      <span class="pinned-title">{{ n.title }}</span>
+    </div>
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+
 defineProps({
   notices: { type: Array, default: () => [] }
 })
@@ -47,6 +48,7 @@ function formatDate(s) {
   const mm = String(d.getMinutes()).padStart(2, '0')
   return `${m}-${day} ${hh}:${mm}`
 }
+
 </script>
 
 <style lang="scss" scoped>

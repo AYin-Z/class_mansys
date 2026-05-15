@@ -1,77 +1,78 @@
 <template>
   <!-- 加载中 -->
-  <view v-if="!loaded" class="dash-page">
-    <view class="loading-box">
-      <text class="loading-text">加载中...</text>
-    </view>
-  </view>
+  <div v-if="!loaded" class="dash-page">
+    <div class="loading-box">
+      <span class="loading-text">加载中...</span>
+    </div>
+  </div>
   <!-- 仪表盘内容 -->
-  <view v-else class="dash-page">
+  <div v-else class="dash-page">
     <custom-nav-bar title="班级仪表盘" />
 
-    <scroll-view scroll-y class="main-scroll">
+    <div scroll-y class="main-scroll">
       <!-- Header -->
-      <view class="hero-strip">
-        <text class="hero-title">📊 班级仪表盘</text>
-        <text class="hero-sub">{{ roleLabel }} · 管理班级事务</text>
-      </view>
+      <div class="hero-strip">
+        <span class="hero-title">📊 班级仪表盘</span>
+        <span class="hero-sub">{{ roleLabel }} · 管理班级事务</span>
+      </div>
 
       <!-- 通知管理 入口 -->
-      <view class="entry-card" @tap="goPage('/pages/dashboard/notice-manage')">
-        <view class="entry-left">
-          <text class="entry-icon">📋</text>
-          <view class="entry-info">
-            <text class="entry-title">通知管理</text>
-            <text class="entry-desc">查看/编辑/删除通知 · 待办完成追踪</text>
-          </view>
-        </view>
-        <text class="entry-arrow">›</text>
-      </view>
+      <div class="entry-card" @tap="goPage('/pages/dashboard/notice-manage')">
+        <div class="entry-left">
+          <span class="entry-icon">📋</span>
+          <div class="entry-info">
+            <span class="entry-title">通知管理</span>
+            <span class="entry-desc">查看/编辑/删除通知 · 待办完成追踪</span>
+          </div>
+        </div>
+        <span class="entry-arrow">›</span>
+      </div>
 
       <!-- 管理入口 -->
-      <view class="section">
-        <view class="section-header">
-          <text class="section-title">⚙️ 快捷管理</text>
-        </view>
-        <view class="grid-3col">
-          <view class="grid-item" @tap="goPage('/pages/leave/approve')">
-            <text class="gi-icon">✅</text>
-            <text class="gi-label">待办审批</text>
-          </view>
-          <view class="grid-item" @tap="goPage('/pages/fee/index')">
-            <text class="gi-icon">💰</text>
-            <text class="gi-label">班费管理</text>
-          </view>
-          <view class="grid-item" @tap="goPage('/pages/admin/members')">
-            <text class="gi-icon">👥</text>
-            <text class="gi-label">成员管理</text>
-          </view>
-          <view class="grid-item" @tap="goPage('/pages/vote/index')">
-            <text class="gi-icon">🗳️</text>
-            <text class="gi-label">投票管理</text>
-          </view>
-          <view class="grid-item" @tap="goPage('/pages/notice/publish')">
-            <text class="gi-icon">📢</text>
-            <text class="gi-label">发布通知</text>
-          </view>
-          <view class="grid-item" @tap="goPage('/pages/album/index')">
-            <text class="gi-icon">📷</text>
-            <text class="gi-label">相册管理</text>
-          </view>
-        </view>
-      </view>
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">⚙️ 快捷管理</span>
+        </div>
+        <div class="grid-3col">
+          <div class="grid-item" @tap="goPage('/pages/leave/approve')">
+            <span class="gi-icon">✅</span>
+            <span class="gi-label">待办审批</span>
+          </div>
+          <div class="grid-item" @tap="goPage('/pages/fee/index')">
+            <span class="gi-icon">💰</span>
+            <span class="gi-label">班费管理</span>
+          </div>
+          <div class="grid-item" @tap="goPage('/pages/admin/members')">
+            <span class="gi-icon">👥</span>
+            <span class="gi-label">成员管理</span>
+          </div>
+          <div class="grid-item" @tap="goPage('/pages/vote/index')">
+            <span class="gi-icon">🗳️</span>
+            <span class="gi-label">投票管理</span>
+          </div>
+          <div class="grid-item" @tap="goPage('/pages/notice/publish')">
+            <span class="gi-icon">📢</span>
+            <span class="gi-label">发布通知</span>
+          </div>
+          <div class="grid-item" @tap="goPage('/pages/album/index')">
+            <span class="gi-icon">📷</span>
+            <span class="gi-label">相册管理</span>
+          </div>
+        </div>
+      </div>
 
-      <view class="page-spacer"></view>
-    </scroll-view>
-  </view>
+      <div class="page-spacer"></div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+
+
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { getRoleLabel } from '@/constants/roles'
 import { useUserStore } from '@/stores/user'
-
 const store = useUserStore()
 const loaded = ref(false)
 let redirecting = false
@@ -83,7 +84,7 @@ onLoad(() => {
     if (!store.isAdmin) {
       redirecting = true
       console.log('[dashboard] not admin, redirecting to index')
-      uni.reLaunch({ url: '/pages/index/index' })
+      router.replace('/pages/index/index')
       return
     }
     console.log('[dashboard] admin confirmed, rendering')
@@ -98,6 +99,7 @@ const roleLabel = computed(() => getRoleLabel(store.user?.role))
 function goPage(url: string) {
   uni.navigateTo({ url })
 }
+
 </script>
 
 <style lang="scss" scoped>

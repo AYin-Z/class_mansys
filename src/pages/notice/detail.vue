@@ -1,63 +1,64 @@
 <template>
-  <view class="detail-page">
+  <div class="detail-page">
     <custom-nav-bar title="通知详情" :showBack="true" />
 
-    <scroll-view scroll-y class="main-scroll">
+    <div scroll-y class="main-scroll">
       <!-- Header -->
-      <view class="detail-header">
-        <view :class="['priority-banner', priorityClass(notice.priority)]">
-          <text class="priority-text">{{ priorityLabel(notice.priority) }}</text>
-        </view>
-        <text class="detail-title">{{ notice.title }}</text>
-        <view class="meta-row">
-          <text class="meta-item">{{ notice.author }}</text>
-          <text class="meta-dot">·</text>
-          <text class="meta-item">{{ notice.time }}</text>
-        </view>
-      </view>
+      <div class="detail-header">
+        <div :class="['priority-banner', priorityClass(notice.priority)]">
+          <span class="priority-text">{{ priorityLabel(notice.priority) }}</span>
+        </div>
+        <span class="detail-title">{{ notice.title }}</span>
+        <div class="meta-row">
+          <span class="meta-item">{{ notice.author }}</span>
+          <span class="meta-dot">·</span>
+          <span class="meta-item">{{ notice.time }}</span>
+        </div>
+      </div>
 
       <!-- Content -->
-      <view class="content-card">
+      <div class="content-card">
         <!-- Todo Banner -->
-        <view v-if="notice.is_todo" :class="['todo-banner', { completed: notice.is_completed }]">
-          <text class="todo-icon">{{ notice.is_completed ? '✅' : '📋' }}</text>
-          <text class="todo-text">{{ notice.is_completed ? '已完成' : '待完成' }}</text>
-          <view v-if="!notice.is_completed && !notice.is_loading" class="todo-btn" @tap="onComplete">
-            <text class="todo-btn-text">标记已完成</text>
-          </view>
-          <text v-if="notice.is_loading" class="todo-loading">处理中…</text>
-        </view>
+        <div v-if="notice.is_todo" :class="['todo-banner', { completed: notice.is_completed }]">
+          <span class="todo-icon">{{ notice.is_completed ? '✅' : '📋' }}</span>
+          <span class="todo-text">{{ notice.is_completed ? '已完成' : '待完成' }}</span>
+          <div v-if="!notice.is_completed && !notice.is_loading" class="todo-btn" @tap="onComplete">
+            <span class="todo-btn-text">标记已完成</span>
+          </div>
+          <span v-if="notice.is_loading" class="todo-loading">处理中…</span>
+        </div>
         <div v-html="notice.content"></div>
-      </view>
+      </div>
 
       <!-- Attachments -->
-      <view class="section-block" v-if="notice.attachments && notice.attachments.length > 0">
-        <text class="block-title">附件</text>
-        <view class="attachment-list">
-          <view v-for="(file, idx) in notice.attachments" :key="idx" class="attachment-item" @tap="downloadFile(file)">
-            <text class="file-icon">📎</text>
-            <text class="file-name">{{ file.name }}</text>
-            <text class="file-size">{{ formatFileSize(file.size) }}</text>
-          </view>
-        </view>
-      </view>
+      <div class="section-block" v-if="notice.attachments && notice.attachments.length > 0">
+        <span class="block-title">附件</span>
+        <div class="attachment-list">
+          <div v-for="(file, idx) in notice.attachments" :key="idx" class="attachment-item" @tap="downloadFile(file)">
+            <span class="file-icon">📎</span>
+            <span class="file-name">{{ file.name }}</span>
+            <span class="file-size">{{ formatFileSize(file.size) }}</span>
+          </div>
+        </div>
+      </div>
 
-      <view v-if="canDelete && notice.id" class="action-row" style="display:flex;gap:12px;">
-        <view class="btn-edit" @tap="onEdit">编辑通知</view>
-        <view class="btn-danger" @tap="onDelete">删除该通知</view>
-      </view>
+      <div v-if="canDelete && notice.id" class="action-row" style="display:flex;gap:12px;">
+        <div class="btn-edit" @tap="onEdit">编辑通知</div>
+        <div class="btn-danger" @tap="onDelete">删除该通知</div>
+      </div>
 
-      <view style="height: 80rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 80rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { getNoticeDetail, deleteNotice, completeTodo } from '@/api/notice'
 import { canPublishNotice } from '@/utils/auth'
-
 const notice = ref({
   id: null,
   title: '加载中…',
@@ -165,8 +166,8 @@ function onDelete() {
       if (!r.confirm) return
       try {
         await deleteNotice(noticeId.value)
-        uni.showToast({ title: '已删除', icon: 'success' })
-        setTimeout(() => uni.navigateBack(), 600)
+        showToast('已删除')
+        setTimeout(() => router.back(), 600)
       } catch (e) {
         // request 已 toast
       }
@@ -180,11 +181,12 @@ async function onComplete() {
     await completeTodo(noticeId.value)
     notice.value.is_completed = true
     notice.value.is_loading = false
-    uni.showToast({ title: '已标记完成', icon: 'success' })
+    showToast('已标记完成')
   } catch (e) {
     notice.value.is_loading = false
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
@@ -219,8 +221,7 @@ async function onComplete() {
   font-weight: 600;
 
   .urgent & { color: $tertiary; }
-  .important & { color: $primary; }
-  .daily & { color: $secondary; }
+  .important & { color: $primary; }.daily & { color: $secondary; }
 }
 
 .detail-title {

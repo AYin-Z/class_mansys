@@ -1,45 +1,46 @@
 <template>
-  <view class="records-page">
+  <div class="records-page">
     <custom-nav-bar title="收支记录" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="filter-row">
-        <view :class="['filter-chip', { active: filter === 'all' }]" @tap="filter = 'all'">全部</view>
-        <view :class="['filter-chip', { active: filter === 'income' }]" @tap="filter = 'income'">收入</view>
-        <view :class="['filter-chip', { active: filter === 'expense' }]" @tap="filter = 'expense'">支出</view>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="filter-row">
+        <div :class="['filter-chip', { active: filter === 'all' }]" @tap="filter = 'all'">全部</div>
+        <div :class="['filter-chip', { active: filter === 'income' }]" @tap="filter = 'income'">收入</div>
+        <div :class="['filter-chip', { active: filter === 'expense' }]" @tap="filter = 'expense'">支出</div>
+      </div>
 
-      <view class="record-list">
-        <view v-for="(group, gIdx) in groupedRecords" :key="gIdx" class="record-group">
-          <text class="group-date">{{ group.date }}</text>
-          <view v-for="item in group.items" :key="item.id" class="record-card">
-            <view :class="['type-dot', item.type === '收入' ? 'income' : 'expense']"></view>
-            <view class="record-main">
-              <text class="record-title">{{ item.purpose || item.title }}</text>
-              <text class="record-category">{{ item.type === '收入' ? '收缴' : (item.tier === 'small' ? '小额支出' : item.tier === 'medium' ? '中额支出' : '大额支出') }}</text>
-            </view>
-            <view class="record-right">
-              <text :class="['record-amount', item.type === '收入' ? 'income' : 'expense']">
+      <div class="record-list">
+        <div v-for="(group, gIdx) in groupedRecords" :key="gIdx" class="record-group">
+          <span class="group-date">{{ group.date }}</span>
+          <div v-for="item in group.items" :key="item.id" class="record-card">
+            <div :class="['type-dot', item.type === '收入' ? 'income' : 'expense']"></div>
+            <div class="record-main">
+              <span class="record-title">{{ item.purpose || item.title }}</span>
+              <span class="record-category">{{ item.type === '收入' ? '收缴' : (item.tier === 'small' ? '小额支出' : item.tier === 'medium' ? '中额支出' : '大额支出') }}</span>
+            </div>
+            <div class="record-right">
+              <span :class="['record-amount', item.type === '收入' ? 'income' : 'expense']">
                 {{ item.type === '收入' ? '+' : '-' }}¥{{ Number(item.amount).toFixed(2) }}
-              </text>
-              <text class="record-time">{{ formatTime(item.created_at) }}</text>
-            </view>
-          </view>
-        </view>
+              </span>
+              <span class="record-time">{{ formatTime(item.created_at) }}</span>
+            </div>
+          </div>
+        </div>
 
-        <view v-if="filteredRecords.length === 0" class="empty-state">
-          <text class="empty-text">暂无记录</text>
-        </view>
-      </view>
+        <div v-if="filteredRecords.length === 0" class="empty-state">
+          <span class="empty-text">暂无记录</span>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { getAllExpenses } from '@/api/fee'
+<script setup lang="ts">
 
+
+import { computed, onMounted, ref } from 'vue'
+import { getAllExpenses } from '@/api/fee'
 const filter = ref('all')
 const expenses = ref([])
 
@@ -72,16 +73,16 @@ onMounted(async () => {
     const res = await getAllExpenses()
     if (res.success) expenses.value = res.expenses
   } catch (err) {
-    uni.showToast({ title: '加载失败', icon: 'none' })
+    showToast('加载失败')
   } finally {
-    uni.hideLoading()
+    
   }
 })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.records-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.records-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 .filter-row { display: flex; gap: 12rpx; padding: 20rpx 32rpx; }
 .filter-chip { height: 60rpx; padding: 0 28rpx; border-radius: 30rpx; display: flex; align-items: center; justify-content: center; background: #fff; font-size: 26rpx; font-weight: 500; color: #43474f; &.active { background: #001e40; color: #fff; } }

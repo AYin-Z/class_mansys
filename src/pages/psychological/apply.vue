@@ -1,55 +1,57 @@
 <template>
-  <view class="apply-page">
+  <div class="apply-page">
     <custom-nav-bar title="申请心理干预" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="privacy-notice">
-        <text class="notice-icon">🔒</text>
-        <text class="notice-text">您的申请将匿名提交，仅心理副区和辅导员可见</text>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="privacy-notice">
+        <span class="notice-icon">🔒</span>
+        <span class="notice-text">您的申请将匿名提交，仅心理副区和辅导员可见</span>
+      </div>
 
-      <view class="form-area">
-        <view class="form-card">
-          <picker mode="selector" :range="types" @change="onTypeChange"><view class="form-row"><text class="row-label">干预类型</text><view class="row-value"><text class="value-text">{{ form.type || '请选择' }}</text><text class="arrow">›</text></view></view></picker>
-          <view class="divider"></view>
-          <view class="textarea-wrap"><text class="row-label block">详细描述</text><textarea class="solid-textarea" v-model="form.detail" placeholder="请详细描述您的情况和需求..." /></view>
-        </view>
-      </view>
+      <div class="form-area">
+        <div class="form-card">
+          <picker mode="selector" :range="types" @change="onTypeChange"><div class="form-row"><span class="row-label">干预类型</span><div class="row-value"><span class="value-text">{{ form.type || '请选择' }}</span><span class="arrow">›</span></div></div></picker>
+          <div class="divider"></div>
+          <div class="textarea-wrap"><span class="row-label block">详细描述</span><textarea class="solid-textarea" v-model="form.detail" placeholder="请详细描述您的情况和需求..." /></div>
+        </div>
+      </div>
 
-      <view class="bottom-action"><button class="primary-btn" @click="submit"><text class="btn-text">匿名提交</text></button></view>
-    </scroll-view>
-  </view>
+      <div class="bottom-action"><button class="primary-btn" @click="submit"><span class="btn-text">匿名提交</span></button></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { reactive } from 'vue'
-import { submitPsychApplication } from '@/api/psychological'
+<script setup lang="ts">
 
+
+import { reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { submitPsychApplication } from '@/api/psychological'
 const types = ['情绪疏导', '学业压力', '人际关系', '睡眠问题', '其他']
 const form = reactive({ type: '', detail: '' })
 
 function onTypeChange(e) { form.type = types[e.detail.value] }
 
 async function submit() {
-  if (!form.type) { uni.showToast({ title: '请选择类型', icon: 'none' }); return }
-  if (!form.detail) { uni.showToast({ title: '请填写详情', icon: 'none' }); return }
+  if (!form.type) { showToast('请选择类型'); return }
+  if (!form.detail) { showToast('请填写详情'); return }
   uni.showLoading({ title: '提交中...' })
   try {
     const content = `[${form.type}] ${form.detail}`
     const res = await submitPsychApplication(content)
-    uni.hideLoading()
+    
     if (res?.success) {
-      uni.showToast({ title: '已提交，请放心', icon: 'success' })
-      setTimeout(() => uni.navigateBack(), 1500)
+      showToast('已提交，请放心')
+      setTimeout(() => router.back(), 1500)
     }
   } catch (_) {
-    uni.hideLoading()
+    
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.apply-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.apply-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); padding-bottom: 140rpx; }
 
 .privacy-notice {

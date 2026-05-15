@@ -1,53 +1,54 @@
 <template>
-  <view class="psy-page">
+  <div class="psy-page">
     <custom-nav-bar title="心理干预" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="intro-card">
-        <view class="accent-bar"></view>
-        <text class="intro-title">私密保护</text>
-        <text class="intro-desc">所有申请均匿名处理，仅指定人员可查看，严格保护您的隐私</text>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="intro-card">
+        <div class="accent-bar"></div>
+        <span class="intro-title">私密保护</span>
+        <span class="intro-desc">所有申请均匿名处理，仅指定人员可查看，严格保护您的隐私</span>
+      </div>
 
       <button class="apply-entry" @tap="goApply">
-        <text class="entry-icon">🧠</text>
-        <text class="entry-text">申请新的心理干预</text>
+        <span class="entry-icon">🧠</span>
+        <span class="entry-text">申请新的心理干预</span>
       </button>
 
-      <view v-if="isAdminUser" class="tab-row">
-        <view :class="['tab-item', { active: tab === 'mine' }]" @tap="setTab('mine')"><text class="tab-text">我的</text></view>
-        <view :class="['tab-item', { active: tab === 'all' }]" @tap="setTab('all')"><text class="tab-text">全部待处理</text></view>
-      </view>
+      <div v-if="isAdminUser" class="tab-row">
+        <div :class="['tab-item', { active: tab === 'mine' }]" @tap="setTab('mine')"><span class="tab-text">我的</span></div>
+        <div :class="['tab-item', { active: tab === 'all' }]" @tap="setTab('all')"><span class="tab-text">全部待处理</span></div>
+      </div>
 
-      <view class="section-header"><text class="section-title">{{ tab === 'all' ? '全部申请' : '我的申请记录' }}</text></view>
+      <div class="section-header"><span class="section-title">{{ tab === 'all' ? '全部申请' : '我的申请记录' }}</span></div>
 
-      <view class="app-list">
-        <view v-for="item in apps" :key="item.id" class="app-card" @tap="goDetail(item)">
-          <view :class="['status-bar', statusClass(item.status)]"></view>
-          <view class="app-body">
-            <text class="app-type">{{ extractType(item.content) }}</text>
-            <text class="app-time">{{ formatDate(item.created_at) }}</text>
-            <view :class="['status-tag', statusClass(item.status)]">{{ PSYCH_STATUS_LABEL[item.status] }}</view>
-          </view>
-        </view>
+      <div class="app-list">
+        <div v-for="item in apps" :key="item.id" class="app-card" @tap="goDetail(item)">
+          <div :class="['status-bar', statusClass(item.status)]"></div>
+          <div class="app-body">
+            <span class="app-type">{{ extractType(item.content) }}</span>
+            <span class="app-time">{{ formatDate(item.created_at) }}</span>
+            <div :class="['status-tag', statusClass(item.status)]">{{ PSYCH_STATUS_LABEL[item.status] }}</div>
+          </div>
+        </div>
 
-        <view v-if="!loading && apps.length === 0" class="empty-state">
-          <text class="empty-text">暂无申请记录</text>
-        </view>
-      </view>
+        <div v-if="!loading && apps.length === 0" class="empty-state">
+          <span class="empty-text">暂无申请记录</span>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { getMyPsychApplications, getAllPsychApplications, PSYCH_STATUS_LABEL } from '@/api/psychological'
-
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
@@ -87,10 +88,11 @@ async function fetchList() {
   finally { loading.value = false }
 }
 
-function goApply() { uni.navigateTo({ url: '/pages/psychological/apply' }) }
+function goApply() { router.push('/pages/psychological/apply') }
 function goDetail(item) { uni.navigateTo({ url: `/pages/psychological/status?id=${item.id}` }) }
 
 onShow(() => { fetchList() })
+
 </script>
 
 <style lang="scss" scoped>

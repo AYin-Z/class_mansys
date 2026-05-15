@@ -1,14 +1,14 @@
 <template>
-  <view class="login-container">
-    <view class="login-header">
-      <text class="title">邮箱登录</text>
-      <text class="subtitle">请输入邮箱地址获取验证码</text>
-    </view>
+  <div class="login-container">
+    <div class="login-header">
+      <span class="title">邮箱登录</span>
+      <span class="subtitle">请输入邮箱地址获取验证码</span>
+    </div>
 
-    <view class="login-form">
+    <div class="login-form">
       <!-- 邮箱输入 -->
-      <view class="input-group">
-        <text class="label">邮箱地址</text>
+      <div class="input-group">
+        <span class="label">邮箱地址</span>
         <input
           class="input-field"
           type="text"
@@ -16,12 +16,12 @@
           v-model="email"
           @input="onEmailInput"
         />
-      </view>
+      </div>
 
       <!-- 验证码输入 -->
-      <view class="input-group">
-        <text class="label">验证码</text>
-        <view class="verification-row">
+      <div class="input-group">
+        <span class="label">验证码</span>
+        <div class="verification-row">
           <input
             class="input-field verification-input"
             type="number"
@@ -36,8 +36,8 @@
           >
             {{ sending ? '发送中...' : countdown > 0 ? `${countdown}s后重试` : '获取验证码' }}
           </button>
-        </view>
-      </view>
+        </div>
+      </div>
 
       <!-- 登录按钮 -->
       <button
@@ -49,18 +49,20 @@
       </button>
 
       <!-- 返回链接 -->
-      <view class="back-login">
-        <text @click="goBack" class="link-text">返回登录方式选择</text>
-      </view>
-    </view>
-  </view>
+      <div class="back-login">
+        <span @click="goBack" class="link-text">返回登录方式选择</span>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+
+
+import { computed, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { post } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
-
 const userStore = useUserStore()
 
 // 表单数据
@@ -89,7 +91,7 @@ const onEmailInput = () => {
 // 发送验证码
 const sendCode = async () => {
   if (!isEmailValid.value) {
-    uni.showToast({ title: '请输入正确的邮箱地址', icon: 'none' })
+    showToast('请输入正确的邮箱地址')
     return
   }
 
@@ -101,7 +103,7 @@ const sendCode = async () => {
       false
     )
     if (res.success) {
-      uni.showToast({ title: '验证码已发送', icon: 'success' })
+      showToast('验证码已发送')
       startCountdown()
     } else {
       uni.showToast({ title: res.message || '发送失败', icon: 'none' })
@@ -131,7 +133,7 @@ const startCountdown = () => {
 // 登录
 const handleLogin = async () => {
   if (!canLogin.value) {
-    uni.showToast({ title: '请完善登录信息', icon: 'none' })
+    showToast('请完善登录信息')
     return
   }
 
@@ -168,13 +170,13 @@ const handleLogin = async () => {
         class_id: res.user.class_id
       })
 
-      uni.showToast({ title: '登录成功', icon: 'success' })
+      showToast('登录成功')
 
       setTimeout(() => {
-        uni.reLaunch({ url: '/pages/index/index' })
+        router.replace('/pages/index/index')
       }, 800)
     } else {
-      uni.showToast({ title: '登录失败，请重试', icon: 'none' })
+      showToast('登录失败，请重试')
     }
   } catch (err: any) {
     uni.showToast({ title: err.message || '登录失败', icon: 'none' })
@@ -185,7 +187,7 @@ const handleLogin = async () => {
 
 // 返回登录方式选择
 const goBack = () => {
-  uni.navigateBack()
+  router.back()
 }
 
 // 清理定时器
@@ -195,11 +197,11 @@ onUnmounted(() => {
     timer = null
   }
 })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.login-container {
+@import "@/uni.scss";.login-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
   padding: 100rpx 48rpx 60rpx;

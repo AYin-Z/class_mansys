@@ -1,40 +1,41 @@
 <template>
-  <view class="status-page">
+  <div class="status-page">
     <custom-nav-bar title="处理状态" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view v-if="application" class="info-card">
-        <text class="title">{{ extractType(application.content) }}</text>
-        <text class="desc">{{ extractDetail(application.content) }}</text>
-        <view class="meta-row"><text class="label">提交时间</text><text class="value">{{ formatDate(application.created_at) }}</text></view>
-        <view class="meta-row"><text class="label">处理状态</text><text :class="['value', statusClass(application.status)]">{{ PSYCH_STATUS_LABEL[application.status] }}</text></view>
-        <view v-if="application.handler_name" class="meta-row"><text class="label">处理人</text><text class="value">{{ application.handler_name }}</text></view>
-        <view v-if="application.handler_notes" class="desc-section">
-          <text class="section-label">处理备注</text>
-          <text class="desc-text">{{ application.handler_notes }}</text>
-        </view>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div v-if="application" class="info-card">
+        <span class="title">{{ extractType(application.content) }}</span>
+        <span class="desc">{{ extractDetail(application.content) }}</span>
+        <div class="meta-row"><span class="label">提交时间</span><span class="value">{{ formatDate(application.created_at) }}</span></div>
+        <div class="meta-row"><span class="label">处理状态</span><span :class="['value', statusClass(application.status)]">{{ PSYCH_STATUS_LABEL[application.status] }}</span></div>
+        <div v-if="application.handler_name" class="meta-row"><span class="label">处理人</span><span class="value">{{ application.handler_name }}</span></div>
+        <div v-if="application.handler_notes" class="desc-section">
+          <span class="section-label">处理备注</span>
+          <span class="desc-text">{{ application.handler_notes }}</span>
+        </div>
+      </div>
 
-      <view v-if="isAdminUser && application" class="info-card">
-        <text class="section-label">管理员操作</text>
-        <view class="btn-row">
+      <div v-if="isAdminUser && application" class="info-card">
+        <span class="section-label">管理员操作</span>
+        <div class="btn-row">
           <button v-if="application.status !== 1" class="action-btn" @tap="handleStatus(1)">标记处理中</button>
           <button v-if="application.status !== 2" class="action-btn primary" @tap="handleStatus(2)">标记已完成</button>
-        </view>
-      </view>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { getPsychDetail, handlePsychApplication, PSYCH_STATUS_LABEL } from '@/api/psychological'
-
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
@@ -79,7 +80,7 @@ async function handleStatus(status) {
       if (!r.confirm) return
       try {
         await handlePsychApplication(id.value, { status, handler_notes: r.content || '' })
-        uni.showToast({ title: '已更新', icon: 'success' })
+        showToast('已更新')
         fetch()
       } catch (_) {}
     }
@@ -88,11 +89,11 @@ async function handleStatus(status) {
 
 onLoad((opts) => { id.value = Number(opts?.id) || null })
 onShow(() => fetch())
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.status-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.status-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .info-card { margin: 24rpx 32rpx; background: #fff; border-radius: 20rpx; padding: 28rpx 24rpx; }

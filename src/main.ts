@@ -4,19 +4,16 @@
  */
 import './shims/uni-api'
 
-import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import router from './router'
 import App from './App.vue'
 import showCaptcha from './components/show-captcha.vue'
 import CustomNavBar from './components/custom-nav-bar.vue'
 import CustomTabBar from './components/custom-tab-bar.vue'
-import UniPopup from '@dcloudio/uni-ui/lib/uni-popup/uni-popup.vue'
-import UniLoadMore from '@dcloudio/uni-ui/lib/uni-load-more/uni-load-more.vue'
-import UniTransition from '@dcloudio/uni-ui/lib/uni-transition/uni-transition.vue'
 import UniPicker from './shims/uni-picker.vue'
 
 // ====== 诊断日志 ======
+import { createApp } from 'vue'
 const d = (msg: string) => {
   console.log('[boot]', msg)
   if ((window as any).__debugLog) (window as any).__debugLog(msg)
@@ -41,13 +38,6 @@ try {
   app.component('custom-nav-bar', CustomNavBar)
   app.component('custom-tab-bar', CustomTabBar)
   d('custom components registered')
-
-  d('registering uni-ui components...')
-  app.component('uni-popup', UniPopup)
-  app.component('uni-load-more', UniLoadMore)
-  app.component('uni-transition', UniTransition)
-  app.component('uni-picker', UniPicker)
-  d('uni-ui components registered')
 
   d('mounting...')
   app.mount('#app')

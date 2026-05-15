@@ -1,38 +1,39 @@
 <template>
-  <view class="album-page">
+  <div class="album-page">
     <custom-nav-bar title="区队相册" />
-    <scroll-view scroll-y class="main-scroll">
-      <view v-if="albums.length === 0 && !loading" class="empty">
-        <text class="empty-text">还没有相册，点击右下角创建</text>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div v-if="albums.length === 0 && !loading" class="empty">
+        <span class="empty-text">还没有相册，点击右下角创建</span>
+      </div>
 
-      <view class="album-grid">
-        <view v-for="item in albums" :key="item.id" class="album-card" @tap="goAlbum(item)">
-          <image v-if="item.cover" :src="item.cover" mode="aspectFill" class="album-cover" />
-          <view v-else class="album-cover placeholder-cover">
-            <text class="placeholder-text">{{ item.name.substring(0, 1) }}</text>
-          </view>
-          <view class="album-info">
-            <text class="album-name">{{ item.name }}</text>
-            <text class="album-count">{{ item.count }}张</text>
-          </view>
-        </view>
-      </view>
+      <div class="album-grid">
+        <div v-for="item in albums" :key="item.id" class="album-card" @tap="goAlbum(item)">
+          <img v-if="item.cover" :src="item.cover" mode="aspectFill" class="album-cover" />
+          <div v-else class="album-cover placeholder-cover">
+            <span class="placeholder-text">{{ item.name.substring(0, 1) }}</span>
+          </div>
+          <div class="album-info">
+            <span class="album-name">{{ item.name }}</span>
+            <span class="album-count">{{ item.count }}张</span>
+          </div>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
+      <div style="height: 40rpx;"></div>
+    </div>
 
-    <view class="fab-btn" @tap="goCreate">
-      <text class="fab-icon">+</text>
-    </view>
-  </view>
+    <div class="fab-btn" @tap="goCreate">
+      <span class="fab-icon">+</span>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
-import { getAlbums } from '@/api/album'
+<script setup lang="ts">
 
+
+import { onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { getAlbums } from '@/api/album'
 const albums = ref([])
 const loading = ref(false)
 
@@ -57,10 +58,11 @@ function goAlbum(item) {
 }
 
 function goCreate() {
-  uni.navigateTo({ url: '/pages/album/create' })
+  router.push('/pages/album/create')
 }
 
 onShow(() => fetchAlbums())
+
 </script>
 
 <style lang="scss" scoped>

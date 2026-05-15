@@ -1,67 +1,68 @@
 <template>
-  <view class="detail-page">
+  <div class="detail-page">
     <custom-nav-bar title="作业详情" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view v-if="hw" class="info-card">
-        <text class="hw-title">{{ hw.title }}</text>
-        <view class="info-row"><text class="label">发布人</text><text class="value">{{ hw.creator_name || '-' }}</text></view>
-        <view class="info-row"><text class="label">截止时间</text><text :class="['value', { urgent: isUrgent }]">{{ formatDate(hw.deadline) }}</text></view>
-        <view class="desc-section">
-          <text class="section-label">作业要求</text>
-          <text class="desc-text">{{ hw.description }}</text>
-        </view>
+    <div scroll-y class="main-scroll">
+      <div v-if="hw" class="info-card">
+        <span class="hw-title">{{ hw.title }}</span>
+        <div class="info-row"><span class="label">发布人</span><span class="value">{{ hw.creator_name || '-' }}</span></div>
+        <div class="info-row"><span class="label">截止时间</span><span :class="['value', { urgent: isUrgent }]">{{ formatDate(hw.deadline) }}</span></div>
+        <div class="desc-section">
+          <span class="section-label">作业要求</span>
+          <span class="desc-text">{{ hw.description }}</span>
+        </div>
 
         <!-- 附件 -->
-        <view class="desc-section" v-if="hw.attachments && hw.attachments.length">
-          <text class="section-label">附件（{{ hw.attachments.length }}）</text>
-          <view v-for="(file, idx) in parsedAttachments" :key="idx" class="attachment-item" @tap="openFile(file)">
-            <text class="file-icon">📎</text>
-            <text class="file-name">{{ file.name }}</text>
-            <text class="file-size">{{ formatSize(file.size) }}</text>
-          </view>
-        </view>
-      </view>
+        <div class="desc-section" v-if="hw.attachments && hw.attachments.length">
+          <span class="section-label">附件（{{ hw.attachments.length }}）</span>
+          <div v-for="(file, idx) in parsedAttachments" :key="idx" class="attachment-item" @tap="openFile(file)">
+            <span class="file-icon">📎</span>
+            <span class="file-name">{{ file.name }}</span>
+            <span class="file-size">{{ formatSize(file.size) }}</span>
+          </div>
+        </div>
+      </div>
 
-      <view v-if="mySubmission" class="info-card">
-        <text class="section-label">我的提交</text>
-        <view class="info-row"><text class="label">文件</text><text class="value">{{ mySubmission.file_name }}</text></view>
-        <view class="info-row"><text class="label">提交时间</text><text class="value">{{ formatDate(mySubmission.submitted_at) }}</text></view>
-        <view class="info-row"><text class="label">状态</text>
-          <text class="value">{{ mySubmission.status === 1 ? `已批改 ${mySubmission.score ?? ''}分` : '待批改' }}</text>
-        </view>
-        <view v-if="mySubmission.feedback" class="desc-section">
-          <text class="section-label">老师反馈</text>
-          <text class="desc-text">{{ mySubmission.feedback }}</text>
-        </view>
-      </view>
+      <div v-if="mySubmission" class="info-card">
+        <span class="section-label">我的提交</span>
+        <div class="info-row"><span class="label">文件</span><span class="value">{{ mySubmission.file_name }}</span></div>
+        <div class="info-row"><span class="label">提交时间</span><span class="value">{{ formatDate(mySubmission.submitted_at) }}</span></div>
+        <div class="info-row"><span class="label">状态</span>
+          <span class="value">{{ mySubmission.status === 1 ? `已批改 ${mySubmission.score ?? ''}分` : '待批改' }}</span>
+        </div>
+        <div v-if="mySubmission.feedback" class="desc-section">
+          <span class="section-label">老师反馈</span>
+          <span class="desc-text">{{ mySubmission.feedback }}</span>
+        </div>
+      </div>
 
-      <view v-if="isAdminUser && submissions.length" class="info-card">
-        <text class="section-label">所有提交（{{ submissions.length }}）</text>
-        <view v-for="s in submissions" :key="s.id" class="sub-row">
-          <view class="sub-left">
-            <text class="sub-name">{{ s.user_name }}</text>
-            <text class="sub-meta">{{ s.student_id }} · {{ formatDate(s.submitted_at) }}</text>
-          </view>
-          <view v-if="s.status === 1" class="score-tag">{{ s.score ?? '-' }}分</view>
+      <div v-if="isAdminUser && submissions.length" class="info-card">
+        <span class="section-label">所有提交（{{ submissions.length }}）</span>
+        <div v-for="s in submissions" :key="s.id" class="sub-row">
+          <div class="sub-left">
+            <span class="sub-name">{{ s.user_name }}</span>
+            <span class="sub-meta">{{ s.student_id }} · {{ formatDate(s.submitted_at) }}</span>
+          </div>
+          <div v-if="s.status === 1" class="score-tag">{{ s.score ?? '-' }}分</div>
           <button v-else class="grade-btn" size="mini" @tap="grade(s)">批改</button>
-        </view>
-      </view>
+        </div>
+      </div>
 
       <button class="submit-btn" @click="goSubmit" v-if="!isExpired || mySubmission">{{ mySubmission ? '重新提交' : '提交作业' }}</button>
 
-      <view style="height: 80rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 80rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { getHomeworkDetail, gradeSubmission, submitHomework } from '@/api/homework'
-
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
@@ -121,15 +122,15 @@ async function goSubmit() {
     const r = await cloudbaseApp.uploadFile({ cloudPath, filePath: file.path })
     const fileUrl = r?.download_url || r?.fileID || ''
     const res = await submitHomework(hwId.value, { file_url: fileUrl, file_name: file.name })
-    uni.hideLoading()
+    
     if (res?.success) {
-      uni.showToast({ title: '提交成功', icon: 'success' })
+      showToast('提交成功')
       fetchDetail()
     }
   } catch (e) {
-    uni.hideLoading()
+    
     if (e?.errMsg && e.errMsg.includes('cancel')) return
-    uni.showToast({ title: '提交失败', icon: 'none' })
+    showToast('提交失败')
   }
 }
 
@@ -142,11 +143,11 @@ async function grade(s) {
       if (!r.confirm) return
       const score = Number(r.content)
       if (!Number.isFinite(score) || score < 0 || score > 100) {
-        uni.showToast({ title: '分数无效', icon: 'none' }); return
+        showToast('分数无效'); return
       }
       try {
         await gradeSubmission(s.id, { score, feedback: '' })
-        uni.showToast({ title: '已批改', icon: 'success' })
+        showToast('已批改')
         fetchDetail()
       } catch (_) {}
     }
@@ -168,11 +169,11 @@ function formatSize(bytes) {
   if (n >= 1024) return (n / 1024).toFixed(0) + 'KB'
   return n + 'B'
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.detail-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.detail-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .info-card { margin: 24rpx 32rpx; background: #fff; border-radius: 20rpx; padding: 28rpx 24rpx; }

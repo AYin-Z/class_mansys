@@ -1,81 +1,82 @@
 <template>
-  <view class="approve-page">
+  <div class="approve-page">
     <custom-nav-bar title="申请审核" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="loadData">
-      <view class="filter-tabs">
-        <view :class="['tab', { active: currentTab === 'pending' }]" @tap="switchTab('pending')">
-          <text class="tab-text">待审核</text>
-          <text class="tab-count">{{ pendingList.length }}</text>
-        </view>
-        <view :class="['tab', { active: currentTab === 'done' }]" @tap="switchTab('done')">
-          <text class="tab-text">已处理</text>
-        </view>
-      </view>
+    <div scroll-y class="main-scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="loadData">
+      <div class="filter-tabs">
+        <div :class="['tab', { active: currentTab === 'pending' }]" @tap="switchTab('pending')">
+          <span class="tab-text">待审核</span>
+          <span class="tab-count">{{ pendingList.length }}</span>
+        </div>
+        <div :class="['tab', { active: currentTab === 'done' }]" @tap="switchTab('done')">
+          <span class="tab-text">已处理</span>
+        </div>
+      </div>
 
-      <view class="app-list">
-        <view v-for="item in displayList" :key="item.id" class="app-card">
-          <view class="card-accent" :class="tierClass(item.tier, item.amount)"></view>
-          <view class="card-body">
-            <view class="card-top">
-              <text class="app-title">{{ item.purpose }}</text>
-              <text class="app-amount">¥{{ Number(item.amount).toFixed(2) }}</text>
-            </view>
-            <text class="app-detail" v-if="item.details">{{ item.details }}</text>
-            <view class="meta-row">
-              <text class="meta-text">申请人：{{ item.applicant_name || item.student_id || '未知' }}</text>
-              <text class="meta-text">{{ formatTime(item.created_at) }}</text>
-              <text class="meta-text">{{ tierLabel(item.tier, item.amount) }}</text>
-              <text class="meta-text" v-if="item.step === 3">已投票</text>
-            </view>
+      <div class="app-list">
+        <div v-for="item in displayList" :key="item.id" class="app-card">
+          <div class="card-accent" :class="tierClass(item.tier, item.amount)"></div>
+          <div class="card-body">
+            <div class="card-top">
+              <span class="app-title">{{ item.purpose }}</span>
+              <span class="app-amount">¥{{ Number(item.amount).toFixed(2) }}</span>
+            </div>
+            <span class="app-detail" v-if="item.details">{{ item.details }}</span>
+            <div class="meta-row">
+              <span class="meta-text">申请人：{{ item.applicant_name || item.student_id || '未知' }}</span>
+              <span class="meta-text">{{ formatTime(item.created_at) }}</span>
+              <span class="meta-text">{{ tierLabel(item.tier, item.amount) }}</span>
+              <span class="meta-text" v-if="item.step === 3">已投票</span>
+            </div>
 
             <!-- 投票阶段 (step 3) -->
-            <view class="vote-area" v-if="currentTab === 'pending' && item.step === 3">
-              <view class="vote-progress">
-                <text class="vote-label">投票进度</text>
-                <view class="vote-bar-wrap">
-                  <view class="vote-bar-fill" :style="{ width: votePercent(item) + '%' }"></view>
-                </view>
-                <text class="vote-count">{{ item.vote_approve || 0 }}/19 同意</text>
-              </view>
-              <view class="vote-actions">
+            <div class="vote-area" v-if="currentTab === 'pending' && item.step === 3">
+              <div class="vote-progress">
+                <span class="vote-label">投票进度</span>
+                <div class="vote-bar-wrap">
+                  <div class="vote-bar-fill" :style="{ width: votePercent(item) + '%' }"></div>
+                </div>
+                <span class="vote-count">{{ item.vote_approve || 0 }}/19 同意</span>
+              </div>
+              <div class="vote-actions">
                 <button class="action-btn reject" @click="doVote(item, 2)" :disabled="votingId === item.id">反对</button>
                 <button class="action-btn approve" @click="doVote(item, 1)" :disabled="votingId === item.id">
                   {{ votingId === item.id ? '投票中...' : '同意' }}
                 </button>
-              </view>
-            </view>
+              </div>
+            </div>
 
             <!-- 审批阶段 (step 1/2) -->
-            <view class="action-area" v-else-if="currentTab === 'pending' && item.step !== 3">
+            <div class="action-area" v-else-if="currentTab === 'pending' && item.step !== 3">
               <button class="action-btn reject" @click="doReject(item)" :disabled="processingId === item.id">驳回</button>
               <button class="action-btn approve" @click="doApprove(item)" :disabled="processingId === item.id">
                 {{ processingId === item.id ? '处理中...' : '通过' }}
               </button>
-            </view>
+            </div>
 
-            <view class="result-tag" v-else>
-              <text :class="['result-text', item.status === 1 ? 'yes' : 'no']">
+            <div class="result-tag" v-else>
+              <span :class="['result-text', item.status === 1 ? 'yes' : 'no']">
                 {{ item.status === 1 ? '✓ 已通过' : '✗ 已驳回' }}
-              </text>
-              <text class="result-notes" v-if="item.approval_notes">（{{ item.approval_notes }}）</text>
-            </view>
-          </view>
-        </view>
+              </span>
+              <span class="result-notes" v-if="item.approval_notes">（{{ item.approval_notes }}）</span>
+            </div>
+          </div>
+        </div>
 
-        <view v-if="allData.length === 0" class="empty-state">
-          <text class="empty-text">暂无记录</text>
-        </view>
-      </view>
+        <div v-if="allData.length === 0" class="empty-state">
+          <span class="empty-text">暂无记录</span>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { getPendingApprovals, approveExpense, rejectExpense, castVote } from '@/api/fee'
+<script setup lang="ts">
 
+
+import { computed, onMounted, ref } from 'vue'
+import { getPendingApprovals, approveExpense, rejectExpense, castVote } from '@/api/fee'
 const currentTab = ref('pending')
 const allData = ref([])
 const refreshing = ref(false)
@@ -141,13 +142,13 @@ async function doApprove(item) {
   try {
     const result = await approveExpense(item.id)
     if (result.success) {
-      uni.showToast({ title: '已通过', icon: 'success' })
+      showToast('已通过')
       item.status = 1
     } else {
       uni.showToast({ title: result.message || '操作失败', icon: 'none' })
     }
   } catch (e) {
-    uni.showToast({ title: '审批失败', icon: 'none' })
+    showToast('审批失败')
   } finally {
     processingId.value = null
   }
@@ -166,13 +167,13 @@ async function doReject(item) {
   try {
     const result = await rejectExpense(item.id, notes.content || '')
     if (result.success) {
-      uni.showToast({ title: '已驳回', icon: 'none' })
+      showToast('已驳回')
       item.status = 2
     } else {
       uni.showToast({ title: result.message || '操作失败', icon: 'none' })
     }
   } catch (e) {
-    uni.showToast({ title: '驳回失败', icon: 'none' })
+    showToast('驳回失败')
   } finally {
     processingId.value = null
   }
@@ -190,18 +191,18 @@ async function doVote(item, vote) {
       uni.showToast({ title: result.error || '投票失败', icon: 'none' })
     }
   } catch (e) {
-    uni.showToast({ title: '投票失败', icon: 'none' })
+    showToast('投票失败')
   } finally {
     votingId.value = null
   }
 }
 
 onMounted(() => loadData())
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.approve-page { min-height: 100vh; background-color: $surface; }
+@import "@/uni.scss";.approve-page { min-height: 100vh; background-color: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .filter-tabs { display: flex; gap: 16rpx; padding: 20rpx 32rpx; background: $surface-container-lowest; }

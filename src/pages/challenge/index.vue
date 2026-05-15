@@ -1,46 +1,47 @@
 <template>
-  <view class="challenge-page">
+  <div class="challenge-page">
     <custom-nav-bar title="擂台挑战" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="category-tabs">
-        <view v-for="cat in categories" :key="cat.key" :class="['cat-tab', { active: currentCat === cat.key }]" @tap="currentCat = cat.key">
-          <text class="cat-icon">{{ cat.icon }}</text>
-          <text class="cat-label">{{ cat.label }}</text>
-        </view>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="category-tabs">
+        <div v-for="cat in categories" :key="cat.key" :class="['cat-tab', { active: currentCat === cat.key }]" @tap="currentCat = cat.key">
+          <span class="cat-icon">{{ cat.icon }}</span>
+          <span class="cat-label">{{ cat.label }}</span>
+        </div>
+      </div>
 
-      <view class="challenge-list">
-        <view v-for="item in filteredChallenges" :key="item.id" class="challenge-card" @tap="goDetail(item)">
-          <view class="card-header">
-            <view :class="['type-badge', typeKey(item.type)]">{{ item.type }}</view>
-            <view class="status-badge active" v-if="item.champion_name">擂主：{{ item.champion_name }}</view>
-            <view class="status-badge ended" v-else>虚位以待</view>
-          </view>
-          <text class="ch-title">{{ item.name }}</text>
-          <view class="ch-meta">
-            <text class="meta-item" v-if="item.record_count !== undefined">挑战记录：{{ item.record_count }} 次</text>
-          </view>
-          <text class="ch-desc">{{ item.description }}</text>
-        </view>
+      <div class="challenge-list">
+        <div v-for="item in filteredChallenges" :key="item.id" class="challenge-card" @tap="goDetail(item)">
+          <div class="card-header">
+            <div :class="['type-badge', typeKey(item.type)]">{{ item.type }}</div>
+            <div class="status-badge active" v-if="item.champion_name">擂主：{{ item.champion_name }}</div>
+            <div class="status-badge ended" v-else>虚位以待</div>
+          </div>
+          <span class="ch-title">{{ item.name }}</span>
+          <div class="ch-meta">
+            <span class="meta-item" v-if="item.record_count !== undefined">挑战记录：{{ item.record_count }} 次</span>
+          </div>
+          <span class="ch-desc">{{ item.description }}</span>
+        </div>
 
-        <view v-if="!loading && filteredChallenges.length === 0" class="empty-state"><text class="empty-text">暂无擂台</text></view>
-      </view>
+        <div v-if="!loading && filteredChallenges.length === 0" class="empty-state"><span class="empty-text">暂无擂台</span></div>
+      </div>
 
-      <button v-if="canCreate" class="create-btn" @tap="goCreate"><text class="create-text">+ 创建擂台</text></button>
+      <button v-if="canCreate" class="create-btn" @tap="goCreate"><span class="create-text">+ 创建擂台</span></button>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { getChallenges } from '@/api/challenge'
-
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const canCreate = computed(() => checkIsAdmin(profile.value?.role))
@@ -78,9 +79,10 @@ async function fetchList() {
 }
 
 function goDetail(item) { uni.navigateTo({ url: `/pages/challenge/detail?id=${item.id}` }) }
-function goCreate() { uni.navigateTo({ url: '/pages/challenge/create' }) }
+function goCreate() { router.push('/pages/challenge/create') }
 
 onShow(() => fetchList())
+
 </script>
 
 <style lang="scss" scoped>

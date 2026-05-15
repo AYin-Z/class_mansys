@@ -1,43 +1,45 @@
 <template>
-  <view class="create-page">
+  <div class="create-page">
     <custom-nav-bar title="创建相册" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="form-area">
-        <view class="form-card">
-          <view class="form-row"><text class="row-label block">相册名称</text><input class="solid-input" placeholder="请输入相册名称" v-model="name" /></view>
-          <view class="divider"></view>
-          <view class="form-row"><text class="row-label block">相册描述</text><textarea class="solid-textarea small" placeholder="描述这个相册（选填）" v-model="desc" /></view>
-        </view>
-      </view>
-      <view class="bottom-action"><button class="primary-btn" @click="submit"><text class="btn-text">创建相册</text></button></view>
-    </scroll-view>
-  </view>
+    <div scroll-y class="main-scroll">
+      <div class="form-area">
+        <div class="form-card">
+          <div class="form-row"><span class="row-label block">相册名称</span><input class="solid-input" placeholder="请输入相册名称" v-model="name" /></div>
+          <div class="divider"></div>
+          <div class="form-row"><span class="row-label block">相册描述</span><textarea class="solid-textarea small" placeholder="描述这个相册（选填）" v-model="desc" /></div>
+        </div>
+      </div>
+      <div class="bottom-action"><button class="primary-btn" @click="submit"><span class="btn-text">创建相册</span></button></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import { createAlbum } from '@/api/album'
+<script setup lang="ts">
 
+
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { createAlbum } from '@/api/album'
 const name = ref('')
 const desc = ref('')
 
 async function submit() {
-  if (!name.value.trim()) { uni.showToast({ title: '请输入名称', icon: 'none' }); return }
+  if (!name.value.trim()) { showToast('请输入名称'); return }
   uni.showLoading({ title: '创建中...' })
   try {
     await createAlbum({ name: name.value.trim(), description: desc.value.trim() })
-    uni.hideLoading()
-    uni.showToast({ title: '创建成功', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 800)
+    
+    showToast('创建成功')
+    setTimeout(() => router.back(), 800)
   } catch (e) {
-    uni.hideLoading()
+    
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.create-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.create-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); padding-bottom: 140rpx; }
 .form-area { padding: 32rpx; }
 .form-card { background: #fff; border-radius: 20rpx; overflow: hidden; }

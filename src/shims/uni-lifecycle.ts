@@ -10,10 +10,10 @@
  *  - onLaunch → onMounted (only meaningful in App.vue)
  *  - onHide → onUnmounted + onDeactivated
  */
-import { onMounted, onActivated, onUnmounted, onDeactivated } from 'vue'
-import { useRoute } from 'vue-router'
 
 /** @dcloudio/uni-app lifecycles */
+import { onMounted, onActivated, onUnmounted, onDeactivated } from 'vue'
+import { useRoute } from 'vue-router'
 export {
   onInit,
   onReady,

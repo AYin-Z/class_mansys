@@ -1,81 +1,81 @@
 <template>
-  <view class="page">
+  <div class="page">
     <custom-nav-bar title="通知管理" :showBack="true" />
 
-    <scroll-view scroll-y class="main-scroll">
+    <div scroll-y class="main-scroll">
       <!-- 搜索框 -->
-      <view class="search-bar">
-        <text class="search-icon">🔍</text>
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
         <input
           class="search-input"
           v-model="searchQuery"
           placeholder="搜索通知标题…"
           @input="onSearchInput"
         />
-        <text v-if="searchQuery" class="search-clear" @tap="searchQuery = ''">✕</text>
-      </view>
+        <span v-if="searchQuery" class="search-clear" @tap="searchQuery = ''">✕</span>
+      </div>
 
       <!-- 分类 tab -->
-      <scroll-view scroll-x class="filter-scroll" show-scrollbar="false">
-        <view
+      <div scroll-x class="filter-scroll" show-scrollbar="false">
+        <div
           v-for="tab in filterTabs"
           :key="tab.key"
           :class="['filter-tab', { active: activeTab === tab.key }]"
           @tap="activeTab = tab.key"
         >
-          <text class="ft-text">{{ tab.label }}</text>
-          <text class="ft-count">{{ tab.count }}</text>
-        </view>
-      </scroll-view>
+          <span class="ft-text">{{ tab.label }}</span>
+          <span class="ft-count">{{ tab.count }}</span>
+        </div>
+      </div>
 
       <!-- 统计条 -->
-      <view class="stat-bar">
-        <text class="stat-text">共 {{ filtered.length }} 条通知</text>
-        <view class="stat-actions">
-          <text v-if="activeTab === 'todo'" class="stat-link" @tap="activeTab = 'all'">查看全部</text>
-        </view>
-      </view>
+      <div class="stat-bar">
+        <span class="stat-text">共 {{ filtered.length }} 条通知</span>
+        <div class="stat-actions">
+          <span v-if="activeTab === 'todo'" class="stat-link" @tap="activeTab = 'all'">查看全部</span>
+        </div>
+      </div>
 
       <!-- 列表 -->
-      <view class="notice-list">
-        <view v-for="item in filtered" :key="item.id" class="notice-card">
-          <view class="card-top" @tap="goDetail(item)">
-            <view class="card-title-row">
-              <text v-if="item.is_pinned" class="tag pin">置顶</text>
-              <text class="card-title">{{ item.title || '(无标题)' }}</text>
-              <text v-if="item.is_todo" :class="['tag todo', { done: item.is_completed }]">
+      <div class="notice-list">
+        <div v-for="item in filtered" :key="item.id" class="notice-card">
+          <div class="card-top" @tap="goDetail(item)">
+            <div class="card-title-row">
+              <span v-if="item.is_pinned" class="tag pin">置顶</span>
+              <span class="card-title">{{ item.title || '(无标题)' }}</span>
+              <span v-if="item.is_todo" :class="['tag todo', { done: item.is_completed }]">
                 {{ item.is_completed ? '✅已办' : '📋待办' }}
-              </text>
-            </view>
-            <view class="card-meta">
-              <text class="meta-type">{{ item.type || '日常' }}</text>
-              <text class="meta-time">{{ formatDateTime(item.created_at) }}</text>
-            </view>
-          </view>
+              </span>
+            </div>
+            <div class="card-meta">
+              <span class="meta-type">{{ item.type || '日常' }}</span>
+              <span class="meta-time">{{ formatDateTime(item.created_at) }}</span>
+            </div>
+          </div>
 
-          <view class="card-actions">
-            <text v-if="item.is_todo" class="action-btn" @tap.stop="goCompletion(item)">📊 完成情况</text>
-            <text class="action-btn" @tap.stop="editNotice(item)">✏️ 编辑</text>
-            <text class="action-btn del" @tap.stop="confirmDelete(item)">🗑️ 删除</text>
-          </view>
-        </view>
+          <div class="card-actions">
+            <span v-if="item.is_todo" class="action-btn" @tap.stop="goCompletion(item)">📊 完成情况</span>
+            <span class="action-btn" @tap.stop="editNotice(item)">✏️ 编辑</span>
+            <span class="action-btn del" @tap.stop="confirmDelete(item)">🗑️ 删除</span>
+          </div>
+        </div>
 
-        <view v-if="filtered.length === 0" class="empty-state">
-          <text class="empty-icon">📭</text>
-          <text class="empty-text">{{ searchQuery ? '没有匹配的通知' : '暂无通知' }}</text>
-        </view>
-      </view>
+        <div v-if="filtered.length === 0" class="empty-state">
+          <span class="empty-icon">📭</span>
+          <span class="empty-text">{{ searchQuery ? '没有匹配的通知' : '暂无通知' }}</span>
+        </div>
+      </div>
 
-      <view class="page-spacer"></view>
-    </scroll-view>
-  </view>
+      <div class="page-spacer"></div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
-import { getNotices, deleteNotice } from '@/api/notice'
 
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { getNotices, deleteNotice } from '@/api/notice'
 const searchQuery = ref('')
 const activeTab = ref('all')
 const rawNotices = ref<any[]>([])
@@ -144,22 +144,21 @@ function confirmDelete(item: any) {
         try {
           const r = await deleteNotice(item.id)
           if (r.success) {
-            uni.showToast({ title: '已删除', icon: 'success' })
+            showToast('已删除')
             await fetchNotices()
           }
-        } catch (_) { uni.showToast({ title: '删除失败', icon: 'none' }) }
+        } catch (_) { showToast('删除失败') }
       }
     }
   })
 }
 
 onShow(() => { fetchNotices() })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-
-.page { min-height: 100vh; background: $surface; }
+@import "@/uni.scss";.page { min-height: 100vh; background: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .search-bar {

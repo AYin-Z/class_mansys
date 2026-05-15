@@ -1,20 +1,20 @@
 <template>
-  <view class="page">
-    <scroll-view scroll-y class="scroll-area">
+  <div class="page">
+    <div scroll-y class="scroll-area">
       <!-- 头部 -->
-      <view class="header-section">
-        <view class="brand-bar"></view>
-        <view class="header-content">
-          <text class="title">手机号登录</text>
-          <text class="subtitle">使用手机号验证码快捷登录或注册</text>
-        </view>
-      </view>
+      <div class="header-section">
+        <div class="brand-bar"></div>
+        <div class="header-content">
+          <span class="title">手机号登录</span>
+          <span class="subtitle">使用手机号验证码快捷登录或注册</span>
+        </div>
+      </div>
 
-      <view class="form-container">
+      <div class="form-container">
         <!-- 手机号 -->
-        <view class="form-group">
-          <view class="input-wrapper">
-            <text class="input-label">手机号码</text>
+        <div class="form-group">
+          <div class="input-wrapper">
+            <span class="input-label">手机号码</span>
             <input
               class="ghost-input"
               type="number"
@@ -23,14 +23,14 @@
               maxlength="11"
               :disabled="codeSent"
             />
-          </view>
-        </view>
+          </div>
+        </div>
 
         <!-- 验证码 -->
-        <view class="form-group">
-          <view class="input-wrapper">
-            <text class="input-label">验证码</text>
-            <view class="code-row">
+        <div class="form-group">
+          <div class="input-wrapper">
+            <span class="input-label">验证码</span>
+            <div class="code-row">
               <input
                 class="ghost-input code-input"
                 type="number"
@@ -46,41 +46,41 @@
               >
                 {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
               </button>
-            </view>
-          </view>
-        </view>
+            </div>
+          </div>
+        </div>
 
         <!-- 新用户补全信息（验证码验证通过后展示） -->
-        <view v-if="needProfile" class="form-group">
-          <view class="input-wrapper">
-            <text class="input-label">真实姓名</text>
+        <div v-if="needProfile" class="form-group">
+          <div class="input-wrapper">
+            <span class="input-label">真实姓名</span>
             <input
               class="ghost-input"
               placeholder="请输入真实姓名"
               v-model="name"
             />
-          </view>
-          <view class="input-divider"></view>
-          <view class="input-wrapper">
-            <text class="input-label">学号</text>
+          </div>
+          <div class="input-divider"></div>
+          <div class="input-wrapper">
+            <span class="input-label">学号</span>
             <input
               class="ghost-input"
               placeholder="请输入学号"
               v-model="studentId"
             />
-          </view>
-        </view>
+          </div>
+        </div>
 
         <!-- 提示文字 -->
-        <view class="tip-text" v-if="!codeSent && !needProfile">
+        <div class="tip-text" v-if="!codeSent && !needProfile">
           验证码将发送至您的手机，请注意查收
-        </view>
-        <view class="tip-text" v-if="codeSent && !needProfile">
+        </div>
+        <div class="tip-text" v-if="codeSent && !needProfile">
           请输入您收到的 6 位验证码
-        </view>
-        <view class="tip-text" v-if="needProfile">
+        </div>
+        <div class="tip-text" v-if="needProfile">
           新用户请补全姓名和学号完成注册
-        </view>
+        </div>
 
         <!-- 登录 / 注册 按钮 -->
         <button
@@ -88,31 +88,33 @@
           :disabled="!canSubmit || submitting"
           @click="handleSubmit"
         >
-          <text v-if="!submitting">{{ needProfile ? '完成注册' : '登录' }}</text>
-          <text v-else>处理中...</text>
+          <span v-if="!submitting">{{ needProfile ? '完成注册' : '登录' }}</span>
+          <span v-else>处理中...</span>
         </button>
 
         <!-- 返回链接 -->
-        <view class="back-link">
-          <text class="link-text" @click="goBack">返回登录方式选择</text>
-        </view>
-      </view>
-    </scroll-view>
+        <div class="back-link">
+          <span class="link-text" @click="goBack">返回登录方式选择</span>
+        </div>
+      </div>
+    </div>
 
     <!-- loading 遮罩 -->
-    <view class="loading-mask" v-if="submitting">
-      <view class="loading-box">
-        <text class="loading-text">{{ loadingText }}</text>
-      </view>
-    </view>
-  </view>
+    <div class="loading-mask" v-if="submitting">
+      <div class="loading-box">
+        <span class="loading-text">{{ loadingText }}</span>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+
+
+import { computed, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { post } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
-
 const userStore = useUserStore()
 
 // ---------- data ----------
@@ -147,7 +149,7 @@ const canSubmit = computed(() => {
 // ---------- methods ----------
 async function sendCode() {
   if (!phoneValid.value) {
-    uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
+    showToast('请输入正确的手机号')
     return
   }
 
@@ -157,7 +159,7 @@ async function sendCode() {
   try {
     const res = await post('/api/auth/send-code', { phone: phone.value }, false)
     if (res?.success) {
-      uni.showToast({ title: '验证码已发送', icon: 'success' })
+      showToast('验证码已发送')
       codeSent.value = true
       startCountdown()
     } else {
@@ -210,14 +212,14 @@ async function handleSubmit() {
           email: res.user.email,
           avatarUrl: res.user.avatarUrl
         })
-        uni.showToast({ title: '登录成功', icon: 'success' })
+        showToast('登录成功')
         setTimeout(() => {
-          uni.reLaunch({ url: '/pages/index/index' })
+          router.replace('/pages/index/index')
         }, 1000)
       } else if (res?.success === false && res?.code === 404) {
         // 用户未注册，展示补全信息
         needProfile.value = true
-        uni.showToast({ title: '新用户，请补全信息', icon: 'none' })
+        showToast('新用户，请补全信息')
       } else {
         uni.showToast({ title: res?.message || res?.error || '登录失败', icon: 'none' })
       }
@@ -247,9 +249,9 @@ async function handleSubmit() {
           email: res.user.email,
           avatarUrl: res.user.avatarUrl
         })
-        uni.showToast({ title: '注册成功', icon: 'success' })
+        showToast('注册成功')
         setTimeout(() => {
-          uni.reLaunch({ url: '/pages/index/index' })
+          router.replace('/pages/index/index')
         }, 1000)
       } else {
         uni.showToast({ title: res?.message || res?.error || '注册失败', icon: 'none' })
@@ -263,7 +265,7 @@ async function handleSubmit() {
 }
 
 function goBack() {
-  uni.navigateBack()
+  router.back()
 }
 
 // ---------- lifecycle ----------
@@ -273,12 +275,11 @@ onUnmounted(() => {
     timer = null
   }
 })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-
-.page {
+@import "@/uni.scss";.page {
   min-height: 100vh;
   background: $surface;
 }

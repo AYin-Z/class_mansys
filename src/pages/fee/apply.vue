@@ -1,74 +1,76 @@
 <template>
-  <view class="apply-page">
+  <div class="apply-page">
     <custom-nav-bar title="使用申请" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="form-area">
-        <view class="section-label">
-          <text class="label-text">申请信息</text>
-        </view>
+    <div scroll-y class="main-scroll">
+      <div class="form-area">
+        <div class="section-label">
+          <span class="label-text">申请信息</span>
+        </div>
 
-        <view class="form-card">
-          <view class="form-row">
-            <text class="row-label block">用途说明</text>
+        <div class="form-card">
+          <div class="form-row">
+            <span class="row-label block">用途说明</span>
             <textarea class="solid-textarea" v-model="formData.purpose" placeholder="请详细说明班费使用用途..." />
-          </view>
-          <view class="divider"></view>
-          <view class="form-row">
-            <text class="row-label block">申请金额</text>
-            <view class="amount-input-wrap">
-              <text class="amount-prefix">¥</text>
+          </div>
+          <div class="divider"></div>
+          <div class="form-row">
+            <span class="row-label block">申请金额</span>
+            <div class="amount-input-wrap">
+              <span class="amount-prefix">¥</span>
               <input class="amount-input" type="digit" v-model="formData.amount" placeholder="0.00" />
-            </view>
-          </view>
-          <view class="divider"></view>
-          <view class="form-row">
-            <text class="row-label block">金额明细</text>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div class="form-row">
+            <span class="row-label block">金额明细</span>
             <textarea class="solid-textarea small" v-model="formData.details" placeholder="请列出具体明细（如：物资A 50元，物资B 30元...）" />
-          </view>
-          <view class="divider"></view>
-          <view class="upload-section">
-            <text class="row-label block">证明材料</text>
-            <view class="upload-grid">
-              <view v-for="(f, idx) in formData.proofs" :key="idx" class="proof-item">
-                <image :src="f" mode="aspectFill" class="proof-img" />
-                <view class="remove-btn" @tap.stop="removeProof(idx)">
-                  <text class="remove-x">×</text>
-                </view>
-              </view>
-              <view class="add-proof" @tap="chooseImage">
-                <text class="add-icon">+</text>
-              </view>
-            </view>
-          </view>
-        </view>
+          </div>
+          <div class="divider"></div>
+          <div class="upload-section">
+            <span class="row-label block">证明材料</span>
+            <div class="upload-grid">
+              <div v-for="(f, idx) in formData.proofs" :key="idx" class="proof-item">
+                <img :src="f" mode="aspectFill" class="proof-img" />
+                <div class="remove-btn" @tap.stop="removeProof(idx)">
+                  <span class="remove-x">×</span>
+                </div>
+              </div>
+              <div class="add-proof" @tap="chooseImage">
+                <span class="add-icon">+</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Approval Flow Preview -->
-        <view class="flow-card">
-          <text class="flow-title">审批流程预览</text>
-          <view class="flow-steps">
-            <view class="flow-step" v-for="(step, idx) in approvalSteps" :key="idx">
-              <view class="step-dot" :class="{ done: idx === 0 }">{{ idx + 1 }}</view>
-              <text class="step-text">{{ step }}</text>
-              <view class="step-line" v-if="idx < approvalSteps.length - 1"></view>
-            </view>
-          </view>
-        </view>
-      </view>
+        <div class="flow-card">
+          <span class="flow-title">审批流程预览</span>
+          <div class="flow-steps">
+            <div class="flow-step" v-for="(step, idx) in approvalSteps" :key="idx">
+              <div class="step-dot" :class="{ done: idx === 0 }">{{ idx + 1 }}</div>
+              <span class="step-text">{{ step }}</span>
+              <div class="step-line" v-if="idx < approvalSteps.length - 1"></div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <view class="bottom-action">
+      <div class="bottom-action">
         <button class="primary-btn" @click="onSubmit">
-          <text class="btn-text">提交申请</text>
+          <span class="btn-text">提交申请</span>
         </button>
-      </view>
-    </scroll-view>
-  </view>
+      </div>
+    </div>
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+
+
 import { reactive } from 'vue'
+import { useRouter } from 'vue-router'
 import { createExpense } from '@/api/fee'
 import { getToken } from '@/utils/request'
-
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
 
 const formData = reactive({
@@ -124,12 +126,12 @@ function uploadProofFile(filePath) {
 }
 
 async function onSubmit() {
-  if (!formData.purpose) { uni.showToast({ title: '请填写用途', icon: 'none' }); return }
-  if (!formData.amount) { uni.showToast({ title: '请输入金额', icon: 'none' }); return }
+  if (!formData.purpose) { showToast('请填写用途'); return }
+  if (!formData.amount) { showToast('请输入金额'); return }
 
   const amount = parseFloat(formData.amount)
-  if (isNaN(amount) || amount <= 0) { uni.showToast({ title: '请输入有效金额', icon: 'none' }); return }
-  if (amount > 100000) { uni.showToast({ title: '单笔申请不超过¥100,000', icon: 'none' }); return }
+  if (isNaN(amount) || amount <= 0) { showToast('请输入有效金额'); return }
+  if (amount > 100000) { showToast('单笔申请不超过¥100,000'); return }
   let steps = [...approvalSteps]
   if (amount < 100) {
     steps = ['经办人提交', '区队长审核', '执行']
@@ -163,26 +165,26 @@ async function onSubmit() {
             purpose: formData.purpose + (formData.details ? `\n明细：${formData.details}` : ''),
             proof_url: proof_url || undefined
           })
-          uni.hideLoading()
+          
           if (res.success) {
-            uni.showToast({ title: '已提交，等待审核', icon: 'success' })
-            setTimeout(() => uni.navigateBack(), 1500)
+            showToast('已提交，等待审核')
+            setTimeout(() => router.back(), 1500)
           } else {
             uni.showToast({ title: res.message || '提交失败', icon: 'none' })
           }
         } catch (error) {
-          uni.hideLoading()
-          uni.showToast({ title: '网络错误，请重试', icon: 'none' })
+          
+          showToast('网络错误，请重试')
         }
       }
     }
   })
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.apply-page {
+@import "@/uni.scss";.apply-page {
   min-height: 100vh;
   background-color: $surface;
 }

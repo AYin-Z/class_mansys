@@ -1,117 +1,118 @@
 <template>
-  <view class="fee-page">
+  <div class="fee-page">
     <custom-nav-bar title="班费管理" />
 
-    <scroll-view scroll-y class="main-scroll">
+    <div scroll-y class="main-scroll">
       <!-- Balance Card -->
-      <view class="balance-card">
-        <view class="balance-bg"></view>
-        <view class="balance-content">
-          <text class="balance-label">当前余额</text>
-          <view class="balance-amount-row">
-            <text class="currency">¥</text>
-            <text class="amount">{{ balance }}</text>
-          </view>
-          <view class="balance-meta">
-            <view class="meta-item">
-              <text class="meta-label">总收入</text>
-              <text class="meta-value income">+{{ totalIncome }}</text>
-            </view>
-            <view class="meta-divider"></view>
-            <view class="meta-item">
-              <text class="meta-label">总支出</text>
-              <text class="meta-value expense">-{{ totalExpense }}</text>
-            </view>
-          </view>
-        </view>
-      </view>
+      <div class="balance-card">
+        <div class="balance-bg"></div>
+        <div class="balance-content">
+          <span class="balance-label">当前余额</span>
+          <div class="balance-amount-row">
+            <span class="currency">¥</span>
+            <span class="amount">{{ balance }}</span>
+          </div>
+          <div class="balance-meta">
+            <div class="meta-item">
+              <span class="meta-label">总收入</span>
+              <span class="meta-value income">+{{ totalIncome }}</span>
+            </div>
+            <div class="meta-divider"></div>
+            <div class="meta-item">
+              <span class="meta-label">总支出</span>
+              <span class="meta-value expense">-{{ totalExpense }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Quick Actions -->
-      <view class="action-grid">
-        <navigator url="/pages/fee/apply" class="action-card">
-          <view class="action-icon-wrap blue">
-            <text class="action-emoji">📝</text>
-          </view>
-          <text class="action-label">使用申请</text>
-        </navigator>
-        <navigator url="/pages/fee/collection" class="action-card">
-          <view class="action-icon-wrap green">
-            <text class="action-emoji">💰</text>
-          </view>
-          <text class="action-label">班费收缴</text>
-        </navigator>
-        <navigator url="/pages/fee/reimbursement" class="action-card">
-          <view class="action-icon-wrap orange">
-            <text class="action-emoji">🧾</text>
-          </view>
-          <text class="action-label">报销申请</text>
-        </navigator>
-        <navigator url="/pages/fee/vote" class="action-card" v-if="isAdmin">
-          <view class="action-icon-wrap purple">
-            <text class="action-emoji">🗳️</text>
-          </view>
-          <text class="action-label">投票表决</text>
-        </navigator>
-      </view>
+      <div class="action-grid">
+        <router-link to="/pages/fee/apply" class="action-card">
+          <div class="action-icon-wrap blue">
+            <span class="action-emoji">📝</span>
+          </div>
+          <span class="action-label">使用申请</span>
+        </router-link>
+        <router-link to="/pages/fee/collection" class="action-card">
+          <div class="action-icon-wrap green">
+            <span class="action-emoji">💰</span>
+          </div>
+          <span class="action-label">班费收缴</span>
+        </router-link>
+        <router-link to="/pages/fee/reimbursement" class="action-card">
+          <div class="action-icon-wrap orange">
+            <span class="action-emoji">🧾</span>
+          </div>
+          <span class="action-label">报销申请</span>
+        </router-link>
+        <router-link to="/pages/fee/vote" class="action-card" v-if="isAdmin">
+          <div class="action-icon-wrap purple">
+            <span class="action-emoji">🗳️</span>
+          </div>
+          <span class="action-label">投票表决</span>
+        </router-link>
+      </div>
 
       <!-- Management Entry -->
-      <view class="mgmt-section">
-        <view class="section-header">
-          <text class="section-title">管理功能</text>
-        </view>
-        <view class="mgmt-grid">
-          <navigator url="/pages/fee/records" class="mgmt-card">
-            <text class="mgmt-icon">📊</text>
-            <text class="mgmt-label">收支记录</text>
-          </navigator>
-          <navigator url="/pages/fee/publication" class="mgmt-card">
-            <text class="mgmt-icon">📢</text>
-            <text class="mgmt-label">报销公示</text>
-          </navigator>
-          <navigator url="/pages/fee/supervision" class="mgmt-card">
-            <text class="mgmt-icon">🔍</text>
-            <text class="mgmt-label">财务监督</text>
-          </navigator>
-          <navigator url="/pages/fee/apply-approve" class="mgmt-card" v-if="isAdmin">
-            <text class="mgmt-icon">✅</text>
-            <text class="mgmt-label">申请审核</text>
-          </navigator>
-        </view>
-      </view>
+      <div class="mgmt-section">
+        <div class="section-header">
+          <span class="section-title">管理功能</span>
+        </div>
+        <div class="mgmt-grid">
+          <router-link to="/pages/fee/records" class="mgmt-card">
+            <span class="mgmt-icon">📊</span>
+            <span class="mgmt-label">收支记录</span>
+          </router-link>
+          <router-link to="/pages/fee/publication" class="mgmt-card">
+            <span class="mgmt-icon">📢</span>
+            <span class="mgmt-label">报销公示</span>
+          </router-link>
+          <router-link to="/pages/fee/supervision" class="mgmt-card">
+            <span class="mgmt-icon">🔍</span>
+            <span class="mgmt-label">财务监督</span>
+          </router-link>
+          <router-link to="/pages/fee/apply-approve" class="mgmt-card" v-if="isAdmin">
+            <span class="mgmt-icon">✅</span>
+            <span class="mgmt-label">申请审核</span>
+          </router-link>
+        </div>
+      </div>
 
       <!-- Recent Records -->
-      <view class="records-section">
-        <view class="section-header">
-          <text class="section-title">最近记录</text>
-          <navigator url="/pages/fee/records" class="more-link">全部 ›</navigator>
-        </view>
-        <view class="record-list">
-          <view v-for="item in recentRecords" :key="item.id" class="record-item">
-            <view :class="['record-dot', item.type === 'income' ? 'in' : 'out']"></view>
-            <view class="record-info">
-              <text class="record-desc">{{ item.desc }}</text>
-              <text class="record-time">{{ item.time }}</text>
-            </view>
-            <text :class="['record-amount', item.type === 'income' ? 'income' : 'expense']">
+      <div class="records-section">
+        <div class="section-header">
+          <span class="section-title">最近记录</span>
+          <router-link to="/pages/fee/records" class="more-link">全部 ›</router-link>
+        </div>
+        <div class="record-list">
+          <div v-for="item in recentRecords" :key="item.id" class="record-item">
+            <div :class="['record-dot', item.type === 'income' ? 'in' : 'out']"></div>
+            <div class="record-info">
+              <span class="record-desc">{{ item.desc }}</span>
+              <span class="record-time">{{ item.time }}</span>
+            </div>
+            <span :class="['record-amount', item.type === 'income' ? 'income' : 'expense']">
               {{ item.type === 'income' ? '+' : '-' }}¥{{ item.amount }}
-            </text>
-          </view>
-        </view>
-      </view>
+            </span>
+          </div>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
+      <div style="height: 40rpx;"></div>
+    </div>
 
     <custom-tab-bar current="profile" />
-  </view>
+  </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
+<script setup lang="ts">
+
+
+import { onMounted, ref } from 'vue'
 import { isAdmin as checkAdmin } from '@/utils/auth'
 import { getBalance, getMyExpenses, getAllExpenses } from '@/api/fee'
 import { hasBackendToken } from '@/utils/request'
-
 const balance = ref('0.00')
 const totalIncome = ref('0.00')
 const totalExpense = ref('0.00')
@@ -158,7 +159,7 @@ async function fetchFeeData() {
     }
   } catch (error) {
     console.error('获取班费数据失败:', error)
-    uni.showToast({ title: '获取数据失败', icon: 'none' })
+    showToast('获取数据失败')
   } finally {
     loading.value = false
   }
@@ -168,12 +169,11 @@ onMounted(() => {
   isAdmin.value = checkAdmin()
   fetchFeeData()
 })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-
-.fee-page {
+@import "@/uni.scss";.fee-page {
   min-height: 100vh;
   background-color: $surface;
 }

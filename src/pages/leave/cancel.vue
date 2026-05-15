@@ -1,48 +1,48 @@
 <template>
-  <view class="cancel-page">
+  <div class="cancel-page">
     <custom-nav-bar title="销假" :showBack="true" />
 
-    <scroll-view scroll-y class="main-scroll">
-      <view class="hero-strip">
-        <text class="hero-title">销假登记</text>
-        <text class="hero-sub">仅「已通过且未销假」的申请可在此确认销假</text>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="hero-strip">
+        <span class="hero-title">销假登记</span>
+        <span class="hero-sub">仅「已通过且未销假」的申请可在此确认销假</span>
+      </div>
 
-      <view class="active-leave-list" v-if="activeLeaves.length > 0">
-        <view v-for="item in activeLeaves" :key="item.id" class="leave-card">
-          <view class="card-accent"></view>
-          <view class="card-body">
-            <view class="card-header">
-              <text class="leave-type">{{ item.leave_type || '—' }}</text>
-              <text class="leave-status">进行中</text>
-            </view>
-            <text class="leave-reason">{{ item.reason || '—' }}</text>
-            <view class="time-row">
-              <text class="time-text">{{ formatLeaveDateTime(item.start_time) }} ~ {{ formatLeaveDateTime(item.end_time) }}</text>
-            </view>
+      <div class="active-leave-list" v-if="activeLeaves.length > 0">
+        <div v-for="item in activeLeaves" :key="item.id" class="leave-card">
+          <div class="card-accent"></div>
+          <div class="card-body">
+            <div class="card-header">
+              <span class="leave-type">{{ item.leave_type || '—' }}</span>
+              <span class="leave-status">进行中</span>
+            </div>
+            <span class="leave-reason">{{ item.reason || '—' }}</span>
+            <div class="time-row">
+              <span class="time-text">{{ formatLeaveDateTime(item.start_time) }} ~ {{ formatLeaveDateTime(item.end_time) }}</span>
+            </div>
             <button class="cancel-btn" @click="handleCancel(item)">确认销假</button>
-          </view>
-        </view>
-      </view>
+          </div>
+        </div>
+      </div>
 
-      <view class="empty-state" v-else>
-        <text class="empty-icon">✓</text>
-        <text class="empty-title">暂无需要销假的记录</text>
-        <text class="empty-desc">当前没有已通过且未销假的请假，或请稍后再试</text>
-      </view>
+      <div class="empty-state" v-else>
+        <span class="empty-icon">✓</span>
+        <span class="empty-title">暂无需要销假的记录</span>
+        <span class="empty-desc">当前没有已通过且未销假的请假，或请稍后再试</span>
+      </div>
 
-      <view class="page-spacer"></view>
-    </scroll-view>
-  </view>
+      <div class="page-spacer"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
 import { getMyLeaves, cancelLeave } from '@/api/leave'
 import { hasBackendToken } from '@/utils/request'
 import { formatLeaveDateTime } from '@/utils/index'
-
 const allLeaves = ref([])
 
 const activeLeaves = computed(() =>
@@ -60,7 +60,7 @@ async function load() {
       allLeaves.value = res.leaves || []
     }
   } catch (e) {
-    uni.showToast({ title: '加载失败', icon: 'none' })
+    showToast('加载失败')
   }
 }
 
@@ -73,16 +73,16 @@ function handleCancel(item) {
       uni.showLoading({ title: '提交中…' })
       try {
         const r = await cancelLeave(item.id)
-        uni.hideLoading()
+        
         if (r.success) {
-          uni.showToast({ title: '销假成功', icon: 'success' })
+          showToast('销假成功')
           await load()
         } else {
           uni.showToast({ title: r.message || '操作失败', icon: 'none' })
         }
       } catch (e) {
-        uni.hideLoading()
-        uni.showToast({ title: '网络错误', icon: 'none' })
+        
+        showToast('网络错误')
       }
     }
   })
@@ -91,11 +91,11 @@ function handleCancel(item) {
 onShow(() => {
   load()
 })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.cancel-page {
+@import "@/uni.scss";.cancel-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #e8eef5 0%, #f4f6f9 100%);
 }

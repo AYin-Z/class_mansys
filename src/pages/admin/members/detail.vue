@@ -1,121 +1,122 @@
 <template>
-  <view class="detail-page">
-    <view class="header-section">
-      <view class="brand-bar"></view>
-      <view class="header-content">
-        <text class="title">成员详情</text>
-        <text class="subtitle" v-if="user">{{ user.name }} · 学号 {{ user.student_id }}</text>
-      </view>
-    </view>
+  <div class="detail-page">
+    <div class="header-section">
+      <div class="brand-bar"></div>
+      <div class="header-content">
+        <span class="title">成员详情</span>
+        <span class="subtitle" v-if="user">{{ user.name }} · 学号 {{ user.student_id }}</span>
+      </div>
+    </div>
 
-    <scroll-view scroll-y class="content-scroll" v-if="user">
+    <div scroll-y class="content-scroll" v-if="user">
       <!-- 基础信息卡 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">基本信息</text>
-          <text class="role-tag">{{ roleLabel(user.role) }}</text>
-        </view>
-        <view class="info-grid">
-          <view class="info-item">
-            <text class="info-label">班级</text>
-            <text class="info-value">{{ user.class_name || user.class_id || '未分班' }}</text>
-          </view>
-          <view class="info-item">
-            <text class="info-label">性别</text>
-            <text class="info-value">{{ user.gender === 2 ? '女' : (user.gender === 1 ? '男' : '未填') }}</text>
-          </view>
-          <view class="info-item">
-            <text class="info-label">手机</text>
-            <text class="info-value">{{ user.phone || '—' }}</text>
-          </view>
-          <view class="info-item">
-            <text class="info-label">邮箱</text>
-            <text class="info-value">{{ user.email || '—' }}</text>
-          </view>
-          <view class="info-item">
-            <text class="info-label">注册时间</text>
-            <text class="info-value">{{ formatDate(user.created_at) }}</text>
-          </view>
-        </view>
-      </view>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">基本信息</span>
+          <span class="role-tag">{{ roleLabel(user.role) }}</span>
+        </div>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">班级</span>
+            <span class="info-value">{{ user.class_name || user.class_id || '未分班' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">性别</span>
+            <span class="info-value">{{ user.gender === 2 ? '女' : (user.gender === 1 ? '男' : '未填') }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">手机</span>
+            <span class="info-value">{{ user.phone || '—' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">邮箱</span>
+            <span class="info-value">{{ user.email || '—' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">注册时间</span>
+            <span class="info-value">{{ formatDate(user.created_at) }}</span>
+          </div>
+        </div>
+      </div>
 
       <!-- 当前请假状态 -->
-      <view class="card">
-        <view class="card-header">
-          <text class="card-title">请假状态</text>
-          <text
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">请假状态</span>
+          <span
             :class="['status-chip', activeLeave ? 'chip-warn' : 'chip-ok']"
-          >{{ activeLeave ? '请假中' : '在岗' }}</text>
-        </view>
-        <view v-if="activeLeave" class="active-leave">
-          <view class="leave-row">
-            <text class="muted">类型</text><text class="strong">{{ activeLeave.leave_type }}</text>
-          </view>
-          <view class="leave-row">
-            <text class="muted">起止</text>
-            <text>{{ formatDateTime(activeLeave.start_time) }} → {{ formatDateTime(activeLeave.end_time) }}</text>
-          </view>
-          <view class="leave-row">
-            <text class="muted">事由</text><text class="multi">{{ activeLeave.reason }}</text>
-          </view>
-        </view>
+          >{{ activeLeave ? '请假中' : '在岗' }}</span>
+        </div>
+        <div v-if="activeLeave" class="active-leave">
+          <div class="leave-row">
+            <span class="muted">类型</span><span class="strong">{{ activeLeave.leave_type }}</span>
+          </div>
+          <div class="leave-row">
+            <span class="muted">起止</span>
+            <span>{{ formatDateTime(activeLeave.start_time) }} → {{ formatDateTime(activeLeave.end_time) }}</span>
+          </div>
+          <div class="leave-row">
+            <span class="muted">事由</span><span class="multi">{{ activeLeave.reason }}</span>
+          </div>
+        </div>
 
-        <view class="stats-row">
-          <view class="stat-item"><text class="stat-num">{{ stats?.leave_count ?? 0 }}</text><text class="stat-label">请假总数</text></view>
-          <view class="stat-item"><text class="stat-num">{{ stats?.approved_leave_count ?? 0 }}</text><text class="stat-label">已通过</text></view>
-          <view class="stat-item"><text class="stat-num">{{ stats?.pending_leave_count ?? 0 }}</text><text class="stat-label">待审批</text></view>
-          <view class="stat-item"><text class="stat-num">{{ stats?.total_points ?? 0 }}</text><text class="stat-label">积分</text></view>
-        </view>
-      </view>
+        <div class="stats-row">
+          <div class="stat-item"><span class="stat-num">{{ stats?.leave_count ?? 0 }}</span><span class="stat-label">请假总数</span></div>
+          <div class="stat-item"><span class="stat-num">{{ stats?.approved_leave_count ?? 0 }}</span><span class="stat-label">已通过</span></div>
+          <div class="stat-item"><span class="stat-num">{{ stats?.pending_leave_count ?? 0 }}</span><span class="stat-label">待审批</span></div>
+          <div class="stat-item"><span class="stat-num">{{ stats?.total_points ?? 0 }}</span><span class="stat-label">积分</span></div>
+        </div>
+      </div>
 
       <!-- 最近请假 -->
-      <view class="card">
-        <text class="card-title">最近请假</text>
-        <view v-if="!leaves.length" class="empty-inline"><text>暂无请假记录</text></view>
-        <view v-for="l in leaves" :key="l.id" class="leave-card">
-          <view class="leave-top">
-            <text class="leave-type">{{ l.leave_type }}</text>
-            <text :class="['leave-status', statusClass(l)]">{{ leaveStatusText(l) }}</text>
-          </view>
-          <text class="leave-range">{{ formatDateTime(l.start_time) }} → {{ formatDateTime(l.end_time) }}</text>
-          <text class="leave-reason">{{ l.reason }}</text>
-          <text v-if="l.approval_notes" class="leave-notes">审批意见：{{ l.approval_notes }}</text>
-        </view>
-      </view>
+      <div class="card">
+        <span class="card-title">最近请假</span>
+        <div v-if="!leaves.length" class="empty-inline"><span>暂无请假记录</span></div>
+        <div v-for="l in leaves" :key="l.id" class="leave-card">
+          <div class="leave-top">
+            <span class="leave-type">{{ l.leave_type }}</span>
+            <span :class="['leave-status', statusClass(l)]">{{ leaveStatusText(l) }}</span>
+          </div>
+          <span class="leave-range">{{ formatDateTime(l.start_time) }} → {{ formatDateTime(l.end_time) }}</span>
+          <span class="leave-reason">{{ l.reason }}</span>
+          <span v-if="l.approval_notes" class="leave-notes">审批意见：{{ l.approval_notes }}</span>
+        </div>
+      </div>
 
       <!-- 近期操作 -->
-      <view class="card">
-        <text class="card-title">近期系统内操作</text>
-        <view v-if="!operations.length" class="empty-inline"><text>暂无操作记录</text></view>
-        <view v-for="op in operations" :key="op.id" class="op-row">
-          <view class="op-time">{{ formatDateTime(op.created_at) }}</view>
-          <view class="op-body">
-            <view class="op-action-row">
-              <text class="op-method">{{ op.method || '-' }}</text>
-              <text class="op-action">{{ op.action }}</text>
-              <text :class="['op-status', (op.status_code || 0) >= 400 ? 'bad' : 'good']">{{ op.status_code || '—' }}</text>
-            </view>
-            <text class="op-path">{{ op.path }}</text>
-            <text v-if="opDetail(op)" class="op-detail">{{ opDetail(op) }}</text>
-          </view>
-        </view>
-      </view>
+      <div class="card">
+        <span class="card-title">近期系统内操作</span>
+        <div v-if="!operations.length" class="empty-inline"><span>暂无操作记录</span></div>
+        <div v-for="op in operations" :key="op.id" class="op-row">
+          <div class="op-time">{{ formatDateTime(op.created_at) }}</div>
+          <div class="op-body">
+            <div class="op-action-row">
+              <span class="op-method">{{ op.method || '-' }}</span>
+              <span class="op-action">{{ op.action }}</span>
+              <span :class="['op-status', (op.status_code || 0) >= 400 ? 'bad' : 'good']">{{ op.status_code || '—' }}</span>
+            </div>
+            <span class="op-path">{{ op.path }}</span>
+            <span v-if="opDetail(op)" class="op-detail">{{ opDetail(op) }}</span>
+          </div>
+        </div>
+      </div>
 
-      <view style="height:40rpx"></view>
-    </scroll-view>
+      <div style="height:40rpx"></div>
+    </div>
 
-    <view v-else class="loading-state">
-      <text>{{ loading ? '加载中…' : '成员不存在' }}</text>
-    </view>
-  </view>
+    <div v-else class="loading-state">
+      <span>{{ loading ? '加载中…' : '成员不存在' }}</span>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { getMemberDetail } from '@/api/admin'
 import { getRoleLabel } from '@/constants/roles'
-
 const memberId = ref(null)
 const user = ref(null)
 const activeLeave = ref(null)
@@ -198,6 +199,7 @@ onLoad((options) => {
   memberId.value = options?.id
 })
 onMounted(() => { if (memberId.value) load() })
+
 </script>
 
 <style lang="scss" scoped>

@@ -1,63 +1,65 @@
 <template>
-  <view class="reimbursement-page">
+  <div class="reimbursement-page">
     <custom-nav-bar title="报销申请" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="form-area">
-        <view class="section-label">
-          <text class="label-text">报销信息</text>
-        </view>
+    <div scroll-y class="main-scroll">
+      <div class="form-area">
+        <div class="section-label">
+          <span class="label-text">报销信息</span>
+        </div>
 
-        <view class="form-card">
-          <view class="form-row">
-            <text class="row-label block">报销事由</text>
+        <div class="form-card">
+          <div class="form-row">
+            <span class="row-label block">报销事由</span>
             <textarea class="solid-textarea" v-model="formData.purpose" placeholder="请说明报销事由..." />
-          </view>
+          </div>
 
-          <view class="divider"></view>
+          <div class="divider"></div>
 
-          <view class="form-row">
-            <text class="row-label block">报销金额</text>
-            <view class="amount-input-wrap">
-              <text class="amount-prefix">¥</text>
+          <div class="form-row">
+            <span class="row-label block">报销金额</span>
+            <div class="amount-input-wrap">
+              <span class="amount-prefix">¥</span>
               <input class="amount-input" type="digit" v-model="formData.amount" placeholder="0.00" />
-            </view>
-          </view>
+            </div>
+          </div>
 
-          <view class="form-row">
-            <text class="row-label block">明细说明（可选）</text>
+          <div class="form-row">
+            <span class="row-label block">明细说明（可选）</span>
             <textarea class="solid-textarea" v-model="formData.details" placeholder="逐项列明开支明细..." style="min-height: 80rpx;" />
-          </view>
-        </view>
+          </div>
+        </div>
 
         <!-- My Applications -->
-        <view class="history-section" v-if="myApps.length > 0">
-          <text class="section-title">我的申请</text>
-          <view class="app-list">
-            <view v-for="item in myApps" :key="item.id" class="app-card">
-              <view :class="['status-dot', statusClass(item.status)]"></view>
-              <view class="app-body">
-                <text class="app-reason">{{ item.purpose }}</text>
-                <text class="app-amount">¥{{ Number(item.amount).toFixed(2) }}</text>
-                <view :class="['status-tag', statusClass(item.status)]">{{ statusText(item.status) }}</view>
-              </view>
-            </view>
-          </view>
-        </view>
-      </view>
+        <div class="history-section" v-if="myApps.length > 0">
+          <span class="section-title">我的申请</span>
+          <div class="app-list">
+            <div v-for="item in myApps" :key="item.id" class="app-card">
+              <div :class="['status-dot', statusClass(item.status)]"></div>
+              <div class="app-body">
+                <span class="app-reason">{{ item.purpose }}</span>
+                <span class="app-amount">¥{{ Number(item.amount).toFixed(2) }}</span>
+                <div :class="['status-tag', statusClass(item.status)]">{{ statusText(item.status) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <view class="bottom-action">
+      <div class="bottom-action">
         <button class="primary-btn" :disabled="submitting" @tap="onSubmit">
-          <text class="btn-text">{{ submitting ? '提交中...' : '提交报销申请' }}</text>
+          <span class="btn-text">{{ submitting ? '提交中...' : '提交报销申请' }}</span>
         </button>
-      </view>
-    </scroll-view>
-  </view>
+      </div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { reactive, ref, onMounted } from 'vue'
-import { createExpense, getMyExpenses } from '@/api/fee'
+<script setup lang="ts">
 
+
+import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { createExpense, getMyExpenses } from '@/api/fee'
 const submitting = ref(false)
 const myApps = ref([])
 const formData = reactive({
@@ -78,12 +80,12 @@ function statusText(s) {
 }
 
 async function onSubmit() {
-  if (!formData.purpose) { uni.showToast({ title: '请填写事由', icon: 'none' }); return }
-  if (!formData.amount) { uni.showToast({ title: '请输入金额', icon: 'none' }); return }
+  if (!formData.purpose) { showToast('请填写事由'); return }
+  if (!formData.amount) { showToast('请输入金额'); return }
 
   const amount = parseFloat(formData.amount)
-  if (isNaN(amount) || amount <= 0) { uni.showToast({ title: '请输入有效金额', icon: 'none' }); return }
-  if (amount > 100000) { uni.showToast({ title: '单笔申请不超过¥100,000', icon: 'none' }); return }
+  if (isNaN(amount) || amount <= 0) { showToast('请输入有效金额'); return }
+  if (amount > 100000) { showToast('单笔申请不超过¥100,000'); return }
 
   submitting.value = true
   try {
@@ -93,15 +95,15 @@ async function onSubmit() {
       details: formData.details ? formData.details.split('\n').filter(Boolean) : undefined
     })
     if (res.success) {
-      uni.showToast({ title: '已提交，等待审批', icon: 'success' })
+      showToast('已提交，等待审批')
       formData.purpose = ''
       formData.amount = ''
       formData.details = ''
       await loadMyApps()
-      setTimeout(() => uni.navigateBack(), 1500)
+      setTimeout(() => router.back(), 1500)
     }
   } catch (err) {
-    uni.showToast({ title: '提交失败', icon: 'none' })
+    showToast('提交失败')
   } finally {
     submitting.value = false
   }
@@ -115,11 +117,11 @@ async function loadMyApps() {
 }
 
 onMounted(loadMyApps)
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.reimbursement-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.reimbursement-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); padding-bottom: 140rpx; }
 .form-area { padding: 32rpx; }
 .section-label { margin-bottom: 20rpx; padding-left: 4rpx; }

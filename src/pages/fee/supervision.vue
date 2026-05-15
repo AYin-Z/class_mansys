@@ -1,83 +1,84 @@
 <template>
-  <view class="supervision-page">
+  <div class="supervision-page">
     <custom-nav-bar title="财务监督" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll" @refresh="loadData" refresher-enabled :refresher-triggered="refreshing">
+    <div scroll-y class="main-scroll" @refresh="loadData" refresher-enabled :refresher-triggered="refreshing">
       <!-- Overview -->
-      <view class="overview-card">
-        <view class="overview-header">
-          <text class="overview-title">财务概况</text>
-          <text class="update-time">更新于 {{ updateTime }}</text>
-        </view>
-        <view class="overview-grid">
-          <view class="overview-item">
-            <text class="overview-value">¥{{ summary.balance.toFixed(2) }}</text>
-            <text class="overview-label">当前余额</text>
-          </view>
-          <view class="overview-item">
-            <text class="overview-value">{{ summary.totalIncome.toFixed(2) }}</text>
-            <text class="overview-label">总收入</text>
-          </view>
-          <view class="overview-item">
-            <text class="overview-value">{{ summary.totalExpense.toFixed(2) }}</text>
-            <text class="overview-label">总支出</text>
-          </view>
-        </view>
-      </view>
+      <div class="overview-card">
+        <div class="overview-header">
+          <span class="overview-title">财务概况</span>
+          <span class="update-time">更新于 {{ updateTime }}</span>
+        </div>
+        <div class="overview-grid">
+          <div class="overview-item">
+            <span class="overview-value">¥{{ summary.balance.toFixed(2) }}</span>
+            <span class="overview-label">当前余额</span>
+          </div>
+          <div class="overview-item">
+            <span class="overview-value">{{ summary.totalIncome.toFixed(2) }}</span>
+            <span class="overview-label">总收入</span>
+          </div>
+          <div class="overview-item">
+            <span class="overview-value">{{ summary.totalExpense.toFixed(2) }}</span>
+            <span class="overview-label">总支出</span>
+          </div>
+        </div>
+      </div>
 
       <!-- Recent Transactions -->
-      <view class="section-block">
-        <text class="block-title">最近交易</text>
-        <view class="trans-list" v-if="transactions.length > 0">
-          <view v-for="e in transactions" :key="e.id" class="trans-item">
-            <view :class="['trans-dot', e.amount >= 0 ? 'in' : 'out']"></view>
-            <view class="trans-info">
-              <text class="trans-title">{{ e.purpose || e.type }}</text>
-              <text class="trans-meta">{{ e.applicant_name || e.student_id || '未知' }} · {{ formatDate(e.created_at) }}</text>
-            </view>
-            <text :class="['trans-amount', e.amount >= 0 ? 'in' : 'out']">
+      <div class="section-block">
+        <span class="block-title">最近交易</span>
+        <div class="trans-list" v-if="transactions.length > 0">
+          <div v-for="e in transactions" :key="e.id" class="trans-item">
+            <div :class="['trans-dot', e.amount >= 0 ? 'in' : 'out']"></div>
+            <div class="trans-info">
+              <span class="trans-title">{{ e.purpose || e.type }}</span>
+              <span class="trans-meta">{{ e.applicant_name || e.student_id || '未知' }} · {{ formatDate(e.created_at) }}</span>
+            </div>
+            <span :class="['trans-amount', e.amount >= 0 ? 'in' : 'out']">
               {{ e.amount >= 0 ? '+' : '-' }}¥{{ Math.abs(e.amount).toFixed(2) }}
-            </text>
-          </view>
-        </view>
-        <view class="empty-block" v-else-if="!loading">
-          <text class="empty-text">暂无交易记录</text>
-        </view>
-      </view>
+            </span>
+          </div>
+        </div>
+        <div class="empty-block" v-else-if="!loading">
+          <span class="empty-text">暂无交易记录</span>
+        </div>
+      </div>
 
       <!-- Audit Trail -->
-      <view class="section-block">
-        <text class="block-title">审批轨迹</text>
-        <view class="audit-list" v-if="auditLogs.length > 0">
-          <view v-for="(log, idx) in auditLogs" :key="idx" class="audit-item">
-            <view class="audit-step">
-              <view class="step-num">{{ idx + 1 }}</view>
-              <view class="step-line" v-if="idx < auditLogs.length - 1"></view>
-            </view>
-            <view class="audit-content">
-              <text class="audit-action">{{ log.action }}</text>
-              <text class="audit-person">{{ log.person }}</text>
-              <text class="audit-time">{{ log.time }}</text>
-              <text class="audit-note" v-if="log.note">{{ log.note }}</text>
-            </view>
-          </view>
-        </view>
-        <view class="empty-block" v-else-if="!loading">
-          <text class="empty-text">暂无审批记录</text>
-        </view>
-      </view>
+      <div class="section-block">
+        <span class="block-title">审批轨迹</span>
+        <div class="audit-list" v-if="auditLogs.length > 0">
+          <div v-for="(log, idx) in auditLogs" :key="idx" class="audit-item">
+            <div class="audit-step">
+              <div class="step-num">{{ idx + 1 }}</div>
+              <div class="step-line" v-if="idx < auditLogs.length - 1"></div>
+            </div>
+            <div class="audit-content">
+              <span class="audit-action">{{ log.action }}</span>
+              <span class="audit-person">{{ log.person }}</span>
+              <span class="audit-time">{{ log.time }}</span>
+              <span class="audit-note" v-if="log.note">{{ log.note }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="empty-block" v-else-if="!loading">
+          <span class="empty-text">暂无审批记录</span>
+        </div>
+      </div>
 
-      <view class="loading-bar" v-if="loading" style="text-align: center; padding: 40rpx;">
-        <text style="font-size: 24rpx; color: $outline-variant;">加载中...</text>
-      </view>
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div class="loading-bar" v-if="loading" style="text-align: center; padding: 40rpx;">
+        <span style="font-size: 24rpx; color: $outline-variant;">加载中...</span>
+      </div>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
-import { getSummary, getAllExpenses, getExpenseDetail } from '@/api/fee'
+<script setup lang="ts">
 
+
+import { onMounted, ref } from 'vue'
+import { getSummary, getAllExpenses, getExpenseDetail } from '@/api/fee'
 const loading = ref(true)
 const refreshing = ref(false)
 const summary = ref({ balance: 0, totalIncome: 0, totalExpense: 0 })
@@ -168,7 +169,7 @@ async function loadData() {
       }
     }
   } catch (e) {
-    uni.showToast({ title: '加载失败', icon: 'none' })
+    showToast('加载失败')
   } finally {
     loading.value = false
     refreshing.value = false
@@ -176,11 +177,11 @@ async function loadData() {
 }
 
 onMounted(() => loadData())
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.supervision-page { min-height: 100vh; background-color: $surface; }
+@import "@/uni.scss";.supervision-page { min-height: 100vh; background-color: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .overview-card {

@@ -1,91 +1,92 @@
 <template>
-  <view class="approve-page">
+  <div class="approve-page">
     <custom-nav-bar title="审批请假" :showBack="true" />
 
-    <scroll-view scroll-y class="main-scroll">
-      <view class="hero-strip">
-        <text class="hero-title">待办审批</text>
-        <text class="hero-sub">共 {{ pendingList.length }} 条待处理 · 已处理 {{ processedList.length }} 条</text>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="hero-strip">
+        <span class="hero-title">待办审批</span>
+        <span class="hero-sub">共 {{ pendingList.length }} 条待处理 · 已处理 {{ processedList.length }} 条</span>
+      </div>
 
-      <view class="pending-list">
-        <view v-for="item in pendingList" :key="item.id" class="approve-card">
-          <view class="card-accent pending"></view>
-          <view class="card-body">
-            <view class="user-row">
-              <view class="avatar-box">
-                <text class="avatar-text">{{ applicantInitial(item) }}</text>
-              </view>
-              <view class="user-info">
-                <text class="user-name">{{ item.applicant_name || '未知' }}</text>
-                <text class="user-id">{{ item.applicant_student_id || '—' }}</text>
-              </view>
-              <view class="type-badge">{{ item.leave_type || '—' }}</view>
-            </view>
+      <div class="pending-list">
+        <div v-for="item in pendingList" :key="item.id" class="approve-card">
+          <div class="card-accent pending"></div>
+          <div class="card-body">
+            <div class="user-row">
+              <div class="avatar-box">
+                <span class="avatar-text">{{ applicantInitial(item) }}</span>
+              </div>
+              <div class="user-info">
+                <span class="user-name">{{ item.applicant_name || '未知' }}</span>
+                <span class="user-id">{{ item.applicant_student_id || '—' }}</span>
+              </div>
+              <div class="type-badge">{{ item.leave_type || '—' }}</div>
+            </div>
 
-            <view class="detail-section">
-              <view class="detail-item">
-                <text class="detail-label">事由</text>
-                <text class="detail-value">{{ item.reason || '—' }}</text>
-              </view>
-              <view class="detail-item">
-                <text class="detail-label">时间</text>
-                <text class="detail-value">{{ formatLeaveDateTime(item.start_time) }} ~ {{ formatLeaveDateTime(item.end_time) }}</text>
-              </view>
-            </view>
+            <div class="detail-section">
+              <div class="detail-item">
+                <span class="detail-label">事由</span>
+                <span class="detail-value">{{ item.reason || '—' }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">时间</span>
+                <span class="detail-value">{{ formatLeaveDateTime(item.start_time) }} ~ {{ formatLeaveDateTime(item.end_time) }}</span>
+              </div>
+            </div>
 
-            <view class="action-row">
+            <div class="action-row">
               <button class="action-btn reject" @click="handleReject(item)">驳回</button>
               <button class="action-btn approve" @click="handleApprove(item)">通过</button>
-            </view>
-          </view>
-        </view>
+            </div>
+          </div>
+        </div>
 
-        <view v-if="pendingList.length === 0" class="empty-state">
-          <text class="empty-icon">✅</text>
-          <text class="empty-text">暂无待审批的请假申请</text>
-        </view>
-      </view>
+        <div v-if="pendingList.length === 0" class="empty-state">
+          <span class="empty-icon">✅</span>
+          <span class="empty-text">暂无待审批的请假申请</span>
+        </div>
+      </div>
 
-      <view class="section-title" v-if="processedList.length">已处理</view>
+      <div class="section-title" v-if="processedList.length">已处理</div>
 
-      <view class="pending-list processed">
-        <view v-for="item in processedList" :key="'p-' + item.id" class="approve-card done">
-          <view class="card-accent" :class="item.status === 1 ? 'ok' : 'bad'"></view>
-          <view class="card-body">
-            <view class="user-row">
-              <view class="avatar-box muted">
-                <text class="avatar-text">{{ applicantInitial(item) }}</text>
-              </view>
-              <view class="user-info">
-                <text class="user-name">{{ item.applicant_name || '未知' }}</text>
-                <text class="user-id">{{ item.applicant_student_id || '—' }}</text>
-              </view>
-              <view :class="['status-mini', item.status === 1 ? 'yes' : 'no']">
+      <div class="pending-list processed">
+        <div v-for="item in processedList" :key="'p-' + item.id" class="approve-card done">
+          <div class="card-accent" :class="item.status === 1 ? 'ok' : 'bad'"></div>
+          <div class="card-body">
+            <div class="user-row">
+              <div class="avatar-box muted">
+                <span class="avatar-text">{{ applicantInitial(item) }}</span>
+              </div>
+              <div class="user-info">
+                <span class="user-name">{{ item.applicant_name || '未知' }}</span>
+                <span class="user-id">{{ item.applicant_student_id || '—' }}</span>
+              </div>
+              <div :class="['status-mini', item.status === 1 ? 'yes' : 'no']">
                 {{ item.status === 1 ? '已通过' : '已驳回' }}
-              </view>
-            </view>
-            <view class="detail-section compact">
-              <text class="detail-value single">{{ item.reason || '—' }}</text>
-              <text class="time-mini">{{ formatLeaveDateTime(item.start_time) }} ~ {{ formatLeaveDateTime(item.end_time) }}</text>
-            </view>
-          </view>
-        </view>
-      </view>
+              </div>
+            </div>
+            <div class="detail-section compact">
+              <span class="detail-value single">{{ item.reason || '—' }}</span>
+              <span class="time-mini">{{ formatLeaveDateTime(item.start_time) }} ~ {{ formatLeaveDateTime(item.end_time) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <view class="page-spacer"></view>
-    </scroll-view>
-  </view>
+      <div class="page-spacer"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { canApproveLeave } from '@/utils/auth'
 import { getAllLeaves, approveLeave } from '@/api/leave'
 import { hasBackendToken } from '@/utils/request'
 import { formatLeaveDateTime } from '@/utils/index'
-
 const allLeaves = ref([])
 
 const pendingList = computed(() => (allLeaves.value || []).filter((l) => l.status === 0))
@@ -109,7 +110,7 @@ async function load() {
       allLeaves.value = res.leaves || []
     }
   } catch (e) {
-    uni.showToast({ title: '加载失败', icon: 'none' })
+    showToast('加载失败')
   }
 }
 
@@ -122,16 +123,16 @@ function handleApprove(item) {
       uni.showLoading({ title: '处理中…' })
       try {
         const r = await approveLeave(item.id, 1)
-        uni.hideLoading()
+        
         if (r.success) {
-          uni.showToast({ title: '已通过', icon: 'success' })
+          showToast('已通过')
           await load()
         } else {
           uni.showToast({ title: r.message || '操作失败', icon: 'none' })
         }
       } catch (e) {
-        uni.hideLoading()
-        uni.showToast({ title: '网络错误', icon: 'none' })
+        
+        showToast('网络错误')
       }
     }
   })
@@ -146,16 +147,16 @@ function handleReject(item) {
       uni.showLoading({ title: '处理中…' })
       try {
         const r = await approveLeave(item.id, 2)
-        uni.hideLoading()
+        
         if (r.success) {
-          uni.showToast({ title: '已驳回', icon: 'none' })
+          showToast('已驳回')
           await load()
         } else {
           uni.showToast({ title: r.message || '操作失败', icon: 'none' })
         }
       } catch (e) {
-        uni.hideLoading()
-        uni.showToast({ title: '网络错误', icon: 'none' })
+        
+        showToast('网络错误')
       }
     }
   })
@@ -163,8 +164,8 @@ function handleReject(item) {
 
 onMounted(() => {
   if (!canApproveLeave()) {
-    uni.showToast({ title: '无审批权限', icon: 'none' })
-    setTimeout(() => uni.navigateBack(), 1500)
+    showToast('无审批权限')
+    setTimeout(() => router.back(), 1500)
     return
   }
   load()
@@ -173,11 +174,11 @@ onMounted(() => {
 onShow(() => {
   if (canApproveLeave()) load()
 })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.approve-page {
+@import "@/uni.scss";.approve-page {
   min-height: 100vh;
   background: linear-gradient(180deg, #e8eef5 0%, #f4f6f9 100%);
 }

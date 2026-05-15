@@ -36,10 +36,11 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { getAllLeaves } from '@/api/leave'
+<script setup lang="ts">
 
+
+import { computed, onMounted, ref } from 'vue'
+import { getAllLeaves } from '@/api/leave'
 const loading = ref(true)
 const leaves = ref([])
 
@@ -124,6 +125,7 @@ onMounted(async () => {
   } catch (_) {}
   loading.value = false
 })
+
 </script>
 
 <style lang="scss" scoped>

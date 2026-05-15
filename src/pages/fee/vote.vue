@@ -1,100 +1,101 @@
 <template>
-  <view class="vote-page">
+  <div class="vote-page">
     <custom-nav-bar title="投票表决" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
+    <div scroll-y class="main-scroll">
       <!-- 进行中的投票 -->
-      <view class="active-vote-card" v-if="activeVote">
-        <view class="vote-header">
-          <view class="status-badge active">进行中</view>
-          <text class="deadline">截止：{{ formatTime(activeVote.end_time) }}</text>
-        </view>
-        <text class="vote-title">{{ activeVote.title }}</text>
-        <text class="vote-desc" v-if="activeVote.description">{{ activeVote.description }}</text>
+      <div class="active-vote-card" v-if="activeVote">
+        <div class="vote-header">
+          <div class="status-badge active">进行中</div>
+          <span class="deadline">截止：{{ formatTime(activeVote.end_time) }}</span>
+        </div>
+        <span class="vote-title">{{ activeVote.title }}</span>
+        <span class="vote-desc" v-if="activeVote.description">{{ activeVote.description }}</span>
 
-        <view class="progress-section">
-          <view class="progress-header">
-            <text class="progress-label">投票进度</text>
-            <text class="progress-rate">{{ voteRate }}%</text>
-          </view>
-          <view class="progress-bar">
-            <view class="progress-fill" :style="{ width: voteRate + '%' }"></view>
-          </view>
-          <view class="vote-stats">
-            <text class="stat-item">总票数 {{ voteDetail.total_votes || 0 }} 票</text>
-            <text class="stat-item">参与 {{ voteDetail.total_votes || 0 }} 人</text>
-          </view>
-        </view>
+        <div class="progress-section">
+          <div class="progress-header">
+            <span class="progress-label">投票进度</span>
+            <span class="progress-rate">{{ voteRate }}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: voteRate + '%' }"></div>
+          </div>
+          <div class="vote-stats">
+            <span class="stat-item">总票数 {{ voteDetail.total_votes || 0 }} 票</span>
+            <span class="stat-item">参与 {{ voteDetail.total_votes || 0 }} 人</span>
+          </div>
+        </div>
 
         <!-- 选项列表（单选/多选） -->
-        <view class="options-section">
-          <view
+        <div class="options-section">
+          <div
             v-for="opt in voteDetail.options"
             :key="opt.id"
             :class="['option-item', { selected: myChoices.includes(opt.id), voted: voteDetail.my_choices && voteDetail.my_choices.length > 0 }]"
             @click="selectOption(opt)"
           >
-            <view class="option-label">
-              <text class="option-marker">{{ myChoices.includes(opt.id) ? '✓' : '' }}</text>
-            </view>
-            <view class="option-content">
-              <text class="option-text">{{ opt.content }}</text>
-              <text class="option-count" v-if="voteDetail.total_votes">({{ opt.vote_count }}票)</text>
-            </view>
-            <view class="option-bar-bg" v-if="voteDetail.total_votes">
-              <view class="option-bar" :style="{ width: opt.rate + '%' }"></view>
-            </view>
-          </view>
-        </view>
+            <div class="option-label">
+              <span class="option-marker">{{ myChoices.includes(opt.id) ? '✓' : '' }}</span>
+            </div>
+            <div class="option-content">
+              <span class="option-text">{{ opt.content }}</span>
+              <span class="option-count" v-if="voteDetail.total_votes">({{ opt.vote_count }}票)</span>
+            </div>
+            <div class="option-bar-bg" v-if="voteDetail.total_votes">
+              <div class="option-bar" :style="{ width: opt.rate + '%' }"></div>
+            </div>
+          </div>
+        </div>
 
-        <view class="vote-actions" v-if="!hasVoted">
+        <div class="vote-actions" v-if="!hasVoted">
           <button class="vote-btn submit" :disabled="myChoices.length === 0" @click="submitVote">
-            <text class="btn-text">提交投票</text>
+            <span class="btn-text">提交投票</span>
           </button>
-        </view>
-        <view class="voted-msg" v-else>
-          <text>你已投票</text>
-        </view>
+        </div>
+        <div class="voted-msg" v-else>
+          <span>你已投票</span>
+        </div>
 
-        <view class="threshold-info">
-          <text class="threshold-text">{{ isSingle ? '单选' : '多选' }} · {{ getVoteStatus(activeVote) === 'ended' ? '已结束' : getVoteStatus(activeVote) === 'active' ? '进行中' : '未开始' }}</text>
-        </view>
-      </view>
+        <div class="threshold-info">
+          <span class="threshold-text">{{ isSingle ? '单选' : '多选' }} · {{ getVoteStatus(activeVote) === 'ended' ? '已结束' : getVoteStatus(activeVote) === 'active' ? '进行中' : '未开始' }}</span>
+        </div>
+      </div>
 
-      <view class="empty-state" v-else-if="!loading">
-        <text class="empty-icon">🗳️</text>
-        <text class="empty-title">暂无进行中的投票</text>
-      </view>
-      <view class="loading-state" v-else>
-        <text class="loading-text">加载中...</text>
-      </view>
+      <div class="empty-state" v-else-if="!loading">
+        <span class="empty-icon">🗳️</span>
+        <span class="empty-title">暂无进行中的投票</span>
+      </div>
+      <div class="loading-state" v-else>
+        <span class="loading-text">加载中...</span>
+      </div>
 
       <!-- 投票历史 -->
-      <view class="history-section">
-        <text class="section-title">历史投票</text>
-        <view class="history-list">
-          <view v-for="item in historyVotes" :key="item.id" class="history-card">
-            <view :class="['result-indicator', item.passed ? 'pass' : 'fail']"></view>
-            <view class="history-body">
-              <text class="history-title">{{ item.title }}</text>
-              <text class="history-result">{{ item.passed ? '已通过' : '未通过' }} · {{ item.agree }}/{{ item.total }}票</text>
-              <text class="history-time">{{ item.end_time }}</text>
-            </view>
-          </view>
-        </view>
-        <view class="empty-history" v-if="!loading && historyVotes.length === 0 && !activeVote">
-          <text class="empty-title">暂无投票记录</text>
-        </view>
-      </view>
+      <div class="history-section">
+        <span class="section-title">历史投票</span>
+        <div class="history-list">
+          <div v-for="item in historyVotes" :key="item.id" class="history-card">
+            <div :class="['result-indicator', item.passed ? 'pass' : 'fail']"></div>
+            <div class="history-body">
+              <span class="history-title">{{ item.title }}</span>
+              <span class="history-result">{{ item.passed ? '已通过' : '未通过' }} · {{ item.agree }}/{{ item.total }}票</span>
+              <span class="history-time">{{ item.end_time }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="empty-history" v-if="!loading && historyVotes.length === 0 && !activeVote">
+          <span class="empty-title">暂无投票记录</span>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { getVotes, getVoteDetail, castVote, getVoteStatus, isVoteSingle } from '@/api/vote'
+<script setup lang="ts">
 
+
+import { computed, onMounted, ref } from 'vue'
+import { getVotes, getVoteDetail, castVote, getVoteStatus, isVoteSingle } from '@/api/vote'
 const loading = ref(true)
 const votes = ref([])
 const activeVote = ref(null)
@@ -144,15 +145,15 @@ async function submitVote() {
     const res = await castVote(activeVote.value.id, myChoices.value)
     if (res.success) {
       hasVoted.value = true
-      uni.showToast({ title: '投票成功', icon: 'success' })
+      showToast('投票成功')
       await loadData()
     } else {
       uni.showToast({ title: res.error || '投票失败', icon: 'none' })
     }
   } catch (e) {
-    uni.showToast({ title: '网络错误', icon: 'none' })
+    showToast('网络错误')
   } finally {
-    uni.hideLoading()
+    
   }
 }
 
@@ -190,18 +191,18 @@ async function loadData() {
       }
     }
   } catch (e) {
-    uni.showToast({ title: '加载失败', icon: 'none' })
+    showToast('加载失败')
   } finally {
     loading.value = false
   }
 }
 
 onMounted(() => loadData())
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.vote-page { min-height: 100vh; background-color: $surface; }
+@import "@/uni.scss";.vote-page { min-height: 100vh; background-color: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .active-vote-card {

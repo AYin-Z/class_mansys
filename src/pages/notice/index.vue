@@ -1,78 +1,79 @@
 <template>
-  <view class="notice-page">
+  <div class="notice-page">
     <custom-nav-bar title="通知管理" />
 
-    <scroll-view scroll-y class="main-scroll">
+    <div scroll-y class="main-scroll">
       <!-- Tab Filter -->
-      <view class="tab-bar">
-        <view
+      <div class="tab-bar">
+        <div
           v-for="tab in tabs"
           :key="tab.key"
           :class="['tab-item', { active: currentTab === tab.key }]"
           @tap="currentTab = tab.key"
         >
-          <text class="tab-text">{{ tab.label }}</text>
-        </view>
-      </view>
+          <span class="tab-text">{{ tab.label }}</span>
+        </div>
+      </div>
 
       <!-- Notice List -->
-      <view class="notice-list">
-        <view
+      <div class="notice-list">
+        <div
           v-for="item in filteredNotices"
           :key="item.id"
           class="notice-card"
           @tap="goDetail(item)"
         >
-          <view :class="['card-accent', priorityAccent(item.priority)]"></view>
-          <view class="card-body">
-            <view class="card-top">
-              <view class="title-row">
-                <text v-if="item.is_read === false" class="unread-dot">●</text>
-                <text class="notice-title">{{ item.title }}</text>
-              </view>
-              <view :class="['priority-tag', priorityClass(item.priority)]">
+          <div :class="['card-accent', priorityAccent(item.priority)]"></div>
+          <div class="card-body">
+            <div class="card-top">
+              <div class="title-row">
+                <span v-if="item.is_read === false" class="unread-dot">●</span>
+                <span class="notice-title">{{ item.title }}</span>
+              </div>
+              <div :class="['priority-tag', priorityClass(item.priority)]">
                 {{ priorityLabel(item.priority) }}
-              </view>
-            </view>
-            <view class="card-badges" v-if="item.is_todo">
-              <text :class="['todo-chip', { done: item.is_completed }]">{{ item.is_completed ? '✅ 已完成' : '📋 待办' }}</text>
-            </view>
-            <text class="notice-summary">{{ item.summary }}</text>
-            <view class="card-footer">
-              <text class="notice-time">{{ item.time }}</text>
-              <text class="notice-author">{{ item.author }}</text>
-            </view>
-          </view>
-        </view>
+              </div>
+            </div>
+            <div class="card-badges" v-if="item.is_todo">
+              <span :class="['todo-chip', { done: item.is_completed }]">{{ item.is_completed ? '✅ 已完成' : '📋 待办' }}</span>
+            </div>
+            <span class="notice-summary">{{ item.summary }}</span>
+            <div class="card-footer">
+              <span class="notice-time">{{ item.time }}</span>
+              <span class="notice-author">{{ item.author }}</span>
+            </div>
+          </div>
+        </div>
 
-        <view v-if="filteredNotices.length === 0" class="empty-state">
-          <text class="empty-icon">📭</text>
-          <text class="empty-title">{{ loading ? '加载中…' : '暂无通知' }}</text>
-          <text class="empty-hint">
+        <div v-if="filteredNotices.length === 0" class="empty-state">
+          <span class="empty-icon">📭</span>
+          <span class="empty-title">{{ loading ? '加载中…' : '暂无通知' }}</span>
+          <span class="empty-hint">
             {{ loading ? '正在从后端获取最新通知' : (canPublish ? '点击右下角按钮发布第一条通知' : '当有新的通知时会显示在这里') }}
-          </text>
-        </view>
-      </view>
+          </span>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
+      <div style="height: 40rpx;"></div>
+    </div>
 
     <!-- Publish Button -->
-    <view class="fab-btn" v-if="canPublish" @tap="goPublish">
-      <text class="fab-icon">+</text>
-    </view>
+    <div class="fab-btn" v-if="canPublish" @tap="goPublish">
+      <span class="fab-icon">+</span>
+    </div>
 
     <custom-tab-bar current="notice" />
-  </view>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { canPublishNotice } from '@/utils/auth'
 import { getNotices } from '@/api/notice'
 import { hasBackendToken } from '@/utils/request'
-
 const currentTab = ref('all')
 const canPublish = ref(false)
 const loading = ref(false)
@@ -115,7 +116,7 @@ function goDetail(item) {
 }
 
 function goPublish() {
-  uni.navigateTo({ url: '/pages/notice/publish' })
+  router.push('/pages/notice/publish')
 }
 
 async function fetchNotices() {
@@ -138,7 +139,7 @@ async function fetchNotices() {
     }
   } catch (error) {
     console.error('获取通知失败:', error)
-    uni.showToast({ title: '获取通知失败', icon: 'none' })
+    showToast('获取通知失败')
   } finally {
     loading.value = false
   }
@@ -153,6 +154,7 @@ onShow(() => {
   canPublish.value = canPublishNotice()
   fetchNotices()
 })
+
 </script>
 
 <style lang="scss" scoped>
@@ -272,8 +274,7 @@ onShow(() => {
   flex-shrink: 0;
 
   &.urgent { background: rgba($tertiary,0.08); color: $tertiary; }
-  &.important { background: rgba($primary,0.06); color: $primary; }
-  &.daily { background: rgba($secondary,0.08); color: $secondary; }
+  &.important { background: rgba($primary,0.06); color: $primary; }&.daily { background: rgba($secondary,0.08); color: $secondary; }
 }
 
 .notice-summary {

@@ -1,64 +1,65 @@
 <template>
-  <view class="detail-page">
+  <div class="detail-page">
     <custom-nav-bar title="请假详情" :showBack="true" />
 
-    <scroll-view v-if="leave" scroll-y class="main-scroll">
-      <view class="hero-strip">
-        <text class="hero-type">{{ leaveTypeLabel }}</text>
-        <view :class="['hero-badge', statusClass]">{{ statusLabel }}</view>
-      </view>
+    <div v-if="leave" scroll-y class="main-scroll">
+      <div class="hero-strip">
+        <span class="hero-type">{{ leaveTypeLabel }}</span>
+        <div :class="['hero-badge', statusClass]">{{ statusLabel }}</div>
+      </div>
 
-      <view class="block card">
-        <text class="block-title">时间与事由</text>
-        <view class="row">
-          <text class="k">开始</text>
-          <text class="v">{{ formatLeaveDateTime(leave.start_time) }}</text>
-        </view>
-        <view class="row">
-          <text class="k">结束</text>
-          <text class="v">{{ formatLeaveDateTime(leave.end_time) }}</text>
-        </view>
-        <view class="row block-reason">
-          <text class="k">事由</text>
-          <text class="v reason">{{ leave.reason || '—' }}</text>
-        </view>
-      </view>
+      <div class="block card">
+        <span class="block-title">时间与事由</span>
+        <div class="row">
+          <span class="k">开始</span>
+          <span class="v">{{ formatLeaveDateTime(leave.start_time) }}</span>
+        </div>
+        <div class="row">
+          <span class="k">结束</span>
+          <span class="v">{{ formatLeaveDateTime(leave.end_time) }}</span>
+        </div>
+        <div class="row block-reason">
+          <span class="k">事由</span>
+          <span class="v reason">{{ leave.reason || '—' }}</span>
+        </div>
+      </div>
 
-      <view class="block card" v-if="leave.approval_time || leave.approval_notes">
-        <text class="block-title">审批信息</text>
-        <view class="row" v-if="leave.approver_name">
-          <text class="k">审批人</text>
-          <text class="v">{{ leave.approver_name }}</text>
-        </view>
-        <view class="row" v-if="leave.approval_time">
-          <text class="k">时间</text>
-          <text class="v">{{ formatLeaveDateTime(leave.approval_time) }}</text>
-        </view>
-        <view class="row block-reason" v-if="leave.approval_notes">
-          <text class="k">意见</text>
-          <text class="v reason">{{ leave.approval_notes }}</text>
-        </view>
-      </view>
+      <div class="block card" v-if="leave.approval_time || leave.approval_notes">
+        <span class="block-title">审批信息</span>
+        <div class="row" v-if="leave.approver_name">
+          <span class="k">审批人</span>
+          <span class="v">{{ leave.approver_name }}</span>
+        </div>
+        <div class="row" v-if="leave.approval_time">
+          <span class="k">时间</span>
+          <span class="v">{{ formatLeaveDateTime(leave.approval_time) }}</span>
+        </div>
+        <div class="row block-reason" v-if="leave.approval_notes">
+          <span class="k">意见</span>
+          <span class="v reason">{{ leave.approval_notes }}</span>
+        </div>
+      </div>
 
-      <view class="block card muted">
-        <text class="hint">申请编号 {{ leave.id }} · 提交于 {{ formatLeaveDateTime(leave.created_at) }}</text>
-      </view>
+      <div class="block card muted">
+        <span class="hint">申请编号 {{ leave.id }} · 提交于 {{ formatLeaveDateTime(leave.created_at) }}</span>
+      </div>
 
-      <view class="page-spacer"></view>
-    </scroll-view>
+      <div class="page-spacer"></div>
+    </div>
 
-    <view v-else class="loading-wrap">
-      <text class="loading-text">{{ loadError || '加载中…' }}</text>
-    </view>
-  </view>
+    <div v-else class="loading-wrap">
+      <span class="loading-text">{{ loadError || '加载中…' }}</span>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { getLeaveById } from '@/api/leave'
 import { formatLeaveDateTime } from '@/utils/index'
-
 const leave = ref(null)
 const loadError = ref('')
 
@@ -109,6 +110,7 @@ onLoad(async (options) => {
     loadError.value = '加载失败'
   }
 })
+
 </script>
 
 <style lang="scss" scoped>

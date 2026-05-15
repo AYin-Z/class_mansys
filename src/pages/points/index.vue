@@ -1,50 +1,51 @@
 <template>
-  <view class="points-page">
+  <div class="points-page">
     <custom-nav-bar title="积分中心" />
-    <scroll-view scroll-y class="main-scroll">
+    <div scroll-y class="main-scroll">
       <!-- Points Overview -->
-      <view class="overview-card">
-        <text class="overview-label">我的积分</text>
-        <text class="points-value">{{ myPoints }}</text>
-        <view class="rank-badge">全区队第 {{ myRank }} 名</view>
-      </view>
+      <div class="overview-card">
+        <span class="overview-label">我的积分</span>
+        <span class="points-value">{{ myPoints }}</span>
+        <div class="rank-badge">全区队第 {{ myRank }} 名</div>
+      </div>
 
       <!-- Quick Actions -->
-      <view class="actions-grid">
-        <view v-for="act in actions" :key="act.key" class="action-item" @tap="goAction(act)">
-          <text class="action-icon">{{ act.icon }}</text>
-          <text class="action-label">{{ act.label }}</text>
-        </view>
-      </view>
+      <div class="actions-grid">
+        <div v-for="act in actions" :key="act.key" class="action-item" @tap="goAction(act)">
+          <span class="action-icon">{{ act.icon }}</span>
+          <span class="action-label">{{ act.label }}</span>
+        </div>
+      </div>
 
       <!-- Recent Records -->
-      <view class="records-section">
-        <text class="section-label">积分记录</text>
-        <view v-for="item in records" :key="item.id" class="record-card">
-          <view :class="['record-dot', item.type]"></view>
-          <view class="record-body">
-            <text class="record-title">{{ item.title }}</text>
-            <text class="record-time">{{ item.time }}</text>
-            <text :class="['record-points', item.type]">{{ item.type === 'add' ? '+' : '' }}{{ item.points }}</text>
-          </view>
-        </view>
+      <div class="records-section">
+        <span class="section-label">积分记录</span>
+        <div v-for="item in records" :key="item.id" class="record-card">
+          <div :class="['record-dot', item.type]"></div>
+          <div class="record-body">
+            <span class="record-title">{{ item.title }}</span>
+            <span class="record-time">{{ item.time }}</span>
+            <span :class="['record-points', item.type]">{{ item.type === 'add' ? '+' : '' }}{{ item.points }}</span>
+          </div>
+        </div>
 
-        <view v-if="records.length === 0" class="empty-state"><text class="empty-text">暂无记录</text></view>
-      </view>
+        <div v-if="records.length === 0" class="empty-state"><span class="empty-text">暂无记录</span></div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { getMyPoints, getPointsRanking } from '@/api/points'
-
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
@@ -91,18 +92,18 @@ async function fetchAll() {
 }
 
 function goAction(act) {
-  if (act.key === 'rank') uni.navigateTo({ url: '/pages/points/rank' })
-  else if (act.key === 'rate') uni.navigateTo({ url: '/pages/points/rate' })
-  else if (act.key === 'rules') uni.showModal({ title: '积分规则', content: '正向行为加分、违规扣分；具体明细以管理员公示为准', showCancel: false })
-  else if (act.key === 'admin') uni.navigateTo({ url: '/pages/points/rate?admin=1' })
+  if (act.key === 'rank') router.push('/pages/points/rank')
+  else if (act.key === 'rate') router.push('/pages/points/rate')
+  else if (act.key === 'rules') showConfirm('', '正向行为加分、违规扣分；具体明细以管理员公示为准')
+  else if (act.key === 'admin') router.push('/pages/points/rate?admin=1')
 }
 
 onShow(() => { fetchAll() })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.points-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.points-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .overview-card {

@@ -1,63 +1,64 @@
 <template>
-  <view class="status-page">
+  <div class="status-page">
     <custom-nav-bar title="建议详情" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="detail-card" v-if="detail.id">
-        <view class="head-row">
-          <text class="cat-tag">{{ detail.category || '其他' }}</text>
-          <view :class="['status-badge', statusKey]">{{ statusLabel }}</view>
-        </view>
-        <text class="detail-content">{{ detail.content }}</text>
-        <text class="detail-time">提交于 {{ formatTime(detail.created_at) }}</text>
+    <div scroll-y class="main-scroll">
+      <div class="detail-card" v-if="detail.id">
+        <div class="head-row">
+          <span class="cat-tag">{{ detail.category || '其他' }}</span>
+          <div :class="['status-badge', statusKey]">{{ statusLabel }}</div>
+        </div>
+        <span class="detail-content">{{ detail.content }}</span>
+        <span class="detail-time">提交于 {{ formatTime(detail.created_at) }}</span>
 
-        <view class="timeline-section">
-          <text class="section-label">处理进度</text>
-          <view v-for="(step, idx) in steps" :key="idx" class="step-item">
-            <view :class="['step-dot', step.done ? 'done' : 'pending']"></view>
-            <view class="step-line" v-if="idx < steps.length - 1" :class="{ done: step.done }"></view>
-            <view class="step-content">
-              <text :class="['step-name', { active: step.done }]">{{ step.name }}</text>
-              <text class="step-time">{{ step.time || '待处理' }}</text>
-              <text class="step-note" v-if="step.note">{{ step.note }}</text>
-            </view>
-          </view>
-        </view>
+        <div class="timeline-section">
+          <span class="section-label">处理进度</span>
+          <div v-for="(step, idx) in steps" :key="idx" class="step-item">
+            <div :class="['step-dot', step.done ? 'done' : 'pending']"></div>
+            <div class="step-line" v-if="idx < steps.length - 1" :class="{ done: step.done }"></div>
+            <div class="step-content">
+              <span :class="['step-name', { active: step.done }]">{{ step.name }}</span>
+              <span class="step-time">{{ step.time || '待处理' }}</span>
+              <span class="step-note" v-if="step.note">{{ step.note }}</span>
+            </div>
+          </div>
+        </div>
 
-        <view class="reply-section" v-if="detail.handler_notes">
-          <text class="section-label">处理回复</text>
-          <view class="reply-box">
-            <text class="reply-text">{{ detail.handler_notes }}</text>
-            <text v-if="detail.handler_name" class="reply-by">—— {{ detail.handler_name }}</text>
-          </view>
-        </view>
-      </view>
+        <div class="reply-section" v-if="detail.handler_notes">
+          <span class="section-label">处理回复</span>
+          <div class="reply-box">
+            <span class="reply-text">{{ detail.handler_notes }}</span>
+            <span v-if="detail.handler_name" class="reply-by">—— {{ detail.handler_name }}</span>
+          </div>
+        </div>
+      </div>
 
       <!-- 管理员处理操作 -->
-      <view v-if="canHandle && detail.id" class="admin-card">
-        <text class="section-label">处理操作</text>
-        <view class="status-row">
-          <view :class="['status-pill', { active: form.status === 1 }]" @tap="form.status = 1">标记处理中</view>
-          <view :class="['status-pill', { active: form.status === 2 }]" @tap="form.status = 2">标记已处理</view>
-        </view>
+      <div v-if="canHandle && detail.id" class="admin-card">
+        <span class="section-label">处理操作</span>
+        <div class="status-row">
+          <div :class="['status-pill', { active: form.status === 1 }]" @tap="form.status = 1">标记处理中</div>
+          <div :class="['status-pill', { active: form.status === 2 }]" @tap="form.status = 2">标记已处理</div>
+        </div>
         <textarea
           class="solid-textarea"
           v-model="form.handler_notes"
           placeholder="处理意见（选填，对提交人可见）"
         />
         <button class="primary-btn" @tap="onHandle">提交处理</button>
-      </view>
+      </div>
 
-      <view style="height: 80rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 80rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, reactive, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { getSuggestionDetail, handleSuggestion, SUGGESTION_STATUS_LABEL } from '@/api/suggestion'
 import { isAdmin } from '@/utils/auth'
-
 const detail = ref({})
 const canHandle = ref(false)
 const form = reactive({ status: 1, handler_notes: '' })
@@ -100,11 +101,11 @@ async function onHandle() {
   uni.showLoading({ title: '提交中...' })
   try {
     await handleSuggestion(detail.value.id, { status: form.status, handler_notes: form.handler_notes })
-    uni.hideLoading()
-    uni.showToast({ title: '已更新', icon: 'success' })
+    
+    showToast('已更新')
     fetchDetail(detail.value.id)
   } catch (e) {
-    uni.hideLoading()
+    
   }
 }
 
@@ -112,11 +113,11 @@ onLoad((opts) => {
   canHandle.value = isAdmin()
   if (opts?.id) fetchDetail(Number(opts.id))
 })
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.status-page { min-height: 100vh; background-color: $surface; }
+@import "@/uni.scss";.status-page { min-height: 100vh; background-color: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .detail-card { margin: 24rpx 32rpx; background: $surface-container-lowest; border-radius: 20rpx; padding: 28rpx 24rpx; }

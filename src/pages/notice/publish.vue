@@ -1,133 +1,134 @@
 <template>
-  <view class="publish-page">
+  <div class="publish-page">
     <custom-nav-bar :title="isEdit ? '编辑通知' : '发布通知'" :showBack="true" />
 
-    <scroll-view scroll-y class="main-scroll">
-      <view class="form-area">
-        <view class="section-label">
-          <text class="label-text">通知内容</text>
-        </view>
+    <div scroll-y class="main-scroll">
+      <div class="form-area">
+        <div class="section-label">
+          <span class="label-text">通知内容</span>
+        </div>
 
-        <view class="form-card">
-          <view class="form-row">
-            <text class="row-label block">通知标题</text>
+        <div class="form-card">
+          <div class="form-row">
+            <span class="row-label block">通知标题</span>
             <input class="solid-input" placeholder="请输入通知标题" v-model="formData.title" />
-          </view>
+          </div>
 
-          <view class="divider"></view>
+          <div class="divider"></div>
 
           <picker mode="selector" :range="typeOptions" @change="onTypeChange">
-            <view class="form-row">
-              <text class="row-label">类型</text>
-              <view class="row-value">
-                <text class="value-text">{{ formData.type || '请选择' }}</text>
-                <text class="arrow">›</text>
-              </view>
-            </view>
+            <div class="form-row">
+              <span class="row-label">类型</span>
+              <div class="row-value">
+                <span class="value-text">{{ formData.type || '请选择' }}</span>
+                <span class="arrow">›</span>
+              </div>
+            </div>
           </picker>
 
-          <view class="divider"></view>
+          <div class="divider"></div>
 
           <picker mode="selector" :range="priorityOptions" @change="onPriorityChange">
-            <view class="form-row">
-              <text class="row-label">优先级</text>
-              <view class="row-value">
-                <text class="value-text">{{ formData.priorityLabel || '请选择' }}</text>
-                <text class="arrow">›</text>
-              </view>
-            </view>
+            <div class="form-row">
+              <span class="row-label">优先级</span>
+              <div class="row-value">
+                <span class="value-text">{{ formData.priorityLabel || '请选择' }}</span>
+                <span class="arrow">›</span>
+              </div>
+            </div>
           </picker>
 
-          <view class="divider"></view>
+          <div class="divider"></div>
 
-          <view class="form-row toggle-row" @tap="formData.is_pinned = !formData.is_pinned">
-            <text class="row-label">置顶</text>
-            <view :class="['toggle', { on: formData.is_pinned }]">
-              <view class="toggle-knob"></view>
-            </view>
-          </view>
+          <div class="form-row toggle-row" @tap="formData.is_pinned = !formData.is_pinned">
+            <span class="row-label">置顶</span>
+            <div :class="['toggle', { on: formData.is_pinned }]">
+              <div class="toggle-knob"></div>
+            </div>
+          </div>
 
-          <view class="divider"></view>
+          <div class="divider"></div>
 
-          <view class="form-row toggle-row" @tap="formData.is_todo = !formData.is_todo">
-            <text class="row-label">设为待办</text>
-            <view class="row-hint"><text class="hint-text">需手动标记完成</text></view>
-            <view :class="['toggle', { on: formData.is_todo }]">
-              <view class="toggle-knob"></view>
-            </view>
-          </view>
+          <div class="form-row toggle-row" @tap="formData.is_todo = !formData.is_todo">
+            <span class="row-label">设为待办</span>
+            <div class="row-hint"><span class="hint-text">需手动标记完成</span></div>
+            <div :class="['toggle', { on: formData.is_todo }]">
+              <div class="toggle-knob"></div>
+            </div>
+          </div>
 
-          <view class="divider"></view>
+          <div class="divider"></div>
 
-          <view class="textarea-wrap">
-            <text class="row-label block">通知正文</text>
+          <div class="textarea-wrap">
+            <span class="row-label block">通知正文</span>
             <textarea class="solid-textarea" v-model="formData.content" placeholder="请输入通知内容..." />
-          </view>
-        </view>
+          </div>
+        </div>
 
-        <view class="section-label mt-lg">
-          <text class="label-text">附件（可选）</text>
-        </view>
+        <div class="section-label mt-lg">
+          <span class="label-text">附件（可选）</span>
+        </div>
 
         <!-- 已选附件列表 -->
-        <view class="attach-list" v-if="formData.attachments.length > 0">
-          <view class="attach-item" v-for="(item, idx) in formData.attachments" :key="idx">
-            <text class="attach-icon">📎</text>
-            <view class="attach-info">
-              <text class="attach-name">{{ item.name }}</text>
-              <text class="attach-size">{{ formatSize(item.size) }}</text>
-            </view>
-            <text class="attach-del" @click="removeAttachment(idx)">✕</text>
-          </view>
-        </view>
+        <div class="attach-list" v-if="formData.attachments.length > 0">
+          <div class="attach-item" v-for="(item, idx) in formData.attachments" :key="idx">
+            <span class="attach-icon">📎</span>
+            <div class="attach-info">
+              <span class="attach-name">{{ item.name }}</span>
+              <span class="attach-size">{{ formatSize(item.size) }}</span>
+            </div>
+            <span class="attach-del" @click="removeAttachment(idx)">✕</span>
+          </div>
+        </div>
 
-        <view class="attach-actions">
-          <view class="attach-btn" @click="chooseFile">
-            <text class="btn-icon">📤</text>
-            <text class="btn-label">上传文件</text>
-          </view>
-          <view class="attach-btn" @click="openResourcePicker">
-            <text class="btn-icon">📂</text>
-            <text class="btn-label">引用资源</text>
-          </view>
-        </view>
-      </view>
+        <div class="attach-actions">
+          <div class="attach-btn" @click="chooseFile">
+            <span class="btn-icon">📤</span>
+            <span class="btn-label">上传文件</span>
+          </div>
+          <div class="attach-btn" @click="openResourcePicker">
+            <span class="btn-icon">📂</span>
+            <span class="btn-label">引用资源</span>
+          </div>
+        </div>
+      </div>
 
       <!-- 资源引用弹出层 -->
-      <view class="overlay" v-if="showResourcePicker" @click="showResourcePicker = false"></view>
-      <view class="resource-picker" v-if="showResourcePicker">
-        <view class="picker-header">
-          <text class="picker-title">选择公共资源</text>
-          <text class="picker-close" @click="showResourcePicker = false">关闭</text>
-        </view>
-        <scroll-view scroll-y class="picker-list">
-          <view class="resource-item" v-for="item in resources" :key="item.id" @click="pickResource(item)">
-            <text class="res-icon">📄</text>
-            <view class="res-info">
-              <text class="res-name">{{ item.name }}</text>
-              <text class="res-meta">{{ item.type }} · {{ formatSize(item.size) }}</text>
-            </view>
-            <text class="res-add">+</text>
-          </view>
-          <view class="empty-hint" v-if="resources.length === 0">暂无可用资源</view>
-        </scroll-view>
-      </view>
+      <div class="overlay" v-if="showResourcePicker" @click="showResourcePicker = false"></div>
+      <div class="resource-picker" v-if="showResourcePicker">
+        <div class="picker-header">
+          <span class="picker-title">选择公共资源</span>
+          <span class="picker-close" @click="showResourcePicker = false">关闭</span>
+        </div>
+        <div scroll-y class="picker-list">
+          <div class="resource-item" v-for="item in resources" :key="item.id" @click="pickResource(item)">
+            <span class="res-icon">📄</span>
+            <div class="res-info">
+              <span class="res-name">{{ item.name }}</span>
+              <span class="res-meta">{{ item.type }} · {{ formatSize(item.size) }}</span>
+            </div>
+            <span class="res-add">+</span>
+          </div>
+          <div class="empty-hint" v-if="resources.length === 0">暂无可用资源</div>
+        </div>
+      </div>
 
-      <view class="bottom-action">
+      <div class="bottom-action">
         <button class="primary-btn" @click="onPublish">
-          <text class="btn-text">{{ isEdit ? '保存修改' : '发布通知' }}</text>
+          <span class="btn-text">{{ isEdit ? '保存修改' : '发布通知' }}</span>
         </button>
-      </view>
-    </scroll-view>
-  </view>
+      </div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { reactive, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { getNoticeDetail, createNotice, updateNotice } from '@/api/notice'
 import { getResources } from '@/api/announcement'
-
 const priorityOptions = ['日常', '重要', '紧急']
 const typeOptions = ['系统通知', '集合通知', '学习通知', '活动通知', '其他']
 
@@ -205,10 +206,10 @@ async function chooseFile() {
           }
         } catch (e) {
           console.error('文件上传失败:', e)
-          uni.showToast({ title: '文件上传失败', icon: 'none' })
+          showToast('文件上传失败')
         }
       }
-      uni.hideLoading()
+      
     }
   })
 }
@@ -229,7 +230,7 @@ async function openResourcePicker() {
 
 function pickResource(item) {
   if (formData.attachments.some(a => a.url === item.url)) {
-    uni.showToast({ title: '该资源已被引用', icon: 'none' })
+    showToast('该资源已被引用')
     return
   }
   formData.attachments.push({
@@ -257,7 +258,7 @@ async function fetchDetail() {
       formData.attachments = notice.attachments || []
     }
   } catch (error) {
-    uni.showToast({ title: '加载通知详情失败', icon: 'none' })
+    showToast('加载通知详情失败')
   }
 }
 
@@ -271,19 +272,19 @@ onLoad((opts) => {
 
 async function onPublish() {
   if (!formData.title) {
-    uni.showToast({ title: '请输入标题', icon: 'none' })
+    showToast('请输入标题')
     return
   }
   if (!formData.content) {
-    uni.showToast({ title: '请输入内容', icon: 'none' })
+    showToast('请输入内容')
     return
   }
 
   uni.showLoading({ title: isEdit.value ? '保存中...' : '发布中...' })
   try {
     if (!formData.type) {
-      uni.hideLoading()
-      uni.showToast({ title: '请选择通知类型', icon: 'none' })
+      
+      showToast('请选择通知类型')
       return
     }
     const payload = {
@@ -298,25 +299,25 @@ async function onPublish() {
     const res = isEdit.value
       ? await updateNotice(noticeId.value, payload)
       : await createNotice(payload)
-    uni.hideLoading()
+    
     if (res.success) {
       uni.showToast({ title: isEdit.value ? '修改成功' : '发布成功', icon: 'success' })
       setTimeout(() => {
-        uni.navigateBack()
+        router.back()
       }, 1500)
     } else {
       uni.showToast({ title: res.message || '发布失败', icon: 'none' })
     }
   } catch (error) {
-    uni.hideLoading()
-    uni.showToast({ title: '网络错误，请重试', icon: 'none' })
+    
+    showToast('网络错误，请重试')
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.publish-page {
+@import "@/uni.scss";.publish-page {
   min-height: 100vh;
   background-color: $surface;
 }

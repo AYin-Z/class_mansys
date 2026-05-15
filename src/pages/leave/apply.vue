@@ -1,104 +1,106 @@
 <template>
-  <view class="apply-page">
+  <div class="apply-page">
     <custom-nav-bar title="申请请假" :showBack="true" />
 
-    <scroll-view scroll-y class="main-scroll">
-      <view class="hero-strip">
-        <text class="hero-title">请假申请</text>
-        <text class="hero-sub">请选择类型、事由与起止时间，提交后由干部审批</text>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div class="hero-strip">
+        <span class="hero-title">请假申请</span>
+        <span class="hero-sub">请选择类型、事由与起止时间，提交后由干部审批</span>
+      </div>
 
-      <view class="form-area">
-        <view class="section-label">
-          <text class="label-text">请假信息</text>
-        </view>
+      <div class="form-area">
+        <div class="section-label">
+          <span class="label-text">请假信息</span>
+        </div>
 
-        <view class="form-card">
+        <div class="form-card">
           <picker mode="selector" :range="leaveTypes" @change="onTypeChange" :value="typeIndex">
-            <view class="form-row">
-              <text class="row-label">请假类型</text>
-              <view class="row-value">
-                <text :class="['value-text', { placeholder: !formData.type }]">{{ formData.type || '请选择' }}</text>
-                <text class="arrow">›</text>
-              </view>
-            </view>
+            <div class="form-row">
+              <span class="row-label">请假类型</span>
+              <div class="row-value">
+                <span :class="['value-text', { placeholder: !formData.type }]">{{ formData.type || '请选择' }}</span>
+                <span class="arrow">›</span>
+              </div>
+            </div>
           </picker>
 
-          <view class="divider" />
+          <div class="divider" />
 
           <picker mode="selector" :range="reasonTypes" @change="onReasonChange" :value="reasonIndex">
-            <view class="form-row">
-              <text class="row-label">请假事由</text>
-              <view class="row-value">
-                <text :class="['value-text', { placeholder: !formData.reasonType }]">{{ formData.reasonType || '请选择' }}</text>
-                <text class="arrow">›</text>
-              </view>
-            </view>
+            <div class="form-row">
+              <span class="row-label">请假事由</span>
+              <div class="row-value">
+                <span :class="['value-text', { placeholder: !formData.reasonType }]">{{ formData.reasonType || '请选择' }}</span>
+                <span class="arrow">›</span>
+              </div>
+            </div>
           </picker>
 
-          <view class="divider" />
+          <div class="divider" />
 
-          <view class="form-row group-row">
-            <text class="row-label">开始时间</text>
-          </view>
-          <view class="form-sub-row">
+          <div class="form-row group-row">
+            <span class="row-label">开始时间</span>
+          </div>
+          <div class="form-sub-row">
             <picker mode="date" :value="formData.startDateOnly" :start="todayStr" @change="onStartDateChange">
-              <view class="sub-pill">
-                <text :class="['sub-text', { placeholder: !formData.startDateOnly }]">{{ formData.startDateOnly || '选择日期' }}</text>
-                <text class="sub-arrow">▾</text>
-              </view>
+              <div class="sub-pill">
+                <span :class="['sub-text', { placeholder: !formData.startDateOnly }]">{{ formData.startDateOnly || '选择日期' }}</span>
+                <span class="sub-arrow">▾</span>
+              </div>
             </picker>
             <picker mode="time" :value="formData.startTime" @change="onStartTimeChange">
-              <view class="sub-pill">
-                <text :class="['sub-text', { placeholder: !formData.startTime }]">{{ formData.startTime || '选择时间' }}</text>
-                <text class="sub-arrow">▾</text>
-              </view>
+              <div class="sub-pill">
+                <span :class="['sub-text', { placeholder: !formData.startTime }]">{{ formData.startTime || '选择时间' }}</span>
+                <span class="sub-arrow">▾</span>
+              </div>
             </picker>
-          </view>
+          </div>
 
-          <view class="divider" />
+          <div class="divider" />
 
-          <view class="form-row group-row">
-            <text class="row-label">结束时间</text>
-          </view>
-          <view class="form-sub-row">
+          <div class="form-row group-row">
+            <span class="row-label">结束时间</span>
+          </div>
+          <div class="form-sub-row">
             <picker mode="date" :value="formData.endDateOnly" :start="formData.startDateOnly || todayStr" @change="onEndDateChange">
-              <view class="sub-pill">
-                <text :class="['sub-text', { placeholder: !formData.endDateOnly }]">{{ formData.endDateOnly || '选择日期' }}</text>
-                <text class="sub-arrow">▾</text>
-              </view>
+              <div class="sub-pill">
+                <span :class="['sub-text', { placeholder: !formData.endDateOnly }]">{{ formData.endDateOnly || '选择日期' }}</span>
+                <span class="sub-arrow">▾</span>
+              </div>
             </picker>
             <picker mode="time" :value="formData.endTime" @change="onEndTimeChange">
-              <view class="sub-pill">
-                <text :class="['sub-text', { placeholder: !formData.endTime }]">{{ formData.endTime || '选择时间' }}</text>
-                <text class="sub-arrow">▾</text>
-              </view>
+              <div class="sub-pill">
+                <span :class="['sub-text', { placeholder: !formData.endTime }]">{{ formData.endTime || '选择时间' }}</span>
+                <span class="sub-arrow">▾</span>
+              </div>
             </picker>
-          </view>
+          </div>
 
-          <view class="divider" />
+          <div class="divider" />
 
-          <view class="textarea-wrap">
-            <text class="row-label block">详细说明</text>
+          <div class="textarea-wrap">
+            <span class="row-label block">详细说明</span>
             <textarea class="ghost-textarea" v-model="formData.detail" placeholder="请输入详细说明（选填）" />
-          </view>
-        </view>
-      </view>
+          </div>
+        </div>
+      </div>
 
-      <view class="bottom-action">
+      <div class="bottom-action">
         <button class="primary-btn" @click="onSubmit">
-          <text class="btn-text">提交申请</text>
+          <span class="btn-text">提交申请</span>
         </button>
-      </view>
-    </scroll-view>
-  </view>
+      </div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, reactive, computed } from 'vue'
+<script setup lang="ts">
+
+
+import { computed, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { applyLeave } from '@/api/leave'
 import { parseLeaveDateTimeMs } from '@/utils/index'
-
 const leaveTypes = ['早操', '早集合', '午集合', '晚自习', '其他']
 const reasonTypes = ['事假', '病假', '上课', '公假', '其他']
 
@@ -155,30 +157,30 @@ function onEndTimeChange(e) {
 
 async function onSubmit() {
   if (!formData.type) {
-    uni.showToast({ title: '请选择请假类型', icon: 'none' })
+    showToast('请选择请假类型')
     return
   }
   if (!formData.reasonType) {
-    uni.showToast({ title: '请选择请假事由', icon: 'none' })
+    showToast('请选择请假事由')
     return
   }
   if (!formData_startDate.value) {
-    uni.showToast({ title: '请选择开始时间', icon: 'none' })
+    showToast('请选择开始时间')
     return
   }
   if (!formData_endDate.value) {
-    uni.showToast({ title: '请选择结束时间', icon: 'none' })
+    showToast('请选择结束时间')
     return
   }
 
   const t0 = parseLeaveDateTimeMs(formData_startDate.value)
   const t1 = parseLeaveDateTimeMs(formData_endDate.value)
   if (Number.isNaN(t0) || Number.isNaN(t1)) {
-    uni.showToast({ title: '时间格式无效', icon: 'none' })
+    showToast('时间格式无效')
     return
   }
   if (t1 < t0) {
-    uni.showToast({ title: '结束时间不能早于开始时间', icon: 'none' })
+    showToast('结束时间不能早于开始时间')
     return
   }
 
@@ -190,25 +192,25 @@ async function onSubmit() {
       start_time: formData_startDate.value,
       end_time: formData_endDate.value
     })
-    uni.hideLoading()
+    
     if (res.success) {
-      uni.showToast({ title: '申请已提交', icon: 'success' })
+      showToast('申请已提交')
       setTimeout(() => {
-        uni.navigateBack()
+        router.back()
       }, 1500)
     } else {
       uni.showToast({ title: res.message || '提交失败', icon: 'none' })
     }
   } catch (error) {
-    uni.hideLoading()
-    uni.showToast({ title: '网络错误，请重试', icon: 'none' })
+    
+    showToast('网络错误，请重试')
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.apply-page {
+@import "@/uni.scss";.apply-page {
   min-height: 100vh;
   background: $surface;
 }

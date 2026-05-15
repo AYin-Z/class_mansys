@@ -1,5 +1,3 @@
-import { ref, onMounted } from 'vue'
-
 interface SystemInfo {
   statusBarHeight: number
   navBarHeight: number
@@ -9,6 +7,17 @@ interface SystemInfo {
 }
 
 /**
+import { ref, onMounted } from 'vue'
+
+function getSystemInfoSync() {
+  return {
+    statusBarHeight: window.innerHeight > 0 ? 20 : 0,
+    screenWidth: window.screen.width,
+    screenHeight: window.screen.height,
+    safeArea: null,
+    safeAreaInsets: { bottom: 0 },
+  }
+}
  * 获取设备系统信息（状态栏高度、安全区、屏幕尺寸等）。
  * 提取 nav-bar 和 tab-bar 的公共逻辑，消除重复 `getSystemInfoSync` 调用。
  */
@@ -21,7 +30,7 @@ export function useSystemInfo() {
 
   onMounted(() => {
     try {
-      const info = uni.getSystemInfoSync()
+      const info = getSystemInfoSync()
       statusBarHeight.value = info.statusBarHeight || 20
       screenWidth.value = info.screenWidth || 375
       screenHeight.value = info.screenHeight || 812

@@ -1,84 +1,86 @@
 <template>
-  <view class="publish-page">
+  <div class="publish-page">
     <custom-nav-bar title="发布作业" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="form-area">
-        <view class="form-card">
-          <view class="form-row"><text class="row-label block">作业标题</text><input class="solid-input" placeholder="请输入标题" v-model="form.title" /></view>
-          <view class="textarea-wrap"><text class="row-label block">作业要求</text><textarea class="solid-textarea" v-model="form.description" placeholder="详细描述作业要求..." /></view>
-          <view class="form-row">
-            <text class="row-label block">截止日期</text>
+    <div scroll-y class="main-scroll">
+      <div class="form-area">
+        <div class="form-card">
+          <div class="form-row"><span class="row-label block">作业标题</span><input class="solid-input" placeholder="请输入标题" v-model="form.title" /></div>
+          <div class="textarea-wrap"><span class="row-label block">作业要求</span><textarea class="solid-textarea" v-model="form.description" placeholder="详细描述作业要求..." /></div>
+          <div class="form-row">
+            <span class="row-label block">截止日期</span>
             <picker mode="date" :value="form.deadlineDate" @change="onDateChange">
-              <view class="solid-input picker-display">{{ form.deadlineDate || '请选择日期' }}</view>
+              <div class="solid-input picker-display">{{ form.deadlineDate || '请选择日期' }}</div>
             </picker>
-          </view>
-          <view class="form-row">
-            <text class="row-label block">截止时间</text>
+          </div>
+          <div class="form-row">
+            <span class="row-label block">截止时间</span>
             <picker mode="time" :value="form.deadlineTime" @change="onTimeChange">
-              <view class="solid-input picker-display">{{ form.deadlineTime || '请选择时间' }}</view>
+              <div class="solid-input picker-display">{{ form.deadlineTime || '请选择时间' }}</div>
             </picker>
-          </view>
-        </view>
+          </div>
+        </div>
 
         <!-- 附件区域 -->
-        <view class="section-label mt-lg">
-          <text class="label-text">附件（可选）</text>
-        </view>
+        <div class="section-label mt-lg">
+          <span class="label-text">附件（可选）</span>
+        </div>
 
         <!-- 已选附件列表 -->
-        <view class="attach-list" v-if="form.attachments.length > 0">
-          <view class="attach-item" v-for="(item, idx) in form.attachments" :key="idx">
-            <text class="attach-icon">📎</text>
-            <view class="attach-info">
-              <text class="attach-name">{{ item.name }}</text>
-              <text class="attach-size">{{ formatSize(item.size) }}</text>
-            </view>
-            <text class="attach-del" @click="removeAttachment(idx)">✕</text>
-          </view>
-        </view>
+        <div class="attach-list" v-if="form.attachments.length > 0">
+          <div class="attach-item" v-for="(item, idx) in form.attachments" :key="idx">
+            <span class="attach-icon">📎</span>
+            <div class="attach-info">
+              <span class="attach-name">{{ item.name }}</span>
+              <span class="attach-size">{{ formatSize(item.size) }}</span>
+            </div>
+            <span class="attach-del" @click="removeAttachment(idx)">✕</span>
+          </div>
+        </div>
 
-        <view class="attach-actions">
-          <view class="attach-btn" @click="chooseFile">
-            <text class="btn-icon">📤</text>
-            <text class="btn-label">上传文件</text>
-          </view>
-          <view class="attach-btn" @click="showResourcePicker = true">
-            <text class="btn-icon">📂</text>
-            <text class="btn-label">引用资源</text>
-          </view>
-        </view>
-      </view>
+        <div class="attach-actions">
+          <div class="attach-btn" @click="chooseFile">
+            <span class="btn-icon">📤</span>
+            <span class="btn-label">上传文件</span>
+          </div>
+          <div class="attach-btn" @click="showResourcePicker = true">
+            <span class="btn-icon">📂</span>
+            <span class="btn-label">引用资源</span>
+          </div>
+        </div>
+      </div>
 
       <!-- 资源引用弹出层 -->
-      <view class="overlay" v-if="showResourcePicker" @click="showResourcePicker = false"></view>
-      <view class="resource-picker" v-if="showResourcePicker">
-        <view class="picker-header">
-          <text class="picker-title">选择公共资源</text>
-          <text class="picker-close" @click="showResourcePicker = false">关闭</text>
-        </view>
-        <scroll-view scroll-y class="picker-list">
-          <view class="resource-item" v-for="item in resources" :key="item.id" @click="pickResource(item)">
-            <text class="res-icon">📄</text>
-            <view class="res-info">
-              <text class="res-name">{{ item.name }}</text>
-              <text class="res-meta">{{ item.type }} · {{ formatSize(item.size) }}</text>
-            </view>
-            <text class="res-add">+</text>
-          </view>
-          <view class="empty-hint" v-if="resources.length === 0">暂无可用资源</view>
-        </scroll-view>
-      </view>
+      <div class="overlay" v-if="showResourcePicker" @click="showResourcePicker = false"></div>
+      <div class="resource-picker" v-if="showResourcePicker">
+        <div class="picker-header">
+          <span class="picker-title">选择公共资源</span>
+          <span class="picker-close" @click="showResourcePicker = false">关闭</span>
+        </div>
+        <div scroll-y class="picker-list">
+          <div class="resource-item" v-for="item in resources" :key="item.id" @click="pickResource(item)">
+            <span class="res-icon">📄</span>
+            <div class="res-info">
+              <span class="res-name">{{ item.name }}</span>
+              <span class="res-meta">{{ item.type }} · {{ formatSize(item.size) }}</span>
+            </div>
+            <span class="res-add">+</span>
+          </div>
+          <div class="empty-hint" v-if="resources.length === 0">暂无可用资源</div>
+        </div>
+      </div>
 
-      <view class="bottom-action"><button class="primary-btn" @click="submit"><text class="btn-text">发布作业</text></button></view>
-    </scroll-view>
-  </view>
+      <div class="bottom-action"><button class="primary-btn" @click="submit"><span class="btn-text">发布作业</span></button></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+
+
 import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { createHomework } from '@/api/homework'
 import { getResources } from '@/api/announcement'
-
 const form = reactive({ title: '', description: '', deadlineDate: '', deadlineTime: '23:59', attachments: [] })
 const showResourcePicker = ref(false)
 const resources = ref([])
@@ -133,10 +135,10 @@ async function chooseFile() {
           }
         } catch (e) {
           console.error('文件上传失败:', e)
-          uni.showToast({ title: '文件上传失败', icon: 'none' })
+          showToast('文件上传失败')
         }
       }
-      uni.hideLoading()
+      
     }
   })
 }
@@ -158,7 +160,7 @@ async function openResourcePicker() {
 function pickResource(item) {
   // 避免重复引用
   if (form.attachments.some(a => a.url === item.url)) {
-    uni.showToast({ title: '该资源已被引用', icon: 'none' })
+    showToast('该资源已被引用')
     return
   }
   form.attachments.push({
@@ -171,9 +173,9 @@ function pickResource(item) {
 }
 
 async function submit() {
-  if (!form.title) { uni.showToast({ title: '请输入标题', icon: 'none' }); return }
-  if (!form.description) { uni.showToast({ title: '请输入要求', icon: 'none' }); return }
-  if (!form.deadlineDate) { uni.showToast({ title: '请选择截止日期', icon: 'none' }); return }
+  if (!form.title) { showToast('请输入标题'); return }
+  if (!form.description) { showToast('请输入要求'); return }
+  if (!form.deadlineDate) { showToast('请选择截止日期'); return }
 
   const deadline = `${form.deadlineDate} ${form.deadlineTime || '23:59'}:00`
   uni.showLoading({ title: '发布中...' })
@@ -184,20 +186,20 @@ async function submit() {
       deadline,
       attachments: form.attachments.length > 0 ? form.attachments : undefined
     })
-    uni.hideLoading()
+    
     if (res?.success) {
-      uni.showToast({ title: '发布成功', icon: 'success' })
-      setTimeout(() => uni.navigateBack(), 1200)
+      showToast('发布成功')
+      setTimeout(() => router.back(), 1200)
     }
   } catch (e) {
-    uni.hideLoading()
+    
   }
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.publish-page { min-height: 100vh; background-color: $surface; }
+@import "@/uni.scss";.publish-page { min-height: 100vh; background-color: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); padding-bottom: 140rpx; }
 
 .form-area { padding: 32rpx; }

@@ -1,70 +1,71 @@
 <template>
-  <view class="detail-page">
+  <div class="detail-page">
     <custom-nav-bar title="擂台详情" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view v-if="challenge" class="info-card">
-        <view :class="['type-badge', typeKey(challenge.type)]">{{ challenge.type }}</view>
-        <text class="detail-title">{{ challenge.name }}</text>
-        <text class="detail-desc">{{ challenge.description }}</text>
-        <view class="info-row">
-          <text class="info-label">当前擂主</text>
-          <text class="info-value">{{ challenge.champion_name || '虚位以待' }}</text>
-        </view>
-        <view class="info-row">
-          <text class="info-label">挑战记录</text>
-          <text class="info-value">{{ records.length }} 次</text>
-        </view>
-      </view>
+    <div scroll-y class="main-scroll">
+      <div v-if="challenge" class="info-card">
+        <div :class="['type-badge', typeKey(challenge.type)]">{{ challenge.type }}</div>
+        <span class="detail-title">{{ challenge.name }}</span>
+        <span class="detail-desc">{{ challenge.description }}</span>
+        <div class="info-row">
+          <span class="info-label">当前擂主</span>
+          <span class="info-value">{{ challenge.champion_name || '虚位以待' }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">挑战记录</span>
+          <span class="info-value">{{ records.length }} 次</span>
+        </div>
+      </div>
 
       <button class="join-btn" v-if="canApply" @click="applyChallengeNow">申请挑战</button>
 
-      <view v-if="records.length" class="info-card">
-        <text class="section-label">挑战记录</text>
-        <view v-for="r in records" :key="r.id" class="record-row">
-          <text class="record-main">{{ r.challenger_name }} 挑战 {{ r.champion_name }}</text>
-          <text :class="['record-result', r.result === '挑战成功' || r.result === 'win' ? 'win' : 'lose']">{{ r.result }}</text>
-        </view>
-      </view>
+      <div v-if="records.length" class="info-card">
+        <span class="section-label">挑战记录</span>
+        <div v-for="r in records" :key="r.id" class="record-row">
+          <span class="record-main">{{ r.challenger_name }} 挑战 {{ r.champion_name }}</span>
+          <span :class="['record-result', r.result === '挑战成功' || r.result === 'win' ? 'win' : 'lose']">{{ r.result }}</span>
+        </div>
+      </div>
 
-      <view v-if="isAdminUser && applications.length" class="info-card">
-        <text class="section-label">挑战申请</text>
-        <view v-for="a in applications" :key="a.id" class="record-row">
-          <view style="flex:1">
-            <text class="record-main">{{ a.user_name }}（{{ a.student_id }}）</text>
-            <text class="sub-meta">{{ statusLabel(a.status) }}</text>
-          </view>
-          <view v-if="a.status === 0" class="btn-row">
+      <div v-if="isAdminUser && applications.length" class="info-card">
+        <span class="section-label">挑战申请</span>
+        <div v-for="a in applications" :key="a.id" class="record-row">
+          <div style="flex:1">
+            <span class="record-main">{{ a.user_name }}（{{ a.student_id }}）</span>
+            <span class="sub-meta">{{ statusLabel(a.status) }}</span>
+          </div>
+          <div v-if="a.status === 0" class="btn-row">
             <button size="mini" class="reject" @tap.stop="approve(a, 2)">拒绝</button>
             <button size="mini" class="accept" @tap.stop="approve(a, 1)">通过</button>
-          </view>
-        </view>
-      </view>
+          </div>
+        </div>
+      </div>
 
-      <view v-if="isAdminUser" class="info-card">
-        <text class="section-label">登记挑战结果</text>
+      <div v-if="isAdminUser" class="info-card">
+        <span class="section-label">登记挑战结果</span>
         <input class="solid-input" placeholder="挑战者学号" v-model="recForm.challengerSid" />
         <input class="solid-input" placeholder="擂主学号（默认当前擂主）" v-model="recForm.championSid" style="margin-top:12rpx;" />
         <picker mode="selector" :range="['挑战成功', '挑战失败']" @change="onResultChange">
-          <view class="solid-input" style="margin-top:12rpx;">{{ recForm.result || '请选择结果' }}</view>
+          <div class="solid-input" style="margin-top:12rpx;">{{ recForm.result || '请选择结果' }}</div>
         </picker>
         <textarea class="solid-textarea" placeholder="备注（可选）" v-model="recForm.notes"></textarea>
         <button class="primary-btn" @tap="submitRecord">提交</button>
-      </view>
+      </div>
 
-      <view style="height: 80rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 80rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, reactive, computed } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { getChallengeDetail, applyChallenge, approveChallengeApplication, recordChallenge, CHALLENGE_APP_STATUS_LABEL } from '@/api/challenge'
 import { post } from '@/utils/request'
-
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
@@ -100,7 +101,7 @@ async function fetch() {
 async function applyChallengeNow() {
   try {
     await applyChallenge(id.value)
-    uni.showToast({ title: '申请已提交', icon: 'success' })
+    showToast('申请已提交')
     fetch()
   } catch (_) {}
 }
@@ -108,7 +109,7 @@ async function applyChallengeNow() {
 async function approve(a, status) {
   try {
     await approveChallengeApplication(a.id, status)
-    uni.showToast({ title: '已处理', icon: 'success' })
+    showToast('已处理')
     fetch()
   } catch (_) {}
 }
@@ -122,16 +123,16 @@ async function findUserBySid(sid) {
 
 async function submitRecord() {
   if (!recForm.challengerSid || !recForm.result) {
-    uni.showToast({ title: '请填写挑战者学号和结果', icon: 'none' }); return
+    showToast('请填写挑战者学号和结果'); return
   }
   uni.showLoading({ title: '提交中...' })
   const challengerId = await findUserBySid(recForm.challengerSid)
   const championSid = recForm.championSid || ''
   let championId = challenge.value?.current_champion_id
   if (championSid) championId = await findUserBySid(championSid)
-  uni.hideLoading()
-  if (!challengerId) { uni.showToast({ title: '挑战者学号未找到', icon: 'none' }); return }
-  if (!championId) { uni.showToast({ title: '擂主未确定，请填写擂主学号', icon: 'none' }); return }
+  
+  if (!challengerId) { showToast('挑战者学号未找到'); return }
+  if (!championId) { showToast('擂主未确定，请填写擂主学号'); return }
   try {
     await recordChallenge(id.value, {
       challenger_id: challengerId,
@@ -139,7 +140,7 @@ async function submitRecord() {
       result: recForm.result,
       notes: recForm.notes
     })
-    uni.showToast({ title: '已登记', icon: 'success' })
+    showToast('已登记')
     recForm.challengerSid = ''; recForm.championSid = ''; recForm.result = ''; recForm.notes = ''
     fetch()
   } catch (_) {}
@@ -147,11 +148,11 @@ async function submitRecord() {
 
 onLoad((opts) => { id.value = Number(opts?.id) || null })
 onShow(() => fetch())
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.detail-page { min-height: 100vh; background-color: $surface; }
+@import "@/uni.scss";.detail-page { min-height: 100vh; background-color: $surface; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .info-card { margin: 24rpx 32rpx; background: #fff; border-radius: 20rpx; padding: 28rpx 24rpx; }

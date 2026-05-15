@@ -1,46 +1,47 @@
 <template>
-  <view class="homework-page">
+  <div class="homework-page">
     <custom-nav-bar title="作业管理" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="hw-list">
-        <view v-for="item in homeworks" :key="item.id" class="hw-card" @tap="goDetail(item)">
-          <view :class="['status-dot', isExpired(item.deadline) ? 'expired' : 'active']"></view>
-          <view class="hw-body">
-            <text class="hw-title">{{ item.title }}</text>
-            <text class="hw-course" v-if="item.creator_name">发布人：{{ item.creator_name }}</text>
-            <view class="hw-meta">
-              <text class="meta-deadline">截止：{{ formatDate(item.deadline) }}</text>
-              <view :class="['status-tag', isExpired(item.deadline) ? 'expired' : 'active']">{{ isExpired(item.deadline) ? '已截止' : '进行中' }}</view>
-            </view>
-            <text class="hw-sub" v-if="typeof item.submission_count === 'number'">已提交 {{ item.submission_count }} 人</text>
-          </view>
-        </view>
+    <div scroll-y class="main-scroll">
+      <div class="hw-list">
+        <div v-for="item in homeworks" :key="item.id" class="hw-card" @tap="goDetail(item)">
+          <div :class="['status-dot', isExpired(item.deadline) ? 'expired' : 'active']"></div>
+          <div class="hw-body">
+            <span class="hw-title">{{ item.title }}</span>
+            <span class="hw-course" v-if="item.creator_name">发布人：{{ item.creator_name }}</span>
+            <div class="hw-meta">
+              <span class="meta-deadline">截止：{{ formatDate(item.deadline) }}</span>
+              <div :class="['status-tag', isExpired(item.deadline) ? 'expired' : 'active']">{{ isExpired(item.deadline) ? '已截止' : '进行中' }}</div>
+            </div>
+            <span class="hw-sub" v-if="typeof item.submission_count === 'number'">已提交 {{ item.submission_count }} 人</span>
+          </div>
+        </div>
 
-        <view v-if="!loading && homeworks.length === 0" class="empty-state">
-          <text class="empty-icon">📚</text>
-          <text class="empty-title">暂无作业</text>
-          <text class="empty-hint">{{ canPublish ? '点击右下角发布第一份作业' : '老师布置作业后会显示在这里' }}</text>
-        </view>
-      </view>
+        <div v-if="!loading && homeworks.length === 0" class="empty-state">
+          <span class="empty-icon">📚</span>
+          <span class="empty-title">暂无作业</span>
+          <span class="empty-hint">{{ canPublish ? '点击右下角发布第一份作业' : '老师布置作业后会显示在这里' }}</span>
+        </div>
+      </div>
 
-      <view style="height: 160rpx;"></view>
-    </scroll-view>
+      <div style="height: 160rpx;"></div>
+    </div>
 
-    <view v-if="canPublish" class="fab" @tap="goPublish">
-      <text class="fab-icon">+</text>
-    </view>
+    <div v-if="canPublish" class="fab" @tap="goPublish">
+      <span class="fab-icon">+</span>
+    </div>
     <custom-tab-bar current="homework" />
-  </view>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { getHomeworks } from '@/api/homework'
-
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 
@@ -74,9 +75,10 @@ async function fetchList() {
 }
 
 function goDetail(item) { uni.navigateTo({ url: `/pages/homework/detail?id=${item.id}` }) }
-function goPublish() { uni.navigateTo({ url: '/pages/homework/publish' }) }
+function goPublish() { router.push('/pages/homework/publish') }
 
 onShow(() => { fetchList() })
+
 </script>
 
 <style lang="scss" scoped>

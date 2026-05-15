@@ -1,14 +1,14 @@
 <template>
-  <view class="login-container">
-    <view class="login-header">
-      <text class="title">学号密码登录</text>
-      <text class="subtitle">请输入学号和密码进行登录</text>
-    </view>
+  <div class="login-container">
+    <div class="login-header">
+      <span class="title">学号密码登录</span>
+      <span class="subtitle">请输入学号和密码进行登录</span>
+    </div>
 
-    <view class="login-form">
+    <div class="login-form">
       <!-- 学号输入 -->
-      <view class="input-group">
-        <text class="label">学号</text>
+      <div class="input-group">
+        <span class="label">学号</span>
         <input
           class="input-field"
           type="text"
@@ -17,13 +17,13 @@
           maxlength="20"
           @input="onStudentIdInput"
         />
-        <text v-if="studentIdError" class="error-text">{{ studentIdError }}</text>
-      </view>
+        <span v-if="studentIdError" class="error-text">{{ studentIdError }}</span>
+      </div>
 
       <!-- 密码输入 -->
-      <view class="input-group">
-        <text class="label">密码</text>
-        <view class="password-input-container">
+      <div class="input-group">
+        <span class="label">密码</span>
+        <div class="password-input-container">
           <input
             class="input-field password-input"
             :type="showPassword ? 'text' : 'password'"
@@ -31,11 +31,11 @@
             v-model="password"
           />
           <button class="toggle-password-btn" @click="togglePassword">
-            <text>{{ showPassword ? '🙈' : '👁️' }}</text>
+            <span>{{ showPassword ? '🙈' : '👁️' }}</span>
           </button>
-        </view>
-        <text v-if="passwordError" class="error-text">{{ passwordError }}</text>
-      </view>
+        </div>
+        <span v-if="passwordError" class="error-text">{{ passwordError }}</span>
+      </div>
 
       <!-- 登录按钮 -->
       <button
@@ -47,18 +47,20 @@
       </button>
 
       <!-- 底部链接 -->
-      <view class="bottom-links">
-          <text class="link-text" @click="goBack">返回登录方式选择</text>
-      </view>
-    </view>
-  </view>
+      <div class="bottom-links">
+          <span class="link-text" @click="goBack">返回登录方式选择</span>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+
+
+import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { post } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
-
 const userStore = useUserStore()
 
 // 响应式数据
@@ -138,14 +140,14 @@ const handleLogin = async () => {
 
     userStore.setTokenAndProfile(result.token, result.user)
 
-    uni.hideLoading()
-    uni.showToast({ title: '登录成功', icon: 'success' })
+    
+    showToast('登录成功')
 
     setTimeout(() => {
-      uni.reLaunch({ url: '/pages/index/index' })
+      router.replace('/pages/index/index')
     }, 800)
   } catch (error: any) {
-    uni.hideLoading()
+    
     const message = error.message || '登录失败，请稍后重试'
     uni.showToast({ title: message, icon: 'none', duration: 3000 })
   } finally {
@@ -155,14 +157,13 @@ const handleLogin = async () => {
 
 // 返回登录方式选择
 const goBack = () => {
-  uni.navigateBack()
+  router.back()
 }
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-
-.login-container {
+@import "@/uni.scss";.login-container {
   min-height: 100vh;
   background: $gradient-primary;
   padding: 60rpx 40rpx;

@@ -1,46 +1,47 @@
 <template>
-  <view class="vote-page">
+  <div class="vote-page">
     <custom-nav-bar title="投票" />
-    <scroll-view scroll-y class="main-scroll">
-      <view class="vote-list">
-        <view v-for="item in votes" :key="item.id" class="vote-card" @tap="goDetail(item)">
-          <view class="card-accent" :class="item.status"></view>
-          <view class="card-body">
-            <view class="card-top">
-              <text class="vote-title">{{ item.title }}</text>
-              <view :class="['status-badge', item.status]">{{ statusText(item.status) }}</view>
-            </view>
-            <text class="vote-desc">{{ item.desc }}</text>
-            <view class="vote-meta">
-              <text class="meta-item">{{ item.type === 'single' ? '单选' : '多选' }}</text>
-              <text class="meta-dot">·</text>
-              <text class="meta-item">{{ item.total }}人已参与</text>
-              <text class="meta-dot">·</text>
-              <text class="meta-item">{{ item.deadline }}</text>
-            </view>
-            <view class="scope-row-sm" v-if="item.visible_scope === 'admin' || item.vote_scope === 'admin'">
-              <text class="scope-tag-sm" v-if="item.visible_scope === 'admin'">👁️ 仅班干部</text>
-              <text class="scope-tag-sm" v-if="item.vote_scope === 'admin'">🗳️ 仅班干部</text>
-            </view>
-          </view>
-        </view>
+    <div scroll-y class="main-scroll">
+      <div class="vote-list">
+        <div v-for="item in votes" :key="item.id" class="vote-card" @tap="goDetail(item)">
+          <div class="card-accent" :class="item.status"></div>
+          <div class="card-body">
+            <div class="card-top">
+              <span class="vote-title">{{ item.title }}</span>
+              <div :class="['status-badge', item.status]">{{ statusText(item.status) }}</div>
+            </div>
+            <span class="vote-desc">{{ item.desc }}</span>
+            <div class="vote-meta">
+              <span class="meta-item">{{ item.type === 'single' ? '单选' : '多选' }}</span>
+              <span class="meta-dot">·</span>
+              <span class="meta-item">{{ item.total }}人已参与</span>
+              <span class="meta-dot">·</span>
+              <span class="meta-item">{{ item.deadline }}</span>
+            </div>
+            <div class="scope-row-sm" v-if="item.visible_scope === 'admin' || item.vote_scope === 'admin'">
+              <span class="scope-tag-sm" v-if="item.visible_scope === 'admin'">👁️ 仅班干部</span>
+              <span class="scope-tag-sm" v-if="item.vote_scope === 'admin'">🗳️ 仅班干部</span>
+            </div>
+          </div>
+        </div>
 
-        <view v-if="votes.length === 0" class="empty-state"><text class="empty-text">暂无投票</text></view>
-      </view>
+        <div v-if="votes.length === 0" class="empty-state"><span class="empty-text">暂无投票</span></div>
+      </div>
 
-      <button v-if="canCreate" class="create-btn" @tap="goCreate"><text class="create-text">+ 创建投票</text></button>
+      <button v-if="canCreate" class="create-btn" @tap="goCreate"><span class="create-text">+ 创建投票</span></button>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { onActivated, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { getVotes, isVoteSingle, getVoteStatus } from '@/api/vote'
 import { isAdmin } from '@/utils/auth'
-
 const votes = ref([])
 const canCreate = ref(false)
 
@@ -74,12 +75,13 @@ async function fetchData() {
 
 function statusText2(s) { return statusText(s) }
 function goDetail(item) { uni.navigateTo({ url: `/pages/vote/detail?id=${item.id}` }) }
-function goCreate() { uni.navigateTo({ url: '/pages/vote/create' }) }
+function goCreate() { router.push('/pages/vote/create') }
 
 onShow(() => {
   canCreate.value = isAdmin()
   fetchData()
 })
+
 </script>
 
 <style lang="scss" scoped>

@@ -1,26 +1,27 @@
 <template>
-  <view class="hero-section">
-    <view class="hero-card">
-      <view class="hero-top">
-        <image class="hero-avatar" :src="avatar" mode="aspectFill" />
-        <view class="hero-meta">
-          <text class="hero-greeting">{{ greeting }}</text>
-          <text class="hero-name">{{ displayName }}</text>
-          <view class="hero-tags">
-            <text class="hero-tag primary">{{ roleLabel }}</text>
-            <text v-if="classId" class="hero-tag">{{ classId }}</text>
-          </view>
-        </view>
-      </view>
-      <view class="hero-bottom">
-        <text class="hero-date">{{ currentDate }}</text>
-        <text v-if="studentId" class="hero-sid">学号 {{ studentId }}</text>
-      </view>
-    </view>
-  </view>
+  <div class="hero-section">
+    <div class="hero-card">
+      <div class="hero-top">
+        <img class="hero-avatar" :src="avatar" mode="aspectFill" />
+        <div class="hero-meta">
+          <span class="hero-greeting">{{ greeting }}</span>
+          <span class="hero-name">{{ displayName }}</span>
+          <div class="hero-tags">
+            <span class="hero-tag primary">{{ roleLabel }}</span>
+            <span v-if="classId" class="hero-tag">{{ classId }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-bottom">
+        <span class="hero-date">{{ currentDate }}</span>
+        <span v-if="studentId" class="hero-sid">学号 {{ studentId }}</span>
+      </div>
+    </div>
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+
 defineProps({
   avatar: { type: String, default: '' },
   displayName: { type: String, default: '' },
@@ -30,6 +31,7 @@ defineProps({
   currentDate: { type: String, default: '' },
   greeting: { type: String, default: '' }
 })
+
 </script>
 
 <style lang="scss" scoped>

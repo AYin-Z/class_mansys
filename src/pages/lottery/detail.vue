@@ -1,56 +1,57 @@
 <template>
-  <view class="detail-page">
+  <div class="detail-page">
     <custom-nav-bar title="抽奖详情" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll">
-      <view v-if="lottery" class="lottery-info">
-        <text class="l-title">{{ lottery.name }}</text>
-        <text class="l-desc">{{ lottery.description || '' }}</text>
-        <view class="info-grid">
-          <view class="info-item"><text class="info-val">{{ participantCount }}</text><text class="info-label">参与人数</text></view>
-          <view class="info-item"><text class="info-val">{{ lottery.winner_count || 0 }}</text><text class="info-label">中奖人数</text></view>
-          <view class="info-item"><text class="info-val">{{ formatDate(lottery.end_time) }}</text><text class="info-label">截止时间</text></view>
-        </view>
+    <div scroll-y class="main-scroll">
+      <div v-if="lottery" class="lottery-info">
+        <span class="l-title">{{ lottery.name }}</span>
+        <span class="l-desc">{{ lottery.description || '' }}</span>
+        <div class="info-grid">
+          <div class="info-item"><span class="info-val">{{ participantCount }}</span><span class="info-label">参与人数</span></div>
+          <div class="info-item"><span class="info-val">{{ lottery.winner_count || 0 }}</span><span class="info-label">中奖人数</span></div>
+          <div class="info-item"><span class="info-val">{{ formatDate(lottery.end_time) }}</span><span class="info-label">截止时间</span></div>
+        </div>
 
-        <view class="prize-list-section">
-          <text class="section-sub">活动规则</text>
-          <text class="rules-text">{{ lottery.rules }}</text>
-        </view>
-      </view>
+        <div class="prize-list-section">
+          <span class="section-sub">活动规则</span>
+          <span class="rules-text">{{ lottery.rules }}</span>
+        </div>
+      </div>
 
       <button class="join-btn" v-if="canJoin" @click="join">参与抽奖</button>
-      <view class="joined-tag" v-else-if="myRecord">
+      <div class="joined-tag" v-else-if="myRecord">
         {{ myRecord.is_winner ? `🏆 已中奖：${myRecord.prize || '神秘奖品'}` : '✓ 已参与，未中奖' }}
-      </view>
+      </div>
 
-      <view v-if="isAdminUser && lottery" class="info-card">
-        <text class="section-label">管理员操作</text>
-        <view class="btn-row">
+      <div v-if="isAdminUser && lottery" class="info-card">
+        <span class="section-label">管理员操作</span>
+        <div class="btn-row">
           <button class="action-btn" @tap="openDraw" v-if="lottery.is_active">开奖</button>
           <button class="action-btn" @tap="closeNow" v-if="lottery.is_active">关闭</button>
-        </view>
-      </view>
+        </div>
+      </div>
 
-      <view v-if="winners.length" class="info-card">
-        <text class="section-label">中奖名单</text>
-        <view v-for="w in winners" :key="w.id" class="winner-row">
-          <text class="winner-name">🏆 {{ w.user_name }}</text>
-          <text class="winner-prize">{{ w.prize || '神秘奖品' }}</text>
-        </view>
-      </view>
+      <div v-if="winners.length" class="info-card">
+        <span class="section-label">中奖名单</span>
+        <div v-for="w in winners" :key="w.id" class="winner-row">
+          <span class="winner-name">🏆 {{ w.user_name }}</span>
+          <span class="winner-prize">{{ w.prize || '神秘奖品' }}</span>
+        </div>
+      </div>
 
-      <view style="height: 80rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 80rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, computed } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
+
+import { computed, onActivated, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { getLotteryDetail, joinLottery, drawLottery, closeLottery } from '@/api/lottery'
-
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
@@ -88,7 +89,7 @@ async function join() {
       if (!r.confirm) return
       try {
         await joinLottery(id.value)
-        uni.showToast({ title: '已参与', icon: 'success' })
+        showToast('已参与')
         fetch()
       } catch (_) {}
     }
@@ -104,11 +105,11 @@ function openDraw() {
       if (!r.confirm) return
       const winnerCount = Number(r.content)
       if (!Number.isFinite(winnerCount) || winnerCount <= 0) {
-        uni.showToast({ title: '人数无效', icon: 'none' }); return
+        showToast('人数无效'); return
       }
       try {
         await drawLottery(id.value, { winner_count: winnerCount, prize: '神秘奖品' })
-        uni.showToast({ title: '开奖成功', icon: 'success' })
+        showToast('开奖成功')
         fetch()
       } catch (_) {}
     }
@@ -118,18 +119,18 @@ function openDraw() {
 async function closeNow() {
   try {
     await closeLottery(id.value)
-    uni.showToast({ title: '已关闭', icon: 'success' })
+    showToast('已关闭')
     fetch()
   } catch (_) {}
 }
 
 onLoad((opts) => { id.value = Number(opts?.id) || null })
 onShow(() => fetch())
+
 </script>
 
 <style lang="scss" scoped>
-@import "@/uni.scss";
-.detail-page { min-height: 100vh; background-color: #f7f9fc; }
+@import "@/uni.scss";.detail-page { min-height: 100vh; background-color: #f7f9fc; }
 .main-scroll { height: 100vh; padding-top: calc(env(safe-area-inset-top) + 88rpx); }
 
 .lottery-info { margin: 24rpx 32rpx; background: linear-gradient(135deg, #001e40, #003366); border-radius: 22rpx; padding: 32rpx 28rpx; }

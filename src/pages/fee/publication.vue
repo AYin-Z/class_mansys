@@ -1,56 +1,57 @@
 <template>
-  <view class="publication-page">
+  <div class="publication-page">
     <custom-nav-bar title="财务公示" :showBack="true" />
-    <scroll-view scroll-y class="main-scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="loadData">
-      <view class="pub-list">
-        <view v-for="item in publications" :key="item.id" class="pub-card">
-          <view class="card-accent"></view>
-          <view class="card-body">
-            <view class="card-header">
-              <text class="pub-title">{{ item.title }}</text>
-              <text class="pub-period">{{ item.period || '' }}</text>
-            </view>
+    <div scroll-y class="main-scroll" refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="loadData">
+      <div class="pub-list">
+        <div v-for="item in publications" :key="item.id" class="pub-card">
+          <div class="card-accent"></div>
+          <div class="card-body">
+            <div class="card-header">
+              <span class="pub-title">{{ item.title }}</span>
+              <span class="pub-period">{{ item.period || '' }}</span>
+            </div>
 
-            <view class="finance-grid">
-              <view class="finance-item">
-                <text class="finance-label">收入</text>
-                <text class="finance-value income">+¥{{ Number(item.total_income || 0).toFixed(2) }}</text>
-              </view>
-              <view class="finance-item">
-                <text class="finance-label">支出</text>
-                <text class="finance-value expense">-¥{{ Number(item.total_expense || 0).toFixed(2) }}</text>
-              </view>
-              <view class="finance-item accent">
-                <text class="finance-label">结余</text>
-                <text class="finance-value balance">¥{{ Number(item.balance || 0).toFixed(2) }}</text>
-              </view>
-            </view>
+            <div class="finance-grid">
+              <div class="finance-item">
+                <span class="finance-label">收入</span>
+                <span class="finance-value income">+¥{{ Number(item.total_income || 0).toFixed(2) }}</span>
+              </div>
+              <div class="finance-item">
+                <span class="finance-label">支出</span>
+                <span class="finance-value expense">-¥{{ Number(item.total_expense || 0).toFixed(2) }}</span>
+              </div>
+              <div class="finance-item accent">
+                <span class="finance-label">结余</span>
+                <span class="finance-value balance">¥{{ Number(item.balance || 0).toFixed(2) }}</span>
+              </div>
+            </div>
 
-            <view class="pub-desc" v-if="item.details_json">
-              <text class="desc-title">明细</text>
-              <text class="desc-content">{{ typeof item.details_json === 'string' ? item.details_json : JSON.stringify(item.details_json) }}</text>
-            </view>
+            <div class="pub-desc" v-if="item.details_json">
+              <span class="desc-title">明细</span>
+              <span class="desc-content">{{ typeof item.details_json === 'string' ? item.details_json : JSON.stringify(item.details_json) }}</span>
+            </div>
 
-            <view class="pub-footer">
-              <text class="pub-time">发布者：{{ item.publisher_name || '未知' }} · {{ formatTime(item.published_at) }}</text>
-            </view>
-          </view>
-        </view>
+            <div class="pub-footer">
+              <span class="pub-time">发布者：{{ item.publisher_name || '未知' }} · {{ formatTime(item.published_at) }}</span>
+            </div>
+          </div>
+        </div>
 
-        <view v-if="publications.length === 0" class="empty-state">
-          <text class="empty-text">暂无财务公示</text>
-        </view>
-      </view>
+        <div v-if="publications.length === 0" class="empty-state">
+          <span class="empty-text">暂无财务公示</span>
+        </div>
+      </div>
 
-      <view style="height: 40rpx;"></view>
-    </scroll-view>
-  </view>
+      <div style="height: 40rpx;"></div>
+    </div>
+  </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue'
-import { getPublications } from '@/api/fee'
+<script setup lang="ts">
 
+
+import { onMounted, ref } from 'vue'
+import { getPublications } from '@/api/fee'
 const publications = ref([])
 const refreshing = ref(false)
 
@@ -75,6 +76,7 @@ async function loadData() {
 }
 
 onMounted(() => loadData())
+
 </script>
 
 <style lang="scss" scoped>

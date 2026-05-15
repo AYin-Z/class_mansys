@@ -1,13 +1,14 @@
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 <template>
-  <view class="webview-page">
+  <div class="webview-page">
     <custom-nav-bar title="外部系统" :showBack="true" />
     <web-view :src="url"></web-view>
-  </view>
+  </div>
 </template>
 
-<script setup>
-import { ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+<script setup lang="ts">
+
 const url = ref('about:blank')
 
 onLoad((options) => {
@@ -15,6 +16,7 @@ onLoad((options) => {
     url.value = decodeURIComponent(options.url)
   }
 })
+
 </script>
 
 <style lang="scss" scoped>
