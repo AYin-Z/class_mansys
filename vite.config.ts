@@ -29,6 +29,56 @@ export default defineConfig({
   },
   plugins: [
     stripConditionalCompile(),
+    // Convert uni-app template tags & events to HTML/Vue equivalents
+    {
+      name: 'uni-to-vue',
+      enforce: 'pre',
+      transform(code, id) {
+        if (!/\.vue$/.test(id)) return null
+        const templateMatch = code.match(/<template[\s\S]*?<\/template>/)
+        if (!templateMatch) return null
+        let tpl = templateMatch[0]
+        let changed = false
+
+        // 1. Replace @tap with @click (for clickable elements)
+        if (tpl.includes('@tap')) {
+          tpl = tpl.replace(/@tap(?!ple)/g, '@click')
+          changed = true
+        }
+
+        // 2. Replace uni-app tags with standard HTML
+        const tags: [RegExp, string][] = [
+          [/\bview\b/g, 'div'],
+          [/\btext\b/g, 'span'],
+          [/\bnavigator\b/g, 'a'],
+          [/\bimage\b/g, 'img'],
+          [/\bscroll-view\b/g, 'div'],
+        ]
+        // Only replace inside tag names (between < and space/>)
+        for (const [pattern, replacement] of tags) {
+          const newTpl = tpl.replace(new RegExp(`<(${pattern.source})(\\s|>)`, 'g'), `<${replacement}$2`)
+            .replace(new RegExp(`<\\/(${pattern.source})>`, 'g'), `</${replacement}>`)
+          if (newTpl !== tpl) { tpl = newTpl; changed = true }
+        }
+
+        // 3. Convert <navigator url="X"> to <a href="#X"> (vue-router hash mode)
+        const navMatch = tpl.match(/<a\s+url="/g)
+        if (navMatch) {
+          tpl = tpl.replace(/<a\s+url="([^"]+)"/g, `<a href="#$1"`)
+          changed = true
+        }
+
+        // 4. Convert $emit('tap', ...) to $emit('click', ...) so child/parent event names stay in sync
+        //    after @tap→@click conversion on the listener side
+        if (tpl.includes("$emit('tap'")) {
+          tpl = tpl.replace(/\$emit\('tap'/g, "$emit('click'")
+          changed = true
+        }
+
+        if (!changed) return null
+        return code.replace(templateMatch[0], tpl)
+      }
+    },
     vue(),
     // Remove crossorigin from built HTML — mobile browsers can silently
     // reject same-origin module scripts with crossorigin attribute.
