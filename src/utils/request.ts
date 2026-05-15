@@ -102,11 +102,13 @@ function handleAuthFailure() {
 async function request<T = any>(options: RequestOptions): Promise<T> {
   const { url, method = 'GET', data, header = {}, needAuth = true, silent = false } = options
 
-  if (!BASE_URL) {
-    const msg = '未配置后端地址 (VITE_API_BASE_URL)'
-    if (!silent) try { (window as any).uni?.showToast?.({ title: msg, icon: 'none' }) } catch {}
-    return Promise.reject(new ApiError(msg, 0, silent))
-  }
+  // BASE_URL 为空则用同域相对路径（dev 模式 Vite proxy 场景）
+  const effectiveBaseUrl = BASE_URL || ''
+  const requestUrl = effectiveBaseUrl
+    ? `${effectiveBaseUrl}${url}`
+    : url.startsWith('http')
+      ? url
+      : url  // 同域请求
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -119,7 +121,7 @@ async function request<T = any>(options: RequestOptions): Promise<T> {
   }
 
   try {
-    const response = await fetch(`${BASE_URL}${url}`, {
+    const response = await fetch(requestUrl, {
       method,
       headers,
       body: method !== 'GET' && data ? JSON.stringify(data) : undefined,
