@@ -94,7 +94,13 @@ app.get('/health', (req, res) => {
 
 // H5 前端静态文件托管（构建产物在 dist/）
 const h5DistPath = path.join(__dirname, '..', 'dist');
-app.use(express.static(h5DistPath));
+app.use(express.static(h5DistPath, {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+    }
+  }
+}));
 // SPA 历史模式：非 API/文件路径的请求都返回 index.html
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/health') || req.path.startsWith('/uploads')) {
