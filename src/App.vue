@@ -9,7 +9,6 @@ import { onActivated, onDeactivated, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { initCloudBase, checkEnvironment } from "./utils/cloudbase";
 import { useUserStore } from "@/stores/user";
-import { routeGuard } from "@/composables/useRouteGuard";
 import { setRouteGuard } from "@/utils/request";
 import { checkAppUpdate } from "@/utils/update-checker";
 import router from "@/router";
@@ -46,8 +45,13 @@ onMounted(async () => {
 
     const userStore = useUserStore();
     userStore.hydrate();
-    setRouteGuard(() => routeGuard(undefined, true));
-    routeGuard();
+    setRouteGuard(() => {
+      const loginPath = '/pages/login/password-login'
+      if (router.currentRoute.value.path !== loginPath) {
+        router.replace(loginPath)
+      }
+    });
+    // router.beforeEach 已处理首次导航守卫，此处只初始化 store
 
     cloudPromise.then(() => {
       setTimeout(() => {
@@ -79,12 +83,10 @@ onMounted(async () => {
 
 onMounted(() => {
   console.log("App Show");
-  routeGuard();
 });
 
 onActivated(() => {
   console.log("App Show (activated)");
-  routeGuard();
 });
 
 onUnmounted(() => {

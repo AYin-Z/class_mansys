@@ -302,4 +302,34 @@ const router = createRouter({
   routes
 })
 
+const PUBLIC_ROUTES = [
+  '/pages/login/password-login',
+  '/pages/login/phone-login',
+  '/pages/login/email-login',
+]
+
+const DEFAULT_LOGIN = '/pages/login/password-login'
+
+router.beforeEach((to) => {
+  // 白名单路由 → 通行
+  for (const prefix of PUBLIC_ROUTES) {
+    if (to.path.startsWith(prefix)) return true
+  }
+
+  // 检查 token
+  const token = localStorage.getItem('backend_token')
+  if (!token) {
+    return DEFAULT_LOGIN
+  }
+
+  // 有 token 但 profile 为空 → 可能未初始化，先尝试从 localStorage 恢复
+  const profileRaw = localStorage.getItem('user_profile')
+  if (!profileRaw) {
+    return DEFAULT_LOGIN
+  }
+
+  // 二者皆有 → 通行
+  return true
+})
+
 export default router
