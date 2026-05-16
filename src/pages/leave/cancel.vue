@@ -43,6 +43,7 @@ import { computed, onActivated, onMounted, ref } from 'vue'
 import { getMyLeaves, cancelLeave } from '@/api/leave'
 import { hasBackendToken } from '@/utils/request'
 import { formatLeaveDateTime } from '@/utils/index'
+import { showToast } from '@/utils/ui'
 const allLeaves = ref([])
 
 const activeLeaves = computed(() =>
@@ -70,7 +71,7 @@ function handleCancel(item) {
     content: `确定要销假「${item.leave_type || '请假'}」吗？`,
     success: async (res) => {
       if (!res.confirm) return
-      uni.showLoading({ title: '提交中…' })
+      showToast('提交中…')
       try {
         const r = await cancelLeave(item.id)
         
@@ -78,7 +79,7 @@ function handleCancel(item) {
           showToast('销假成功')
           await load()
         } else {
-          uni.showToast({ title: r.message || '操作失败', icon: 'none' })
+          showToast(r.message || '操作失败', 'error')
         }
       } catch (e) {
         

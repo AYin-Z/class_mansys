@@ -74,7 +74,7 @@ async function fetchList() {
   }
 }
 
-function goDetail(item) { uni.navigateTo({ url: `/pages/homework/detail?id=${item.id}` }) }
+function goDetail(item) { router.push(`/pages/homework/detail?id=${item.id}`) }
 function goPublish() { router.push('/pages/homework/publish') }
 
 onShow(() => { fetchList() })

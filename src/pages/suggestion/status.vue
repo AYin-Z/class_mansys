@@ -59,6 +59,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getSuggestionDetail, handleSuggestion, SUGGESTION_STATUS_LABEL } from '@/api/suggestion'
 import { isAdmin } from '@/utils/auth'
+import { showToast } from '@/utils/ui'
 const detail = ref({})
 const canHandle = ref(false)
 const form = reactive({ status: 1, handler_notes: '' })
@@ -98,7 +99,7 @@ async function fetchDetail(id) {
 }
 
 async function onHandle() {
-  uni.showLoading({ title: '提交中...' })
+  showToast('提交中...')
   try {
     await handleSuggestion(detail.value.id, { status: form.status, handler_notes: form.handler_notes })
     

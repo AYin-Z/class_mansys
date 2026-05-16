@@ -20,13 +20,14 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createAnnouncement } from '@/api/announcement'
+import { showToast } from '@/utils/ui'
 const title = ref('')
 const content = ref('')
 
 async function submit() {
   if (!title.value.trim()) { showToast('请输入标题'); return }
   if (!content.value.trim()) { showToast('请输入内容'); return }
-  uni.showLoading({ title: '发布中...' })
+  showToast('发布中...')
   try {
     await createAnnouncement({ title: title.value.trim(), content: content.value.trim() })
     

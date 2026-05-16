@@ -74,6 +74,7 @@ import { useRouter } from 'vue-router'
 import { canPublishNotice } from '@/utils/auth'
 import { getNotices } from '@/api/notice'
 import { hasBackendToken } from '@/utils/request'
+import { showToast } from '@/utils/ui'
 const currentTab = ref('all')
 const canPublish = ref(false)
 const loading = ref(false)
@@ -112,7 +113,7 @@ function priorityLabel(p) {
 }
 
 function goDetail(item) {
-  uni.navigateTo({ url: `/pages/notice/detail?id=${item.id}` })
+  router.push(`/pages/notice/detail?id=${item.id}`)
 }
 
 function goPublish() {

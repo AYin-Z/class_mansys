@@ -30,6 +30,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { submitSuggestion } from '@/api/suggestion'
+import { showToast } from '@/utils/ui'
 const title = ref('')
 const content = ref('')
 const category = ref('')
@@ -48,7 +49,7 @@ async function submit() {
     ? `【${title.value.trim()}】\n${content.value.trim()}`
     : content.value.trim()
 
-  uni.showLoading({ title: '提交中...' })
+  showToast('提交中...')
   try {
     await submitSuggestion({ content: finalContent, category: category.value })
     

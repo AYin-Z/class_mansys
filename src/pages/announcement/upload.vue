@@ -35,6 +35,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getToken } from '@/utils/request'
 import { createResource } from '@/api/announcement'
+import { showToast } from '@/utils/ui'
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
 
 const categories = ['学习', '生活', '体能', '通知', '其他']
@@ -92,7 +93,7 @@ async function submit() {
   if (!filePath.value) { showToast('请选择文件'); return }
 
   loading.value = true
-  uni.showLoading({ title: '上传中...' })
+  showToast('上传中...')
   try {
     // 1. 上传文件到本地后端
     const uploadResult = await new Promise((resolve, reject) => {
@@ -135,7 +136,7 @@ async function submit() {
     setTimeout(() => router.back(), 800)
   } catch (e) {
     
-    uni.showToast({ title: e.message || '上传失败', icon: 'none' })
+    showToast(e.message || '上传失败', 'error')
   } finally {
     loading.value = false
   }

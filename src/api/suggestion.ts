@@ -39,7 +39,7 @@ export const SUGGESTION_STATUS_LABEL: Record<number, string> = {
 }
 
 export function getMyIds(): number[] {
-  const raw = uni.getStorageSync(MY_IDS_KEY)
+  const raw = JSON.parse(localStorage.getItem(MY_IDS_KEY) || 'null')
   if (!raw) return []
   try {
     const arr = typeof raw === 'string' ? JSON.parse(raw) : raw
@@ -52,7 +52,7 @@ export function getMyIds(): number[] {
 export function appendMyId(id: number) {
   const ids = getMyIds()
   if (!ids.includes(id)) ids.unshift(id)
-  uni.setStorageSync(MY_IDS_KEY, JSON.stringify(ids.slice(0, 200)))
+  localStorage.setItem(MY_IDS_KEY, JSON.stringify(JSON.stringify(ids.slice(0, 200))))
 }
 
 export async function submitSuggestion(params: SuggestionSubmitParams) {

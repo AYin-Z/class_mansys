@@ -59,6 +59,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { getCollections, getCollectionDetail, getCollectionRecords, createCollection, payCollection, exemptCollection, closeCollection } from '@/api/fee'
 import { useUserStore } from '@/stores/user'
+import { showToast } from '@/utils/ui'
 const userStore = useUserStore()
 const currentCollection = ref(null)
 const memberRecords = ref([])
@@ -71,7 +72,7 @@ const progressPercent = computed(() => {
 })
 
 async function loadCollections() {
-  uni.showLoading({ title: '加载中...' })
+  showToast('加载中...')
   try {
     const res = await getCollections()
     if (res.success && res.collections.length > 0) {
@@ -128,7 +129,7 @@ async function handleCreateCollection() {
   const amount = validateAmount(amountRes.content)
   if (amount === null) return
 
-  uni.showLoading({ title: '发起中...' })
+  showToast('发起中...')
   try {
     const res = await createCollection({
       title: titleRes.content.trim(),
@@ -139,7 +140,7 @@ async function handleCreateCollection() {
       showToast('收缴已发起')
       await loadCollections()
     } else {
-      uni.showToast({ title: res.message || '发起失败', icon: 'none' })
+      showToast(res.message || '发起失败', 'error')
     }
   } catch (e) {
     showToast('发起失败')
@@ -163,14 +164,14 @@ async function handlePay(record) {
   const amount = validateAmount(amountStr)
   if (amount === null) return
 
-  uni.showLoading({ title: '缴纳中...' })
+  showToast('缴纳中...')
   try {
     const result = await payCollection(currentCollection.value.id, amount)
     if (result.success) {
       showToast('缴纳成功')
       await loadCollections()
     } else {
-      uni.showToast({ title: result.message || '缴纳失败', icon: 'none' })
+      showToast(result.message || '缴纳失败', 'error')
     }
   } catch (e) {
     showToast('缴纳失败')
@@ -189,14 +190,14 @@ async function handleExempt(record) {
   })
   if (!res?.confirm) return
 
-  uni.showLoading({ title: '处理中...' })
+  showToast('处理中...')
   try {
     const result = await exemptCollection(currentCollection.value.id, record.user_id, res.content || '')
     if (result.success) {
       showToast('已标记免缴')
       await loadCollections()
     } else {
-      uni.showToast({ title: result.message || '操作失败', icon: 'none' })
+      showToast(result.message || '操作失败', 'error')
     }
   } catch (e) {
     showToast('操作失败')
@@ -210,14 +211,14 @@ async function handleClose() {
   const res = await showConfirm('', '确定截止本次收缴？截止后不可再缴纳。')
   if (!res?.confirm) return
 
-  uni.showLoading({ title: '处理中...' })
+  showToast('处理中...')
   try {
     const result = await closeCollection(currentCollection.value.id)
     if (result.success) {
       showToast('已截止')
       await loadCollections()
     } else {
-      uni.showToast({ title: result.message || '操作失败', icon: 'none' })
+      showToast(result.message || '操作失败', 'error')
     }
   } catch (e) {
     showToast('操作失败')

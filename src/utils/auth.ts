@@ -43,7 +43,7 @@ export function setCurrentUser(user: Record<string, any>): void {
     const store = useUserStore()
     store.setProfile(user as any)
   } catch {
-    uni.setStorageSync('user_profile', user)
+    localStorage.setItem('user_profile', JSON.stringify(user))
   }
-  uni.setStorageSync('isRegistered', true)
+  localStorage.setItem('isRegistered', JSON.stringify(true))
 }

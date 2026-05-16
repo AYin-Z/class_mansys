@@ -26,6 +26,7 @@
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { submitPsychApplication } from '@/api/psychological'
+import { showToast } from '@/utils/ui'
 const types = ['情绪疏导', '学业压力', '人际关系', '睡眠问题', '其他']
 const form = reactive({ type: '', detail: '' })
 
@@ -34,7 +35,7 @@ function onTypeChange(e) { form.type = types[e.detail.value] }
 async function submit() {
   if (!form.type) { showToast('请选择类型'); return }
   if (!form.detail) { showToast('请填写详情'); return }
-  uni.showLoading({ title: '提交中...' })
+  showToast('提交中...')
   try {
     const content = `[${form.type}] ${form.detail}`
     const res = await submitPsychApplication(content)

@@ -41,6 +41,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getToken } from '@/utils/request'
 import { getAlbumDetail, uploadPhotos } from '@/api/album'
+import { showToast } from '@/utils/ui'
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
 
 const albumId = ref(null)
@@ -127,7 +128,7 @@ async function submit() {
     fetchAlbum()
   } catch (e) {
     
-    uni.showToast({ title: e.message || '上传失败', icon: 'none' })
+    showToast(e.message || '上传失败', 'error')
   } finally {
     loading.value = false
   }

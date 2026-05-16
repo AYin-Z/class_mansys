@@ -63,6 +63,7 @@ import { computed, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { post } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
+import { showToast } from '@/utils/ui'
 const userStore = useUserStore()
 
 // 表单数据
@@ -106,10 +107,10 @@ const sendCode = async () => {
       showToast('验证码已发送')
       startCountdown()
     } else {
-      uni.showToast({ title: res.message || '发送失败', icon: 'none' })
+      showToast(res.message || '发送失败', 'error')
     }
   } catch (err: any) {
-    uni.showToast({ title: err.message || '发送验证码失败', icon: 'none' })
+    showToast(err.message || '发送验证码失败', 'error')
   } finally {
     sending.value = false
   }
@@ -179,7 +180,7 @@ const handleLogin = async () => {
       showToast('登录失败，请重试')
     }
   } catch (err: any) {
-    uni.showToast({ title: err.message || '登录失败', icon: 'none' })
+    showToast(err.message || '登录失败', 'error')
   } finally {
     logging.value = false
   }

@@ -89,7 +89,7 @@ async function fetchList() {
 }
 
 function goApply() { router.push('/pages/psychological/apply') }
-function goDetail(item) { uni.navigateTo({ url: `/pages/psychological/status?id=${item.id}` }) }
+function goDetail(item) { router.push(`/pages/psychological/status?id=${item.id}`) }
 
 onShow(() => { fetchList() })
 

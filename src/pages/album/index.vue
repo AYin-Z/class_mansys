@@ -54,7 +54,7 @@ async function fetchAlbums() {
 }
 
 function goAlbum(item) {
-  uni.navigateTo({ url: `/pages/album/upload?id=${item.id}&name=${encodeURIComponent(item.name)}` })
+  router.push(`/pages/album/upload?id=${item.id}&name=${encodeURIComponent(item.name)}`)
 }
 
 function goCreate() {

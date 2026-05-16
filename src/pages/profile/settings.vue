@@ -62,6 +62,7 @@ import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { put, post } from '@/utils/request'
+import { showToast } from '@/utils/ui'
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 
@@ -94,7 +95,7 @@ async function saveProfile() {
       showToast('保存成功')
       userStore.hydrate()
     } else {
-      uni.showToast({ title: res.error || '保存失败', icon: 'none' })
+      showToast(res.error || '保存失败', 'error')
     }
   } catch (e) {
     showToast('保存失败')
@@ -116,7 +117,7 @@ async function changePassword() {
       showToast('密码修改成功')
       pwForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
     } else {
-      uni.showToast({ title: res.error || '修改失败', icon: 'none' })
+      showToast(res.error || '修改失败', 'error')
     }
   } catch (e) {
     showToast('修改失败')

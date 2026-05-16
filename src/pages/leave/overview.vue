@@ -115,7 +115,7 @@ const groupedTypes = computed(() => {
 })
 
 function goDetail(item) {
-  uni.navigateTo({ url: `/pages/leave/detail?id=${item.id}` })
+  router.push(`/pages/leave/detail?id=${item.id}`)
 }
 
 onMounted(async () => {

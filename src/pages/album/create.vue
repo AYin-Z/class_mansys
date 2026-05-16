@@ -20,12 +20,13 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createAlbum } from '@/api/album'
+import { showToast } from '@/utils/ui'
 const name = ref('')
 const desc = ref('')
 
 async function submit() {
   if (!name.value.trim()) { showToast('请输入名称'); return }
-  uni.showLoading({ title: '创建中...' })
+  showToast('创建中...')
   try {
     await createAlbum({ name: name.value.trim(), description: desc.value.trim() })
     

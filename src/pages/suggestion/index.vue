@@ -90,7 +90,7 @@ function switchTab(t) {
 }
 
 function goSubmit() { router.push('/pages/suggestion/submit') }
-function goStatus(item) { uni.navigateTo({ url: `/pages/suggestion/status?id=${item.id}` }) }
+function goStatus(item) { router.push(`/pages/suggestion/status?id=${item.id}`) }
 
 onShow(() => {
   canViewAll.value = isAdmin()

@@ -75,7 +75,7 @@ async function fetchList() {
   finally { loading.value = false }
 }
 
-function goDetail(item) { uni.navigateTo({ url: `/pages/lottery/detail?id=${item.id}` }) }
+function goDetail(item) { router.push(`/pages/lottery/detail?id=${item.id}`) }
 function goCreate() { router.push('/pages/lottery/create') }
 
 onShow(() => fetchList())

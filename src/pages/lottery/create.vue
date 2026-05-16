@@ -32,6 +32,7 @@
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { createLottery } from '@/api/lottery'
+import { showToast } from '@/utils/ui'
 const form = reactive({ name: '', description: '', rules: '', startDate: '', endDate: '' })
 
 async function submit() {
@@ -39,7 +40,7 @@ async function submit() {
   if (!form.rules) { showToast('请输入规则'); return }
   if (!form.startDate || !form.endDate) { showToast('请选择起止日期'); return }
 
-  uni.showLoading({ title: '创建中...' })
+  showToast('创建中...')
   try {
     await createLottery({
       name: form.name,

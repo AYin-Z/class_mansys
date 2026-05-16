@@ -25,6 +25,7 @@ import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { createChallenge } from '@/api/challenge'
+import { showToast } from '@/utils/ui'
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const canCreate = computed(() => checkIsAdmin(profile.value?.role))
@@ -40,7 +41,7 @@ async function submit() {
   if (!form.name) { showToast('请输入擂台名称'); return }
   if (!form.description) { showToast('请输入描述'); return }
 
-  uni.showLoading({ title: '创建中...' })
+  showToast('创建中...')
   try {
     await createChallenge({ name: form.name, type: form.type, description: form.description })
     

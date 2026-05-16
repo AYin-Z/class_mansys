@@ -74,7 +74,7 @@ async function fetchData() {
 }
 
 function statusText2(s) { return statusText(s) }
-function goDetail(item) { uni.navigateTo({ url: `/pages/vote/detail?id=${item.id}` }) }
+function goDetail(item) { router.push(`/pages/vote/detail?id=${item.id}`) }
 function goCreate() { router.push('/pages/vote/create') }
 
 onShow(() => {

@@ -41,6 +41,7 @@
 
 import { computed, onMounted, ref } from 'vue'
 import { getAllExpenses } from '@/api/fee'
+import { showToast } from '@/utils/ui'
 const filter = ref('all')
 const expenses = ref([])
 
@@ -68,7 +69,7 @@ const groupedRecords = computed(() => {
 })
 
 onMounted(async () => {
-  uni.showLoading({ title: '加载中...' })
+  showToast('加载中...')
   try {
     const res = await getAllExpenses()
     if (res.success) expenses.value = res.expenses

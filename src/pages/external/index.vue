@@ -30,7 +30,7 @@ const systems = ref([
 ])
 
 function openSystem(item) {
-  uni.navigateTo({ url: `/pages/external/webview?name=${encodeURIComponent(item.name)}&url=${encodeURIComponent(item.url || '')}` })
+  router.push(`/pages/external/webview?name=${encodeURIComponent(item.name)}&url=${encodeURIComponent(item.url || '')}`)
 }
 
 </script>

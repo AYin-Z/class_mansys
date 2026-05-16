@@ -61,6 +61,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { post } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
+import { showToast } from '@/utils/ui'
 const userStore = useUserStore()
 
 // 响应式数据
@@ -126,7 +127,7 @@ const handleLogin = async () => {
 
   try {
     loading.value = true
-    uni.showLoading({ title: '登录中...' })
+    showToast('登录中...')
 
     const result = await post(
       '/api/auth/login-with-password',
@@ -149,7 +150,7 @@ const handleLogin = async () => {
   } catch (error: any) {
     
     const message = error.message || '登录失败，请稍后重试'
-    uni.showToast({ title: message, icon: 'none', duration: 3000 })
+      showToast(message, 'error')
   } finally {
     loading.value = false
   }
