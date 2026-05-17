@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { isAdmin, hasRole } = require('../shared/constants');
 
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -18,8 +19,7 @@ function authenticateToken(req, res, next) {
 }
 
 function authorizeAdmin(req, res, next) {
-  // role > 0 即干部（1-8为各级干部/管理员）
-  if (!req.user || !req.user.role || req.user.role < 1) {
+  if (!isAdmin(req.user)) {
     return res.status(403).json({ error: '需要管理员权限' });
   }
   next();
@@ -27,7 +27,7 @@ function authorizeAdmin(req, res, next) {
 
 function authorizeRole(requiredRole) {
   return (req, res, next) => {
-    if (!req.user || req.user.role !== requiredRole) {
+    if (!hasRole(req.user, requiredRole)) {
       return res.status(403).json({ error: '权限不足' });
     }
     next();

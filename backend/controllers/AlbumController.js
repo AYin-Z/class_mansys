@@ -2,8 +2,7 @@ const path = require('path');
 const Album = require('../models/Album');
 const Photo = require('../models/Photo');
 
-const ADMIN_ROLES = new Set([1, 2, 3, 4, 5, 6, 7, 8]);
-const isAdmin = (user) => user && ADMIN_ROLES.has(Number(user.role));
+const { isAdmin } = require('../shared/constants');
 
 class AlbumController {
   /* ---------- 相册 ---------- */

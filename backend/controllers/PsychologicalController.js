@@ -2,8 +2,7 @@ const Psychological = require('../models/Psychological');
 
 // 心理干预只允许：本人 + 心理委员/辅导员/区队长 查看
 // 简化处理：管理员（role>0）即可处理；本人可看自己。
-const ADMIN_ROLES = new Set([1, 2, 3, 4, 5, 6, 7, 8]);
-const isAdmin = (user) => user && ADMIN_ROLES.has(Number(user.role));
+const { isAdmin } = require('../shared/constants');
 
 class PsychologicalController {
   static async create(req, res) {

@@ -1,7 +1,6 @@
 const Suggestion = require('../models/Suggestion');
 
-const ADMIN_ROLES = new Set([1, 2, 3, 4, 5, 6, 7, 8]);
-const isAdmin = (user) => user && ADMIN_ROLES.has(Number(user.role));
+const { isAdmin } = require('../shared/constants');
 
 class SuggestionController {
   static async submit(req, res) {

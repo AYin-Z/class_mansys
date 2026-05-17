@@ -1,4 +1,5 @@
 const Leave = require('../models/Leave');
+const { isAdmin } = require('../shared/constants');
 
 class LeaveController {
   static async applyLeave(req, res) {
@@ -44,8 +45,7 @@ class LeaveController {
         return res.status(404).json({ success: false, error: '请假记录不存在' });
       }
       const isOwner = Number(leave.user_id) === Number(req.user.id);
-      const isAdmin = !!req.user.isAdmin;
-      if (!isOwner && !isAdmin) {
+      if (!isOwner && !isAdmin(req.user)) {
         return res.status(403).json({ success: false, error: '无权查看该请假记录' });
       }
       res.json({ success: true, leave });

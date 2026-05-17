@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const { authenticateToken, authorizeAdmin } = require('../middleware/auth');
+const { isAdmin } = require('../shared/constants');
 
 // 获取所有用户
 router.get('/', authenticateToken, authorizeAdmin, async (req, res) => {
@@ -30,7 +31,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
     // 只能更新自己的信息，管理员可以更新所有
-    if (req.user.id != req.params.id && !req.user.isAdmin) {
+    if (req.user.id != req.params.id && !isAdmin(req.user)) {
       return res.status(403).json({ success: false, error: '权限不足' });
     }
     

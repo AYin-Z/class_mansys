@@ -2,22 +2,13 @@ const Fee = require('../models/Fee');
 const FeeCollection = require('../models/FeeCollection');
 const ExpenseApproval = require('../models/ExpenseApproval');
 const FeePublication = require('../models/FeePublication');
-
-// 后端角色常量（前端 roles.ts 用 ESM 不可 require，这里复制一份）
-// TODO: 提取为 shared/constants.js 共享
-const BACKEND_ROLES = {
-  STUDENT: 0, CLASS_LEADER: 1, LIFE_VICE: 2, STUDY_VICE: 3,
-  PSYCHOLOGICAL_VICE: 4, LEAGUE_SECRETARY: 5, ORGANIZATION_COMMITTEE: 6, PUBLICITY_COMMITTEE: 7,
-  SUPER_ADMIN: 8
-};
-const BACKEND_ADMIN_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
-function isBackendAdmin(user) { return user && BACKEND_ADMIN_IDS.includes(user.role); }
+const { ROLES, isAdmin, hasRole } = require('../shared/constants');
 
 class FeeController {
   // === 收缴 ===
   static async createCollection(req, res) {
     try {
-      if (req.user.role !== BACKEND_ROLES.LIFE_VICE && !req.user.isAdmin) {
+      if (req.user.role !== ROLES.LIFE_VICE && !isAdmin(req.user)) {
         return res.status(403).json({ error: '仅生活副区可发起收缴' });
       }
       const id = await FeeCollection.create({ ...req.body, created_by: req.user.id });
@@ -49,7 +40,7 @@ class FeeController {
 
   static async getCollectionRecords(req, res) {
     try {
-      if (!isBackendAdmin(req.user)) {
+      if (!isAdmin(req.user)) {
         return res.status(403).json({ error: '仅干部可查看缴纳明细' });
       }
       const records = await FeeCollection.getRecords(req.params.id);
@@ -71,7 +62,7 @@ class FeeController {
 
   static async exemptCollection(req, res) {
     try {
-      if (req.user.role !== BACKEND_ROLES.LIFE_VICE && !req.user.isAdmin) {
+      if (req.user.role !== ROLES.LIFE_VICE && !isAdmin(req.user)) {
         return res.status(403).json({ error: '仅生活副区可操作' });
       }
       const { userId, remark } = req.body;
@@ -84,7 +75,7 @@ class FeeController {
 
   static async closeCollection(req, res) {
     try {
-      if (req.user.role !== BACKEND_ROLES.LIFE_VICE && !req.user.isAdmin) {
+      if (req.user.role !== ROLES.LIFE_VICE && !isAdmin(req.user)) {
         return res.status(403).json({ error: '仅生活副区可操作' });
       }
       const success = await FeeCollection.close(req.params.id);
@@ -130,7 +121,7 @@ class FeeController {
 
   static async getAllExpenses(req, res) {
     try {
-      if (!isBackendAdmin(req.user)) {
+      if (!isAdmin(req.user)) {
         return res.status(403).json({ error: '仅干部可查看全部记录' });
       }
       const expenses = await Fee.getAllExpenses();
@@ -153,7 +144,7 @@ class FeeController {
   // === 审批 ===
   static async getPendingApprovals(req, res) {
     try {
-      if (!isBackendAdmin(req.user)) {
+      if (!isAdmin(req.user)) {
         return res.status(403).json({ error: '仅干部可查看' });
       }
       const approvals = await ExpenseApproval.getPendingApprovals(req.user.role);
@@ -218,7 +209,7 @@ class FeeController {
 
   static async getVoteResult(req, res) {
     try {
-      if (!isBackendAdmin(req.user)) {
+      if (!isAdmin(req.user)) {
         return res.status(403).json({ error: '仅干部可查看' });
       }
       const result = await ExpenseApproval.getVoteResult(req.params.id);
@@ -231,7 +222,7 @@ class FeeController {
   // === 公示 ===
   static async createPublication(req, res) {
     try {
-      if (req.user.role !== BACKEND_ROLES.ORGANIZATION_COMMITTEE && !req.user.isAdmin) {
+      if (req.user.role !== ROLES.ORGANIZATION_COMMITTEE && !isAdmin(req.user)) {
         return res.status(403).json({ error: '仅组织委员可发布公示' });
       }
       const id = await FeePublication.create({ ...req.body, published_by: req.user.id });
