@@ -27,7 +27,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 中间件配置
-app.use(helmet({ contentSecurityPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false,
+}));
 app.use(cors({
   origin: function(origin, callback) {
     const allowedOrigins = [
@@ -96,14 +100,22 @@ app.get('/health', (req, res) => {
 const h5DistPath = path.join(__dirname, '..', 'dist');
 app.use(express.static(h5DistPath, {
   setHeaders: (res, path) => {
-    if (path.endsWith('.html')) {
-      res.set('Cache-Control', 'no-store, must-revalidate');
-    }
+    // Vite 构建产物带 crossorigin 属性，需 CORS 头
+    res.set('Access-Control-Allow-Origin', '*');
+    // 禁用所有前端资源的缓存，解决 CDN/浏览器缓存旧版本的问题
+    res.set('Cache-Control', 'no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
   }
 }));
 // SPA 历史模式：非 API/文件路径的请求都返回 index.html
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/health') || req.path.startsWith('/uploads')) {
+    return next();
+  }
+  // 静态资源文件不存在时直接 404，不要返回 index.html
+  // 否则 Vite 6 的 CSS preload 请求不存在的 .css 会收到错误的 text/html
+  if (/\.(js|css|map|json|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot)$/i.test(req.path)) {
     return next();
   }
   res.sendFile(path.join(h5DistPath, 'index.html'));

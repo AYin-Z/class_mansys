@@ -31,6 +31,7 @@ router.post('/login-with-password', AuthController.loginWithPassword);
 
 // 手机号+密码登录
 router.post('/login-with-phone', AuthController.loginWithPhone);
+router.post('/login-with-email', AuthController.loginWithEmail);
 
 // 发送验证码（手机号/邮箱）
 router.post('/send-code', AuthController.sendCode);

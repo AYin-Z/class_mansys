@@ -407,6 +407,38 @@ class AuthController {
   }
 
   /**
+   * 邮箱+密码登录
+   */
+  static async loginWithEmail(req, res) {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ success: false, error: '邮箱和密码不能为空' });
+      }
+
+      const user = await User.findByEmail(email);
+      if (!user) {
+        return res.status(401).json({ success: false, error: '该邮箱未注册' });
+      }
+
+      if (!user.password_hash) {
+        return res.status(401).json({ success: false, error: '该账号未设置密码' });
+      }
+
+      const valid = await bcrypt.compare(password, user.password_hash);
+      if (!valid) {
+        return res.status(401).json({ success: false, error: '密码错误' });
+      }
+
+      const token = AuthController._signToken(user);
+      res.json({ success: true, token, user: AuthController._publicUser(user) });
+    } catch (error) {
+      console.error('邮箱登录失败:', error);
+      res.status(500).json({ success: false, error: '登录失败' });
+    }
+  }
+
+  /**
    * 发送验证码（手机号/邮箱）
    * 开发环境直接返回验证码
    */
