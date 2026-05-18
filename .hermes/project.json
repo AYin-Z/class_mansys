@@ -1,0 +1,89 @@
+{
+  "name": "class_manage_sys",
+  "version": "1.1.1",
+  "description": "区队管理系统 — Vue 3 + uni-app 前端 + Node.js/Express 后端",
+
+  "stack": ["vue", "uni-app", "node", "capacitor"],
+
+  "services": {
+    "frontend": {
+      "path": "src/",
+      "stack": "vue",
+      "required": true,
+      "port": null,
+      "build": "npm run build:h5",
+      "dev": "npm run dev",
+      "domain": "cls.ayinserver.xin"
+    },
+    "backend": {
+      "path": "backend/",
+      "stack": "node",
+      "required": true,
+      "port": 3002,
+      "start": "cd backend && npm start",
+      "domain": "cls.ayinserver.xin"
+    }
+  },
+
+  "agents": ["hermes", "trae"],
+
+  "checks": {
+    "lint": {
+      "command": null,
+      "required": false,
+      "note": "暂无 lint 配置 — 建议后续引入 eslint"
+    },
+    "typecheck": {
+      "command": null,
+      "required": false,
+      "note": "暂无 typecheck 配置"
+    },
+    "test": {
+      "command": null,
+      "required": false,
+      "note": "暂无测试框架"
+    },
+    "build": {
+      "command": "npm run build:h5",
+      "required": true,
+      "note": "uni-app H5 生产构建"
+    },
+    "security": {
+      "command": null,
+      "required": false,
+      "note": "暂无 security scan"
+    }
+  },
+
+  "branches": ["feature", "fix", "docs", "chore", "refactor"],
+
+  "profiles": {
+    "default": {
+      "services": ["frontend", "backend"],
+      "checks": ["build"]
+    },
+    "full": {
+      "services": ["frontend", "backend"],
+      "checks": ["build"]
+    }
+  },
+
+  "standards": {
+    "code_rules": "standards/CODE_RULES.md",
+    "multi_agent": "standards/MULTI_AGENT.md",
+    "project": "standards/PROJECT_STANDARDS.md"
+  },
+
+  "env": {
+    "node_version": "22",
+    "port_backend": 3002,
+    "deployment_type": "systemd + CF Tunnel",
+    "ci": "GitHub Actions (self-hosted)"
+  },
+
+  "notes": {
+    "ci_workflow": "GitHub Actions deploy.yml: git pull → npm install → npm run build:h5 → restart systemd",
+    "existing_docs": "docs/ 下有架构报告、PRD 审计、迁移计划等完整文档",
+    "apk_build": "npm run apk (Capacitor Android, 需 Android SDK)"
+  }
+}
