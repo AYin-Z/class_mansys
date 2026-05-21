@@ -365,6 +365,10 @@ function request<T = any>(opts: {
   })
 }
 
+/* ======================== File Cache ======================== */
+// 缓存原生 File 对象，避免在 Capacitor WebView 中 fetch(blobURL) 挂死
+const _fileCache = new Map<string, File>()
+
 /* ======================== Upload / Choose File ======================== */
 function uploadFile(opts: {
   url: string; filePath: string; name: string; formData?: Record<string, string>; header?: Record<string, string>;
@@ -376,35 +380,53 @@ function uploadFile(opts: {
     if (opts.formData) {
       Object.entries(opts.formData).forEach(([k, v]) => formData.append(k, v))
     }
-    // filePath is a blob URL or Data URL from chooseImage
-    fetch(opts.filePath)
-      .then(r => r.blob())
-      .then(blob => {
-        formData.append(opts.name, blob, 'file')
+
+    const nativeFile = _fileCache.get(opts.filePath)
+    if (nativeFile) {
+      // 直接用原生 File 对象，避免 fetch(blobURL) 在 WebView 下挂死
+      formData.append(opts.name, nativeFile, nativeFile.name)
+      _fileCache.delete(opts.filePath)
+    } else {
+      // 无缓存时 fallback: 用 XHR 读 blob（比 fetch 更可靠）
+      const reader = new FileReader()
+      try {
         const xhr = new XMLHttpRequest()
-        xhr.open('POST', opts.url)
-        if (opts.header) {
-          Object.entries(opts.header).forEach(([k, v]) => xhr.setRequestHeader(k, v))
-        }
+        xhr.open('GET', opts.filePath)
+        xhr.responseType = 'blob'
         xhr.onload = () => {
-          const result = { data: xhr.responseText, statusCode: xhr.status }
-          resolve(result)
-          opts?.success?.(result)
-          opts?.complete?.(result)
+          formData.append(opts.name, xhr.response, 'file')
+          doUpload()
         }
-        xhr.onerror = () => {
-          const err = new Error('upload fail')
-          reject(err)
-          opts?.fail?.(err)
-          opts?.complete?.(err)
-        }
-        xhr.send(formData)
-      })
-      .catch((err) => {
-        reject(err)
-        opts?.fail?.(err)
-        opts?.complete?.(err)
-      })
+        xhr.onerror = () => { reject(new Error('cannot read file')); opts?.fail?.(new Error('cannot read file')); opts?.complete?.(new Error('cannot read file')) }
+        xhr.send()
+      } catch { reject(new Error('read file fail')); opts?.fail?.(new Error('read file fail')); opts?.complete?.(new Error('read file fail')) }
+      return
+    }
+
+    function doUpload() {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', opts.url)
+      if (opts.header) {
+        Object.entries(opts.header).forEach(([k, v]) => xhr.setRequestHeader(k, v))
+      }
+      xhr.onload = () => {
+        const result = { data: xhr.responseText, statusCode: xhr.status }
+        resolve(result)
+        opts?.success?.(result)
+        opts?.complete?.(result)
+      }
+      xhr.onerror = () => {
+        const err = new Error('upload fail')
+        reject(err); opts?.fail?.(err); opts?.complete?.(err)
+      }
+      xhr.ontimeout = () => {
+        const err = new Error('upload timeout')
+        reject(err); opts?.fail?.(err); opts?.complete?.(err)
+      }
+      xhr.send(formData)
+    }
+
+    doUpload()
   })
 }
 
@@ -424,10 +446,11 @@ function chooseImage(opts?: {
 
     input.onchange = () => {
       const files = Array.from(input.files || [])
-      const tempFiles = files.map(f => ({
-        path: URL.createObjectURL(f),
-        size: f.size,
-      }))
+      const tempFiles = files.map(f => {
+        const blobUrl = URL.createObjectURL(f)
+        _fileCache.set(blobUrl, f) // 缓存原生 File
+        return { path: blobUrl, size: f.size }
+      })
       const result = {
         tempFilePaths: tempFiles.map(f => f.path),
         tempFiles,
@@ -462,11 +485,11 @@ function chooseMessageFile(opts?: {
     input.style.display = 'none'
 
     input.onchange = () => {
-      const tempFiles = Array.from(input.files || []).map(f => ({
-        path: URL.createObjectURL(f),
-        name: f.name,
-        size: f.size,
-      }))
+      const tempFiles = Array.from(input.files || []).map(f => {
+        const blobUrl = URL.createObjectURL(f)
+        _fileCache.set(blobUrl, f) // 缓存原生 File
+        return { path: blobUrl, name: f.name, size: f.size }
+      })
       const result = { tempFiles }
       resolve(result)
       opts?.success?.(result)

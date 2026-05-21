@@ -44,7 +44,7 @@
 
       <div v-if="canDelete && notice.id" class="action-row" style="display:flex;gap:12px;">
         <div class="btn-edit" @tap="onEdit">编辑通知</div>
-        <div class="btn-danger" @tap="onDelete">删除该通知</div>
+        <div class="btn-danger" @tap="onDelete">删除</div>
       </div>
 
       <div style="height: 80rpx;"></div>
