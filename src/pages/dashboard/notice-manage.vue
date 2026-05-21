@@ -154,6 +154,8 @@ function confirmDelete(item: any) {
   })
 }
 
+onMounted(() => { fetchNotices() })
+
 onShow(() => { fetchNotices() })
 
 </script>

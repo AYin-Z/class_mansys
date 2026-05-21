@@ -196,6 +196,8 @@ function goToPublish() {
   router.push('/pages/notice/publish')
 }
 
+onMounted(() => { refreshAll() })
+
 onShow(() => { refreshAll() })
 
 </script>

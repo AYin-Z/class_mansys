@@ -4,13 +4,8 @@
  */
 import './shims/uni-api'
 // 全局注册 uni-app 生命周期 hooks，避免每个页面单独 import
-import { onLoad, onShow as uniOnShow, onHide, onLaunch } from '@dcloudio/uni-app'
-// ⚠️ uni-app 的 onShow 依赖原生页面生命周期，在纯 vue-router 下不触发。
-// 用自定义 onShow + router.afterEach 替代，确保页面返回时数据刷新。
-const _showCallbacks: Set<() => void> = new Set()
-const customOnShow = (cb: () => void) => { _showCallbacks.add(cb) }
-router.afterEach(() => { _showCallbacks.forEach(cb => { try { cb() } catch {} }) })
-Object.assign(window, { onLoad, onShow: customOnShow, onHide, onLaunch })
+import { onLoad, onShow, onHide, onLaunch } from '@dcloudio/uni-app'
+Object.assign(window, { onLoad, onShow, onHide, onLaunch })
 
 import { createPinia } from 'pinia'
 import router from './router'
