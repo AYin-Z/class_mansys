@@ -56,7 +56,7 @@
           <div class="card-actions">
             <span v-if="item.is_todo" class="action-btn" @tap.stop="goCompletion(item)">📊 完成情况</span>
             <span class="action-btn" @tap.stop="editNotice(item)">✏️ 编辑</span>
-            <span class="action-btn del" @tap.stop="confirmDelete(item)">🗑️ 删除</span>
+            <span class="action-btn del" @tap.stop="confirmDelete(item)">删除</span>
           </div>
         </div>
 
