@@ -33,24 +33,7 @@ app.use(helmet({
   crossOriginOpenerPolicy: false,
 }));
 app.use(cors({
-  origin: function(origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:3002',
-      'http://localhost:5173',
-      'https://class-manage-sys-247928-5-1420593393.sh.run.tcloudbase.com',
-      'https://cls.ayinserver.xin',
-      'https://localhost',
-      'http://localhost',
-      'capacitor://localhost'
-    ];
-    // 无 origin 的场景（服务器内部调用、curl 等）也放行
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
-  },
+  origin: true,  // 允许任意 origin（Capacitor APK WebView、H5、CLI 等）
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));

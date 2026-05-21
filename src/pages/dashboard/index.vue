@@ -7,7 +7,7 @@
   </div>
   <!-- 仪表盘内容 -->
   <div v-else class="dash-page">
-    <custom-nav-bar title="班级仪表盘" />
+    <custom-nav-bar title="班级仪表盘" :showBack="true" />
 
     <div scroll-y class="main-scroll">
       <!-- Header -->

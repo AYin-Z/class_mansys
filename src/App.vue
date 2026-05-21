@@ -22,7 +22,6 @@ const TAB_PATHS = [
   '/pages/homework/index',
   '/pages/leave/index',
   '/pages/profile/index',
-  '/pages/dashboard/index',
 ]
 
 // 浏览器环境：tab 首页侧滑时阻止关闭标签页

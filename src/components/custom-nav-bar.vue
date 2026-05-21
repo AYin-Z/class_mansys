@@ -29,7 +29,13 @@ const router = useRouter()
 const navBarHeight = ref(44)
 
 function goBack() {
-  try { router.back() } catch { window.history.back() }
+  // Tab 切页用 replace 不产生历史 → router.back() 可能无反应
+  // 检测 history 长度，无记录时 fallback 回首页
+  if (window.history.length <= 1) {
+    router.replace('/pages/index/index')
+  } else {
+    router.back()
+  }
 }
 </script>
 

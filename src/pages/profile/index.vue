@@ -2,15 +2,21 @@
   <div class="profile-page">
     <custom-nav-bar title="我的" />
     <div scroll-y class="main-scroll">
-      <!-- Profile Header -->
-      <div class="profile-header">
-        <div class="header-bg"></div>
-        <div class="user-info">
+      <!-- Profile Card — 统一身份卡片 -->
+      <div class="profile-card">
+        <div class="card-top">
           <img class="avatar" :src="avatar" mode="aspectFill" />
-          <span class="username">{{ displayName }}</span>
-          <span class="role-badge">{{ roleLabel }}</span>
-          <span v-if="profile?.student_id" class="sub-line">学号 {{ profile.student_id }}</span>
+          <div class="info-area">
+            <div class="name-row">
+              <span class="username">{{ displayName }}</span>
+              <span class="role-badge">{{ roleLabel }}</span>
+            </div>
+            <span class="student-id" v-if="profile?.student_id">
+              {{ profile.class_id || '—' }} · {{ profile.student_id }}
+            </span>
+          </div>
         </div>
+        <div class="card-divider"></div>
         <div class="stats-row">
           <div class="stat-item">
             <span class="stat-val">{{ profile?.class_id || '—' }}</span>
@@ -192,74 +198,78 @@ onActivated(() => refresh())
   padding-top: calc(env(safe-area-inset-top) + 88rpx);
 }
 
-.profile-header {
-  position: relative;
-  padding: $spacing-lg;
-  margin-bottom: $spacing-lg;
+/* ======= 统一身份卡片 ======= */
+.profile-card {
+  margin: 24rpx 28rpx 32rpx;
+  background: linear-gradient(135deg, $primary, #1a4a7a);
+  border-radius: 28rpx;
+  padding: 32rpx;
+  box-shadow: 0 8rpx 24rpx rgba(0, 30, 64, 0.15);
 }
 
-.header-bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 240rpx;
-  background: linear-gradient(135deg, $primary, $primary-container);
-  border-radius: 0 0 40rpx 40rpx;
-}
-
-.user-info {
-  position: relative;
-  z-index: 1;
+.card-top {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: $spacing-xs;
+  gap: 24rpx;
 }
 
 .avatar {
-  width: 128rpx;
-  height: 128rpx;
+  width: 120rpx;
+  height: 120rpx;
   border-radius: 50%;
-  border: 4rpx solid white;
+  border: 4rpx solid rgba(255,255,255,0.4);
   object-fit: cover;
+  flex-shrink: 0;
+}
+
+.info-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  flex-wrap: wrap;
 }
 
 .username {
   font-family: $font-display;
-  font-size: $title-md;
+  font-size: 34rpx;
   font-weight: $font-weight-semibold;
-  color: $on-primary;
+  color: #fff;
   letter-spacing: 2rpx;
 }
 
 .role-badge {
   display: inline-block;
-  padding: 6rpx 24rpx;
+  padding: 4rpx 18rpx;
   background: rgba(255,255,255,0.2);
   border-radius: 20rpx;
-  font-size: 24rpx;
-  color: $on-primary;
+  font-size: 22rpx;
+  color: #fff;
   white-space: nowrap;
-  max-width: 100%;
-  box-sizing: border-box;
+  font-weight: 500;
 }
 
-.sub-line {
-  font-size: $body-sm;
+.student-id {
+  font-size: 24rpx;
   color: rgba(255,255,255,0.7);
+  letter-spacing: 1rpx;
+}
+
+.card-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.15);
+  margin: 24rpx 0 20rpx;
 }
 
 .stats-row {
-  position: relative;
-  z-index: 1;
   display: flex;
   justify-content: space-around;
-  background: $surface;
-  border-radius: $radius-lg;
-  padding: $spacing-md 0;
-  margin-top: $spacing-md;
-  box-shadow: $shadow-ambient;
 }
 
 .stat-item {
@@ -271,18 +281,18 @@ onActivated(() => refresh())
 
 .stat-divider {
   width: 1px;
-  background: $outline-variant;
+  background: rgba(255,255,255,0.15);
 }
 
 .stat-val {
   font-size: $body-md;
   font-weight: $font-weight-semibold;
-  color: $on-surface;
+  color: #fff;
 }
 
 .stat-label {
   font-size: 22rpx;
-  color: $on-surface-tertiary;
+  color: rgba(255,255,255,0.6);
 }
 
 /* Menu Sections */
