@@ -47,7 +47,7 @@ app.use('/apk', express.static(path.join(__dirname, 'apk')));
 // 速率限制（仅限API路由，不影响静态资源）
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分钟
-  max: 200 // 每个IP限制200个API请求
+  max: 600 // 每个IP限制600个API请求
 });
 app.use('/api', limiter);
 
