@@ -56,6 +56,7 @@
 
 
 import { computed, onMounted, reactive, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { useRoute } from 'vue-router'
 import { getSuggestionDetail, handleSuggestion, SUGGESTION_STATUS_LABEL } from '@/api/suggestion'
 import { isAdmin } from '@/utils/auth'

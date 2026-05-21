@@ -41,6 +41,7 @@
 
 
 import { computed, onMounted, reactive, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'

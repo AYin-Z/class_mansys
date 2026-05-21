@@ -56,6 +56,7 @@
 
 
 import { onMounted, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { useRoute } from 'vue-router'
 import { getNoticeDetail, deleteNotice, completeTodo } from '@/api/notice'
 import { canPublishNotice } from '@/utils/auth'

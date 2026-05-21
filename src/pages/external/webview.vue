@@ -1,4 +1,5 @@
 import { ref, onMounted } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { useRoute } from 'vue-router'
 <template>
   <div class="webview-page">

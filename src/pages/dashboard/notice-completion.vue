@@ -64,6 +64,7 @@
 
 
 import { computed, onMounted, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { useRoute } from 'vue-router'
 import { getTodoCompletion } from '@/api/notice'
 const notice = ref<any>(null)

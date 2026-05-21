@@ -63,6 +63,7 @@ import { post } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/utils/ui'
 const userStore = useUserStore()
+const router = useRouter()
 
 // 响应式数据
 const studentId = ref('')

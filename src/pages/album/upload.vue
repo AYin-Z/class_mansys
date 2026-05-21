@@ -38,6 +38,7 @@
 
 
 import { computed, onMounted, ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { useRoute } from 'vue-router'
 import { getToken } from '@/utils/request'
 import { getAlbumDetail, uploadPhotos } from '@/api/album'

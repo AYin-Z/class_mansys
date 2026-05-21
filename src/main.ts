@@ -3,6 +3,9 @@
  * 在 App mount 之前加载，使全部 uni.* 调用在 H5 环境正常工作
  */
 import './shims/uni-api'
+// 全局注册 uni-app 生命周期 hooks，避免每个页面单独 import
+import { onLoad, onShow, onHide, onLaunch } from '@dcloudio/uni-app'
+Object.assign(window, { onLoad, onShow, onHide, onLaunch })
 
 import { createPinia } from 'pinia'
 import router from './router'
