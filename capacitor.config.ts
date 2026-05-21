@@ -4,6 +4,10 @@ const config: CapacitorConfig = {
   appId: 'com.clamansys.app',
   appName: '区队管理系统',
   webDir: 'dist',
+  server: {
+    url: 'https://cls.ayinserver.xin',
+    cleartext: false,
+  },
   android: {
     allowMixedContent: false,
   },
@@ -20,9 +24,7 @@ const config: CapacitorConfig = {
       backgroundColor: "#FFFFFF",
       overlaysWebView: false,
     },
-    Filesystem: {
-      // no config needed, default works
-    },
+    Filesystem: {},
   },
 };
 
