@@ -14,6 +14,8 @@ import { checkAppUpdate } from "@/utils/update-checker";
 import router from "@/router";
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
+import { StatusBar } from '@capacitor/status-bar';
+import { SplashScreen } from '@capacitor/splash-screen';
 const TAB_PATHS = [
   '/pages/index/index',
   '/pages/notice/index',
@@ -37,6 +39,13 @@ if (!Capacitor.isNativePlatform()) {
 onMounted(async () => {
   try {
     console.log("App Launch");
+
+    // Android 原生：状态栏 + 启动屏
+    if (Capacitor.isNativePlatform()) {
+      await StatusBar.setStyle({ style: 'DARK' })
+      await StatusBar.setBackgroundColor({ color: '#FFFFFF' })
+      await SplashScreen.hide()
+    }
 
     const cloudPromise = checkEnvironment()
       ? initCloudBase().then(() => console.log("云开发初始化成功"))
