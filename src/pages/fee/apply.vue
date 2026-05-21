@@ -175,6 +175,8 @@ async function onSubmit() {
         } catch (error) {
           
           showToast('网络错误，请重试')
+        } finally {
+          uni.hideLoading()
         }
       }
     }

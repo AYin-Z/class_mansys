@@ -54,6 +54,7 @@
 
 import { computed, onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+const router = useRouter()
 import { getAnnouncements, getResources, deleteAnnouncement, deleteResource } from '@/api/announcement'
 import { canPublishNotice, isAdmin } from '@/utils/auth'
 const currentTab = ref('notice')

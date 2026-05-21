@@ -64,6 +64,7 @@ import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { getHomeworkDetail, gradeSubmission, submitHomework } from '@/api/homework'
+import { showToast } from '@/utils/ui'
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
@@ -132,6 +133,8 @@ async function goSubmit() {
     
     if (e?.errMsg && e.errMsg.includes('cancel')) return
     showToast('提交失败')
+  } finally {
+    uni.hideLoading()
   }
 }
 

@@ -97,10 +97,12 @@
 
 import { onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+const router = useRouter()
 import { isAdmin as checkAdmin, canApproveLeave } from '@/utils/auth'
 import { getMyLeaves, getAllLeaves } from '@/api/leave'
 import { hasBackendToken } from '@/utils/request'
 import { formatLeaveDateTime } from '@/utils/index'
+import { showToast } from '@/utils/ui'
 const isAdmin = ref(false)
 const hasActiveLeave = ref(false)
 const pendingCount = ref(0)

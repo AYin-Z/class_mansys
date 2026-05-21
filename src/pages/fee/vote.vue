@@ -153,7 +153,7 @@ async function submitVote() {
   } catch (e) {
     showToast('网络错误')
   } finally {
-    
+    uni.hideLoading()
   }
 }
 

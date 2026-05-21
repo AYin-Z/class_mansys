@@ -67,6 +67,7 @@ import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { getChallengeDetail, applyChallenge, approveChallengeApplication, recordChallenge, CHALLENGE_APP_STATUS_LABEL } from '@/api/challenge'
 import { post } from '@/utils/request'
+import { showToast } from '@/utils/ui'
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))
@@ -132,8 +133,8 @@ async function submitRecord() {
   let championId = challenge.value?.current_champion_id
   if (championSid) championId = await findUserBySid(championSid)
   
-  if (!challengerId) { showToast('挑战者学号未找到'); return }
-  if (!championId) { showToast('擂主未确定，请填写擂主学号'); return }
+  if (!challengerId) { showToast('挑战者学号未找到'); uni.hideLoading(); return }
+  if (!championId) { showToast('擂主未确定，请填写擂主学号'); uni.hideLoading(); return }
   try {
     await recordChallenge(id.value, {
       challenger_id: challengerId,
@@ -144,7 +145,9 @@ async function submitRecord() {
     showToast('已登记')
     recForm.challengerSid = ''; recForm.championSid = ''; recForm.result = ''; recForm.notes = ''
     fetch()
-  } catch (_) {}
+  } catch (_) {} finally {
+    uni.hideLoading()
+  }
 }
 
 onLoad((opts) => { id.value = Number(opts?.id) || null })

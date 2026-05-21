@@ -33,6 +33,7 @@
 
 import { onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+const router = useRouter()
 import { getAlbums } from '@/api/album'
 const albums = ref([])
 const loading = ref(false)

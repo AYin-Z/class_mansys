@@ -48,6 +48,7 @@ import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'
 import { addPointRecord } from '@/api/points'
 import { post } from '@/utils/request'
+import { showToast } from '@/utils/ui'
 const userStore = useUserStore()
 const { profile } = storeToRefs(userStore)
 const isAdminUser = computed(() => checkIsAdmin(profile.value?.role))

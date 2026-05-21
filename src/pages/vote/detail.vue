@@ -52,6 +52,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { useRoute } from 'vue-router'
 import { getVoteDetail, castVote, closeVote, isVoteSingle, getVoteStatus } from '@/api/vote'
 import { isAdmin } from '@/utils/auth'
+import { showToast } from '@/utils/ui'
 const vote = ref({})
 const options = ref([])
 const myChoices = ref([])

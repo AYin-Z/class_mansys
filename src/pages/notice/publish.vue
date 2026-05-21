@@ -130,6 +130,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { useRoute } from 'vue-router'
 import { getNoticeDetail, createNotice, updateNotice } from '@/api/notice'
 import { getResources } from '@/api/announcement'
+import { showToast } from '@/utils/ui'
 const priorityOptions = ['日常', '重要', '紧急']
 const typeOptions = ['系统通知', '集合通知', '学习通知', '活动通知', '其他']
 
@@ -211,6 +212,7 @@ async function chooseFile() {
         }
       }
       
+      uni.hideLoading()
     }
   })
 }
@@ -312,6 +314,8 @@ async function onPublish() {
   } catch (error) {
     
     showToast('网络错误，请重试')
+  } finally {
+    uni.hideLoading()
   }
 }
 

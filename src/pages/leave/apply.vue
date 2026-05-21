@@ -101,6 +101,7 @@ import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { applyLeave } from '@/api/leave'
 import { parseLeaveDateTimeMs } from '@/utils/index'
+import { showToast } from '@/utils/ui'
 const leaveTypes = ['早操', '早集合', '午集合', '晚自习', '其他']
 const reasonTypes = ['事假', '病假', '上课', '公假', '其他']
 
@@ -204,6 +205,8 @@ async function onSubmit() {
   } catch (error) {
     
     showToast('网络错误，请重试')
+  } finally {
+    uni.hideLoading()
   }
 }
 

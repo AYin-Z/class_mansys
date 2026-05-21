@@ -46,6 +46,7 @@
 
 import { computed, onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+const router = useRouter()
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
 import { isAdmin as checkIsAdmin } from '@/constants/roles'

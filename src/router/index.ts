@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -321,6 +322,10 @@ router.beforeEach((to) => {
   if (!token) {
     return DEFAULT_LOGIN
   }
+
+  // 有 token → 同步 Pinia store（读取 localStorage 中的 profile）
+  const store = useUserStore()
+  store.hydrate()
 
   // 有 token 但 profile 为空 → 可能未初始化，先尝试从 localStorage 恢复
   const profileRaw = localStorage.getItem('user_profile')

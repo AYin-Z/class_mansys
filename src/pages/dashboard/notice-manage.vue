@@ -76,6 +76,7 @@
 
 import { computed, onActivated, onMounted, ref } from 'vue'
 import { getNotices, deleteNotice } from '@/api/notice'
+import { showToast } from '@/utils/ui'
 const searchQuery = ref('')
 const activeTab = ref('all')
 const rawNotices = ref<any[]>([])

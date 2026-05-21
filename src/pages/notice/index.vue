@@ -71,6 +71,7 @@
 
 import { computed, onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+const router = useRouter()
 import { canPublishNotice } from '@/utils/auth'
 import { getNotices } from '@/api/notice'
 import { hasBackendToken } from '@/utils/request'

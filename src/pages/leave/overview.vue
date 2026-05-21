@@ -40,7 +40,9 @@
 
 
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { getAllLeaves } from '@/api/leave'
+const router = useRouter()
 const loading = ref(true)
 const leaves = ref([])
 

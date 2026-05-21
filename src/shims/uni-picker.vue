@@ -1,4 +1,3 @@
-import { ref, computed } from 'vue'
 <template>
   <div class="uni-picker-wrapper">
     <!-- 透明原生控件叠在样式层上方，点击触发选择器 -->
@@ -26,7 +25,7 @@ import { ref, computed } from 'vue'
 </template>
 
 <script setup lang="ts">
-
+import { ref, computed } from 'vue'
 
 const props = defineProps<{
   mode?: string
@@ -60,7 +59,6 @@ function onInputChange() {
   if (!el) return
   emit('change', { detail: { value: el.value } })
 }
-
 </script>
 
 <style scoped>

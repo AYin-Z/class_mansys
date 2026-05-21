@@ -1,4 +1,3 @@
-import { ref } from 'vue'
 <template>
   <div class="external-page">
     <custom-nav-bar title="外部系统" />
@@ -19,7 +18,9 @@ import { ref } from 'vue'
 </template>
 
 <script setup lang="ts">
-
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+const router = useRouter()
 
 const systems = ref([
   { id: 1, name: '教务管理系统', icon: '📖', desc: '选课/成绩查询', url: 'https://jwxt.ppsuc.edu.cn/', color: 'linear-gradient(135deg, #001e40, #003366)' },

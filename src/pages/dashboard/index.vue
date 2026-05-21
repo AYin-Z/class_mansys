@@ -13,7 +13,7 @@
       <!-- Header -->
       <div class="hero-strip">
         <span class="hero-title">📊 班级仪表盘</span>
-        <span class="hero-sub">{{ roleLabel }} · 管理班级事务</span>
+        <span class="hero-sub">{{ store.roleLabel }} · 管理班级事务</span>
       </div>
 
       <!-- 通知管理 入口 -->
@@ -69,10 +69,9 @@
 <script setup lang="ts">
 
 
-import { computed, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { onLoad } from '@dcloudio/uni-app'
-import { getRoleLabel } from '@/constants/roles'
 import { useUserStore } from '@/stores/user'
 const router = useRouter()
 const store = useUserStore()
@@ -96,7 +95,6 @@ onLoad(() => {
     loaded.value = true  // 出错仍尝试渲染
   }
 })
-const roleLabel = computed(() => getRoleLabel(store.user?.role))
 
 function goPage(url: string) {
   uni.navigateTo({ url })

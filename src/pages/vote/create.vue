@@ -63,6 +63,7 @@
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { createVote } from '@/api/vote'
+import { showToast } from '@/utils/ui'
 function pad(n) { return String(n).padStart(2, '0') }
 
 function todayStr() {
@@ -122,6 +123,8 @@ async function submit() {
     setTimeout(() => router.back(), 800)
   } catch (e) {
     
+  } finally {
+    uni.hideLoading()
   }
 }
 

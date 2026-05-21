@@ -81,6 +81,7 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createHomework } from '@/api/homework'
 import { getResources } from '@/api/announcement'
+import { showToast } from '@/utils/ui'
 const form = reactive({ title: '', description: '', deadlineDate: '', deadlineTime: '23:59', attachments: [] })
 const showResourcePicker = ref(false)
 const resources = ref([])
@@ -138,7 +139,7 @@ async function chooseFile() {
           showToast('文件上传失败')
         }
       }
-      
+      uni.hideLoading()
     }
   })
 }
@@ -193,6 +194,8 @@ async function submit() {
     }
   } catch (e) {
     
+  } finally {
+    uni.hideLoading()
   }
 }
 

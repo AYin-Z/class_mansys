@@ -67,6 +67,7 @@ import { computed, onMounted, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useRoute } from 'vue-router'
 import { getTodoCompletion } from '@/api/notice'
+import { showToast } from '@/utils/ui'
 const notice = ref<any>(null)
 const data = ref<{ completed: any[]; pending: any[]; total: number }>({
   completed: [], pending: [], total: 0

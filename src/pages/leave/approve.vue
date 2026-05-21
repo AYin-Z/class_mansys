@@ -87,6 +87,7 @@ import { canApproveLeave } from '@/utils/auth'
 import { getAllLeaves, approveLeave } from '@/api/leave'
 import { hasBackendToken } from '@/utils/request'
 import { formatLeaveDateTime } from '@/utils/index'
+import { showToast } from '@/utils/ui'
 const allLeaves = ref([])
 
 const pendingList = computed(() => (allLeaves.value || []).filter((l) => l.status === 0))
@@ -133,6 +134,8 @@ function handleApprove(item) {
       } catch (e) {
         
         showToast('网络错误')
+      } finally {
+        uni.hideLoading()
       }
     }
   })
@@ -157,6 +160,8 @@ function handleReject(item) {
       } catch (e) {
         
         showToast('网络错误')
+      } finally {
+        uni.hideLoading()
       }
     }
   })

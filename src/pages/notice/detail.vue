@@ -60,6 +60,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { useRoute } from 'vue-router'
 import { getNoticeDetail, deleteNotice, completeTodo } from '@/api/notice'
 import { canPublishNotice } from '@/utils/auth'
+import { showToast } from '@/utils/ui'
 const notice = ref({
   id: null,
   title: '加载中…',

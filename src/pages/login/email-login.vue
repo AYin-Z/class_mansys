@@ -61,6 +61,7 @@
 
 import { computed, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+const router = useRouter()
 import { post } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 import { showToast } from '@/utils/ui'

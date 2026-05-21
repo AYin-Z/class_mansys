@@ -132,6 +132,7 @@ async function submit() {
     showToast(e.message || '上传失败', 'error')
   } finally {
     loading.value = false
+    uni.hideLoading()
   }
 }
 

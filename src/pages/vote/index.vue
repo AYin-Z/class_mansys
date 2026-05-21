@@ -40,6 +40,7 @@
 
 import { onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+const router = useRouter()
 import { getVotes, isVoteSingle, getVoteStatus } from '@/api/vote'
 import { isAdmin } from '@/utils/auth'
 const votes = ref([])

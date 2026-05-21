@@ -1,4 +1,5 @@
 import { useUserStore } from '@/stores/user'
+import type { Router } from 'vue-router'
 
 /** 无需登录的白名单路由前缀 */
 const PUBLIC_ROUTES = [

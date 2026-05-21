@@ -48,6 +48,7 @@
 
 import { onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+const router = useRouter()
 import { getMineSuggestions, getAllSuggestions, SUGGESTION_STATUS_LABEL } from '@/api/suggestion'
 import { isAdmin } from '@/utils/auth'
 const suggestions = ref([])
