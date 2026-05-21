@@ -6,7 +6,6 @@ interface SystemInfo {
   screenHeight: number
 }
 
-/**
 import { ref, onMounted } from 'vue'
 
 function getSystemInfoSync() {
@@ -18,6 +17,8 @@ function getSystemInfoSync() {
     safeAreaInsets: { bottom: 0 },
   }
 }
+
+/**
  * 获取设备系统信息（状态栏高度、安全区、屏幕尺寸等）。
  * 提取 nav-bar 和 tab-bar 的公共逻辑，消除重复 `getSystemInfoSync` 调用。
  */
@@ -35,7 +36,6 @@ export function useSystemInfo() {
       screenWidth.value = info.screenWidth || 375
       screenHeight.value = info.screenHeight || 812
 
-      // safeArea 安全区
       if (info.safeAreaInsets?.bottom !== undefined) {
         safeAreaBottom.value = info.safeAreaInsets.bottom
       } else if (info.safeArea) {
