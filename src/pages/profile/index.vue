@@ -235,11 +235,14 @@ onActivated(() => refresh())
 
 .role-badge {
   display: inline-block;
-  padding: 4rpx 20rpx;
+  padding: 6rpx 24rpx;
   background: rgba(255,255,255,0.2);
   border-radius: 20rpx;
   font-size: 24rpx;
   color: $on-primary;
+  white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .sub-line {
