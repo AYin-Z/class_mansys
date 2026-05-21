@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>区队管理系统 — Light</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: #f5f6f8;
+    color: #1f2937;
+    line-height: 1.5;
+  }
+
+  /* ========== Login Page ========== */
+  .login-page { min-height: 100vh; display: flex; flex-direction: column; background: linear-gradient(160deg, #1a3a5c 0%, #0f2440 100%); }
+  .login-header { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 48px 24px 24px; }
+  .login-header .logo { width: 64px; height: 64px; background: rgba(255,255,255,0.12); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 16px; }
+  .login-header h1 { font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+  .login-header p { font-size: 14px; color: rgba(255,255,255,0.65); }
+  .login-card { background: #fff; border-radius: 16px 16px 0 0; padding: 32px 24px 40px; box-shadow: 0 -4px 20px rgba(0,0,0,0.08); }
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+  .form-group input { width: 100%; height: 48px; border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 0 16px; font-size: 16px; color: #1f2937; background: #f9fafb; outline: none; transition: all 0.2s; }
+  .form-group input:focus { border-color: #2d7ff9; background: #fff; box-shadow: 0 0 0 3px rgba(45,127,249,0.12); }
+  .form-group input::placeholder { color: #9ca3af; }
+  .login-btn { width: 100%; height: 48px; background: #1a3a5c; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; margin-top: 8px; cursor: pointer; transition: opacity 0.2s; }
+  .login-btn:active { opacity: 0.85; }
+  .login-footer { text-align: center; margin-top: 16px; }
+  .login-footer a { font-size: 14px; color: #6b7280; text-decoration: none; }
+
+  /* ========== App Layout ========== */
+  .app-page { max-width: 480px; margin: 0 auto; background: #f5f6f8; min-height: 100vh; padding-bottom: 72px; }
+  .nav-bar { position: sticky; top: 0; z-index: 10; background: #fff; height: 48px; display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid #e5e7eb; }
+  .nav-bar .back { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #6b7280; cursor: pointer; border-radius: 8px; }
+  .nav-bar .back:active { background: #f3f4f6; }
+  .nav-bar .title { flex: 1; text-align: center; font-size: 17px; font-weight: 600; color: #1f2937; }
+  .nav-bar .action { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #2d7ff9; cursor: pointer; border-radius: 8px; }
+
+  /* ========== Home Page ========== */
+  .home-hero { background: linear-gradient(135deg, #1a3a5c, #254e7a); padding: 24px 20px 32px; border-radius: 0 0 24px 24px; color: #fff; }
+  .home-hero .greeting { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .home-hero .info { font-size: 13px; opacity: 0.8; margin-bottom: 16px; }
+  .home-hero .date { font-size: 13px; opacity: 0.65; }
+  .home-hero .avatar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .home-hero .avatar { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; font-size: 20px; border: 2px solid rgba(255,255,255,0.3); }
+
+  .section-title { font-size: 17px; font-weight: 600; color: #1f2937; padding: 20px 16px 12px; }
+
+  /* Pinned Notices */
+  .pinned-card { background: #fff; margin: 0 12px 12px; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; align-items: flex-start; gap: 12px; }
+  .pinned-card .pin-icon { width: 32px; height: 32px; background: #fef3c7; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .pinned-card .content { flex: 1; }
+  .pinned-card .content .title { font-size: 15px; font-weight: 600; color: #1f2937; margin-bottom: 4px; line-height: 1.4; }
+  .pinned-card .content .meta { font-size: 12px; color: #9ca3af; }
+
+  /* Quick Actions Grid */
+  .actions-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0 12px 12px; }
+  .action-item { background: #fff; border-radius: 12px; padding: 16px 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: pointer; }
+  .action-item:active { transform: scale(0.96); }
+  .action-item .icon { font-size: 24px; margin-bottom: 6px; display: block; }
+  .action-item .label { font-size: 12px; color: #6b7280; font-weight: 500; }
+
+  /* Status Cards */
+  .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 0 12px; }
+  .status-card { background: #fff; border-radius: 12px; padding: 16px 12px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .status-card .num { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .status-card .label { font-size: 12px; color: #6b7280; }
+
+  /* Notice List */
+  .notice-item { background: #fff; margin: 0 12px 8px; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; gap: 12px; }
+  .notice-item .tag { width: 4px; height: 100%; border-radius: 2px; flex-shrink: 0; }
+  .notice-item .tag.important { background: #ef4444; }
+  .notice-item .tag.normal { background: #2d7ff9; }
+  .notice-item .tag.todo { background: #f59e0b; }
+  .notice-item .body { flex: 1; }
+  .notice-item .body .title { font-size: 15px; font-weight: 600; color: #1f2937; margin-bottom: 4px; }
+  .notice-item .body .preview { font-size: 13px; color: #6b7280; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .notice-item .body .meta { font-size: 12px; color: #9ca3af; margin-top: 8px; display: flex; gap: 12px; }
+  .notice-item .badge { width: 20px; height: 20px; background: #ef4444; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+
+  /* Tab Bar */
+  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; background: #fff; border-top: 1px solid #e5e7eb; display: flex; padding-bottom: env(safe-area-inset-bottom, 0); max-width: 480px; margin: 0 auto; }
+  .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 6px 0 4px; cursor: pointer; transition: color 0.15s; }
+  .tab-item .tab-icon { font-size: 22px; line-height: 1.2; }
+  .tab-item .tab-label { font-size: 10px; font-weight: 500; margin-top: 2px; }
+  .tab-item.active { color: #1a3a5c; }
+  .tab-item:not(.active) { color: #9ca3af; }
+
+  /* ========== Screen labels ========== */
+  .screen-label { text-align: center; padding: 12px; font-size: 12px; color: #6b7280; font-weight: 500; letter-spacing: 1px; }
+  .hr { height: 1px; background: #e5e7eb; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<!-- ====== SCREEN 1: Login ====== -->
+<div class="screen-label">──── 登录页 ────</div>
+<div class="login-page">
+  <div class="login-header">
+    <div class="logo">🎓</div>
+    <h1>区队管理系统</h1>
+    <p>请输入学号和密码登录</p>
+  </div>
+  <div class="login-card">
+    <div class="form-group">
+      <label>学号</label>
+      <input type="text" placeholder="请输入学号" value="202521760034">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" placeholder="请输入密码">
+    </div>
+    <button class="login-btn">登 录</button>
+    <div class="login-footer">
+      <a href="#">其他登录方式 ›</a>
+    </div>
+  </div>
+</div>
+
+<div style="height: 24px;"></div>
+
+<!-- ====== SCREEN 2: Home ====== -->
+<div class="screen-label">──── 首页 ────</div>
+<div class="app-page" style="max-width: 480px; margin: 0 auto;">
+  <div class="nav-bar">
+    <div class="back">‹</div>
+    <div class="title">区队管理系统</div>
+    <div class="action">⚙️</div>
+  </div>
+
+  <div class="home-hero">
+    <div class="avatar-row">
+      <div class="avatar">殷</div>
+      <div>
+        <div class="greeting">下午好 👋</div>
+        <div class="info">殷政 · 2025级数据警务六区</div>
+      </div>
+    </div>
+    <div class="date">2026年5月16日 · 周六</div>
+  </div>
+
+  <div class="section-title">📌 置顶通知</div>
+  <div class="pinned-card">
+    <div class="pin-icon">📌</div>
+    <div class="content">
+      <div class="title">关于开展本学期期中教学检查工作的通知</div>
+      <div class="meta">王恒老师 · 3天前</div>
+    </div>
+  </div>
+  <div class="pinned-card">
+    <div class="pin-icon">📌</div>
+    <div class="content">
+      <div class="title">请全体同学完成心理健康普查问卷</div>
+      <div class="meta">区队委 · 5天前</div>
+    </div>
+  </div>
+
+  <div class="section-title">⚡ 快捷功能</div>
+  <div class="actions-grid">
+    <div class="action-item"><span class="icon">🏥</span><span class="label">请假</span></div>
+    <div class="action-item"><span class="icon">📝</span><span class="label">作业</span></div>
+    <div class="action-item"><span class="icon">💰</span><span class="label">班费</span></div>
+    <div class="action-item"><span class="icon">🗳️</span><span class="label">投票</span></div>
+    <div class="action-item"><span class="icon">📢</span><span class="label">通知</span></div>
+    <div class="action-item"><span class="icon">📰</span><span class="label">公告</span></div>
+    <div class="action-item"><span class="icon">📷</span><span class="label">相册</span></div>
+    <div class="action-item"><span class="icon">💡</span><span class="label">建议</span></div>
+  </div>
+
+  <div class="section-title">📊 数据概览</div>
+  <div class="status-grid">
+    <div class="status-card"><div class="num" style="color: #2d7ff9;">3</div><div class="label">待批假条</div></div>
+    <div class="status-card"><div class="num" style="color: #f59e0b;">5</div><div class="label">未读通知</div></div>
+    <div class="status-card"><div class="num" style="color: #10b981;">2</div><div class="label">待交作业</div></div>
+  </div>
+
+  <div class="section-title">📋 最新通知</div>
+  <div class="notice-item">
+    <div class="tag important"></div>
+    <div class="body">
+      <div class="title">关于期末考试安排的通知</div>
+      <div class="preview">本学期期末考试定于第18周进行，请各位同学提前做好复习准备，具体考试安排详见附件...</div>
+      <div class="meta"><span>王恒</span><span>2小时前</span><span>📎 2个附件</span></div>
+    </div>
+    <div class="badge">新</div>
+  </div>
+  <div class="notice-item">
+    <div class="tag todo"></div>
+    <div class="body">
+      <div class="title">【待办】请填写本周体温监测表</div>
+      <div class="preview">请于本周五前完成体温监测表的填写，各班班长负责督促...</div>
+      <div class="meta"><span>区队委</span><span>昨天</span></div>
+    </div>
+  </div>
+  <div class="notice-item">
+    <div class="tag normal"></div>
+    <div class="body">
+      <div class="title">关于校运会开幕式彩排的通知</div>
+      <div class="preview">校运会开幕式将于下周三下午进行彩排，请各学院代表队按时到场...</div>
+      <div class="meta"><span>教务处</span><span>3天前</span></div>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar" style="position: static; margin-top: 20px;">
+    <div class="tab-item active"><span class="tab-icon">🏠</span><span class="tab-label">首页</span></div>
+    <div class="tab-item"><span class="tab-icon">📢</span><span class="tab-label">通知</span></div>
+    <div class="tab-item"><span class="tab-icon">📝</span><span class="tab-label">作业</span></div>
+    <div class="tab-item"><span class="tab-icon">🏥</span><span class="tab-label">请假</span></div>
+    <div class="tab-item"><span class="tab-icon">👤</span><span class="tab-label">我的</span></div>
+  </div>
+</div>
+
+<div style="height: 24px;"></div>
+
+<!-- ====== SCREEN 3: Notice Detail ====== -->
+<div class="screen-label">──── 通知详情 ────</div>
+<div class="app-page" style="max-width: 480px; margin: 0 auto;">
+  <div class="nav-bar">
+    <div class="back">‹</div>
+    <div class="title">通知详情</div>
+    <div class="action">⋯</div>
+  </div>
+  <div style="padding: 20px 16px; background: #fff;">
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
+      <span style="background: #fee2e2; color: #ef4444; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;">重要</span>
+      <span style="font-size: 12px; color: #9ca3af;">王恒 · 2小时前</span>
+    </div>
+    <h2 style="font-size: 22px; font-weight: 700; line-height: 1.3; margin-bottom: 16px;">关于期末考试安排的通知</h2>
+    <div style="font-size: 15px; line-height: 1.7; color: #374151;">
+      <p>各位同学：</p>
+      <br>
+      <p>根据学校教学工作安排，本学期期末考试将于第18周（2026年6月22日-6月28日）进行。现将有关事项通知如下：</p>
+      <br>
+      <p>1. 请各位同学提前做好复习准备；</p>
+      <p>2. 具体考试科目安排详见附件；</p>
+      <p>3. 如有疑问请联系所在学院教务办公室。</p>
+      <br>
+      <p>请相互转告。</p>
+    </div>
+    <div style="margin-top: 20px; padding: 12px; background: #f9fafb; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+      <span style="font-size: 20px;">📎</span>
+      <div><div style="font-size: 13px; font-weight: 500;">期末考试安排表.xlsx</div><div style="font-size: 11px; color: #9ca3af;">24 KB</div></div>
+    </div>
+    <div style="margin-top: 16px; display: flex; gap: 12px;">
+      <span style="font-size: 12px; color: #9ca3af;">已读 32/38</span>
+      <span style="font-size: 12px; color: #9ca3af;">已完成 18/22</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>区队管理系统 — 双主题演示</title>
+<style>
+  /* ========== Theme Variables ========== */
+  :root, [data-theme="light"] {
+    --color-bg:         #f5f6f8;
+    --color-surface:    #ffffff;
+    --color-surface-2:  #f9fafb;
+    --color-border:     #e5e7eb;
+    --color-primary:    #1a3a5c;
+    --color-accent:     #2d7ff9;
+    --color-accent-bg:  #e8f0fe;
+    --color-text:       #1f2937;
+    --color-text-2:     #6b7280;
+    --color-text-3:     #9ca3af;
+    --color-text-on-primary: #ffffff;
+    --color-success:    #10b981;
+    --color-warning:    #f59e0b;
+    --color-error:      #ef4444;
+    --color-hero-from:  #1a3a5c;
+    --color-hero-to:    #254e7a;
+    --shadow-card:      0 1px 3px rgba(0,0,0,0.06);
+    --shadow-lift:      0 4px 12px rgba(0,0,0,0.08);
+    --navbar-blur:      none;
+  }
+  [data-theme="dark"] {
+    --color-bg:         #0a1628;
+    --color-surface:    #0f1d35;
+    --color-surface-2:  #152545;
+    --color-border:     rgba(255,255,255,0.06);
+    --color-primary:    #1e3a5f;
+    --color-accent:     #2d7ff9;
+    --color-accent-bg:  rgba(45,127,249,0.08);
+    --color-text:       #e2e8f0;
+    --color-text-2:     #64748b;
+    --color-text-3:     #475569;
+    --color-text-on-primary: #f1f5f9;
+    --color-success:    #10b981;
+    --color-warning:    #f59e0b;
+    --color-error:      #ef4444;
+    --color-hero-from:  #0a1628;
+    --color-hero-to:    #0f1d35;
+    --shadow-card:      0 1px 3px rgba(0,0,0,0.2);
+    --shadow-lift:      0 4px 12px rgba(0,0,0,0.3);
+    --navbar-blur:      blur(12px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.5;
+    transition: background 0.3s, color 0.3s;
+  }
+
+  /* ========== Theme Toggle (demo only) ========== */
+  .theme-switcher { position: sticky; top: 0; z-index: 100; background: var(--color-surface); border-bottom: 1px solid var(--color-border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; max-width: 480px; margin: 0 auto; }
+  .theme-switcher span { font-size: 13px; font-weight: 500; color: var(--color-text-2); }
+  .toggle-btn { display: flex; align-items: center; gap: 8px; background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 20px; padding: 4px; cursor: pointer; }
+  .toggle-btn .opt { padding: 4px 14px; border-radius: 16px; font-size: 12px; font-weight: 500; transition: all 0.2s; }
+  .toggle-btn .opt.active { background: var(--color-accent); color: #fff; }
+  .toggle-btn .opt:not(.active) { color: var(--color-text-3); }
+
+  /* ========== App Shell ========== */
+  .app-page { max-width: 480px; margin: 0 auto; background: var(--color-bg); min-height: calc(100vh - 52px); padding-bottom: 72px; transition: background 0.3s; }
+  .nav-bar { position: sticky; top: 52px; z-index: 10; background: rgba(from var(--color-surface) r g b / 0.92); backdrop-filter: var(--navbar-blur); -webkit-backdrop-filter: var(--navbar-blur); height: 48px; display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid var(--color-border); transition: background 0.3s, border-color 0.3s; }
+  .nav-bar .back { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--color-text-2); cursor: pointer; border-radius: 8px; }
+  .nav-bar .title { flex: 1; text-align: center; font-size: 16px; font-weight: 600; color: var(--color-text); }
+  .nav-bar .action { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--color-accent); cursor: pointer; border-radius: 8px; }
+
+  /* ========== Components ========== */
+  .home-hero { background: linear-gradient(135deg, var(--color-hero-from), var(--color-hero-to)); padding: 24px 20px 28px; border-radius: 0 0 20px 20px; color: #fff; transition: background 0.3s; }
+  .home-hero .avatar-row { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .home-hero .avatar { width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 20px; border: 2px solid rgba(255,255,255,0.2); flex-shrink: 0; }
+  .home-hero .greeting { font-size: 20px; font-weight: 700; }
+  .home-hero .info { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+  .home-hero .date { font-size: 12px; opacity: 0.6; margin-top: 4px; }
+
+  .section-title { font-size: 15px; font-weight: 600; color: var(--color-text-2); padding: 20px 16px 12px; }
+
+  /* Cards */
+  .card { background: var(--color-surface); border-radius: 12px; padding: 16px; box-shadow: var(--shadow-card); transition: background 0.3s, box-shadow 0.3s; }
+  .pinned-card { composes: card; margin: 0 12px 10px; display: flex; gap: 12px; align-items: flex-start; }
+  .pinned-card .pin-icon { width: 32px; height: 32px; background: var(--color-warning); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; opacity: 0.15; }
+  .pinned-card .content .title { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 3px; }
+  .pinned-card .content .meta { font-size: 12px; color: var(--color-text-3); }
+
+  /* Quick Actions — 折叠式 */
+  .quick-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 16px 12px; }
+  .quick-header .section-title { padding: 0; }
+  .quick-header .more-btn { font-size: 12px; color: var(--color-accent); cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; background: var(--color-accent-bg); font-weight: 500; }
+  .actions-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 12px; }
+  .action-item { background: var(--color-surface); border-radius: 12px; padding: 16px 8px; text-align: center; box-shadow: var(--shadow-card); cursor: pointer; transition: all 0.15s, background 0.3s; }
+  .action-item:active { transform: scale(0.95); }
+  .action-item .icon { font-size: 22px; margin-bottom: 6px; display: block; }
+  .action-item .label { font-size: 11px; color: var(--color-text-2); font-weight: 500; }
+
+  /* Status */
+  .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 12px; }
+  .status-card { background: var(--color-surface); border-radius: 12px; padding: 16px 12px; text-align: center; box-shadow: var(--shadow-card); transition: background 0.3s; }
+  .status-card .num { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+  .status-card .label { font-size: 11px; color: var(--color-text-3); }
+
+  /* Notice List */
+  .notice-item { background: var(--color-surface); margin: 0 12px 8px; border-radius: 12px; padding: 16px; box-shadow: var(--shadow-card); display: flex; gap: 12px; transition: background 0.3s; }
+  .notice-item .tag { width: 3px; border-radius: 2px; flex-shrink: 0; }
+  .notice-item .tag.important { background: var(--color-error); }
+  .notice-item .tag.normal { background: var(--color-accent); }
+  .notice-item .tag.todo { background: var(--color-warning); }
+  .notice-item .body { flex: 1; }
+  .notice-item .body .title { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 3px; }
+  .notice-item .body .preview { font-size: 13px; color: var(--color-text-2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .notice-item .body .meta { font-size: 11px; color: var(--color-text-3); margin-top: 8px; display: flex; gap: 12px; }
+  .notice-item .badge { width: 18px; height: 18px; background: var(--color-error); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+
+  /* Tab Bar */
+  .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; background: var(--color-surface); border-top: 1px solid var(--color-border); display: flex; padding-bottom: env(safe-area-inset-bottom, 0); max-width: 480px; margin: 0 auto; transition: background 0.3s, border-color 0.3s; }
+  .tab-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 6px 0 4px; cursor: pointer; position: relative; }
+  .tab-item .tab-icon { font-size: 20px; line-height: 1.2; }
+  .tab-item .tab-label { font-size: 10px; font-weight: 500; margin-top: 2px; }
+  .tab-item.active { color: var(--color-accent); }
+  .tab-item:not(.active) { color: var(--color-text-3); transition: color 0.3s; }
+  .tab-item .admin-badge { position: absolute; top: 2px; right: 50%; margin-right: -34px; font-size: 8px; background: var(--color-accent); color: #fff; padding: 1px 4px; border-radius: 3px; line-height: 1.2; }
+
+  /* Dashboard */
+  .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 12px; }
+  .dash-card { background: var(--color-surface); border-radius: 12px; padding: 16px; box-shadow: var(--shadow-card); cursor: pointer; transition: all 0.15s; }
+  .dash-card:active { transform: scale(0.96); }
+  .dash-card .dash-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 10px; }
+  .dash-card .dash-title { font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 4px; }
+  .dash-card .dash-desc { font-size: 11px; color: var(--color-text-3); }
+  .dash-card .dash-num { font-size: 22px; font-weight: 700; color: var(--color-accent); }
+
+  .dash-section-title { font-size: 14px; font-weight: 600; color: var(--color-text-2); padding: 20px 16px 10px; }
+
+  /* Detail */
+  .detail-content { padding: 20px 16px; }
+  .detail-tags { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .detail-tags .tag-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: var(--color-accent-bg); color: var(--color-accent); }
+  .detail-tags .tag-badge.important { background: rgba(239,68,68,0.1); color: var(--color-error); }
+  .detail-tags .meta { font-size: 12px; color: var(--color-text-3); }
+  .detail-content h2 { font-size: 20px; font-weight: 700; line-height: 1.3; margin-bottom: 16px; color: var(--color-text); }
+  .detail-content .body { font-size: 15px; line-height: 1.7; color: var(--color-text-2); }
+  .detail-content .body p { margin-bottom: 8px; }
+  .detail-content .file-attach { margin-top: 20px; padding: 12px; background: var(--color-surface-2); border-radius: 10px; border: 1px solid var(--color-border); display: flex; align-items: center; gap: 10px; }
+  .detail-content .file-attach .fname { font-size: 13px; font-weight: 500; color: var(--color-text); }
+  .detail-content .file-attach .fsize { font-size: 11px; color: var(--color-text-3); }
+  .detail-content .stats { margin-top: 16px; display: flex; gap: 16px; font-size: 12px; color: var(--color-text-3); }
+</style>
+</head>
+<body>
+
+<!-- ========== Theme Toggle ========== -->
+<div class="theme-switcher">
+  <span>🎨 主题切换</span>
+  <div class="toggle-btn" onclick="toggleTheme()">
+    <span class="opt active" data-theme-opt="light">☀️ 浅色</span>
+    <span class="opt" data-theme-opt="dark">🌙 深色</span>
+  </div>
+</div>
+
+<!-- ========== App ========== -->
+<div class="app-page">
+
+  <!-- Nav Bar -->
+  <div class="nav-bar">
+    <div class="back">‹</div>
+    <div class="title">区队管理系统</div>
+    <div class="action">⋯</div>
+  </div>
+
+  <!-- Hero -->
+  <div class="home-hero">
+    <div class="avatar-row">
+      <div class="avatar">殷</div>
+      <div>
+        <div class="greeting">下午好 👋</div>
+        <div class="info">殷政 · 2025级数据警务六区</div>
+        <div class="date">2026年5月16日 · 周六</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pinned Notices -->
+  <div class="section-title">📌 置顶通知</div>
+  <div class="pinned-card">
+    <div class="pin-icon">📌</div>
+    <div class="content">
+      <div class="title">关于开展本学期期中教学检查工作的通知</div>
+      <div class="meta">王恒老师 · 3天前</div>
+    </div>
+  </div>
+  <div class="pinned-card">
+    <div class="pin-icon">📌</div>
+    <div class="content">
+      <div class="title">请全体同学完成心理健康普查问卷</div>
+      <div class="meta">区队委 · 5天前</div>
+    </div>
+  </div>
+
+  <!-- Quick Actions — 折叠式（4+更多） -->
+  <div class="quick-header">
+    <div class="section-title">⚡ 快捷功能</div>
+    <span class="more-btn">全部功能 ›</span>
+  </div>
+  <div class="actions-grid">
+    <div class="action-item"><span class="icon">🏥</span><span class="label">请假</span></div>
+    <div class="action-item"><span class="icon">📝</span><span class="label">作业</span></div>
+    <div class="action-item"><span class="icon">📢</span><span class="label">通知</span></div>
+    <div class="action-item"><span class="icon">💰</span><span class="label">班费</span></div>
+  </div>
+
+  <!-- 公共资源 -->
+  <div class="section-title">📚 公共资源</div>
+  <div class="notice-item">
+    <div class="tag normal"></div>
+    <div class="body">
+      <div class="title">公安学基础理论复习提纲</div>
+      <div class="preview">王恒老师整理 · 第3-6章重点考点汇总</div>
+      <div class="meta"><span>📎 PDF · 2.3 MB</span><span>昨天</span></div>
+    </div>
+  </div>
+  <div class="notice-item">
+    <div class="tag normal"></div>
+    <div class="body">
+      <div class="title">体能训练计划（5月）</div>
+      <div class="preview">区队体委制定 · 每日训练内容及考核标准</div>
+      <div class="meta"><span>📎 文档 · 156 KB</span><span>3天前</span></div>
+    </div>
+  </div>
+
+  <!-- 区队相册 -->
+  <div class="section-title">📷 区队相册</div>
+  <div style="padding: 0 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+    <div style="aspect-ratio: 1; background: var(--color-surface); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: var(--shadow-card);">🏆</div>
+    <div style="aspect-ratio: 1; background: var(--color-surface); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: var(--shadow-card);">⚽</div>
+    <div style="aspect-ratio: 1; background: var(--color-surface); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: var(--shadow-card);">🎓</div>
+  </div>
+  <div style="font-size: 11px; color: var(--color-text-3); padding: 8px 16px;">共 12 张照片 · 查看全部 ›</div>
+
+  <!-- Status -->
+  <div class="section-title">📊 数据概览</div>
+  <div class="status-grid">
+    <div class="status-card"><div class="num" style="color: var(--color-accent);">3</div><div class="label">待批假条</div></div>
+    <div class="status-card"><div class="num" style="color: var(--color-warning);">5</div><div class="label">未读通知</div></div>
+    <div class="status-card"><div class="num" style="color: var(--color-success);">2</div><div class="label">待交作业</div></div>
+  </div>
+
+  <!-- Notice List -->
+  <div class="section-title">📋 最新通知</div>
+  <div class="notice-item">
+    <div class="tag important"></div>
+    <div class="body">
+      <div class="title">关于期末考试安排的通知</div>
+      <div class="preview">本学期期末考试定于第18周进行，请各位同学提前做好复习准备，具体考试安排详见附件...</div>
+      <div class="meta"><span>王恒</span><span>2小时前</span><span>📎 2个附件</span></div>
+    </div>
+    <div class="badge">新</div>
+  </div>
+  <div class="notice-item">
+    <div class="tag todo"></div>
+    <div class="body">
+      <div class="title">【待办】请填写本周体温监测表</div>
+      <div class="preview">请于本周五前完成体温监测表的填写，各班班长负责督促...</div>
+      <div class="meta"><span>区队委</span><span>昨天</span></div>
+    </div>
+  </div>
+  <div class="notice-item">
+    <div class="tag normal"></div>
+    <div class="body">
+      <div class="title">关于校运会开幕式彩排的通知</div>
+      <div class="preview">校运会开幕式将于下周三下午进行彩排，请各学院代表队按时到场...</div>
+      <div class="meta"><span>教务处</span><span>3天前</span></div>
+    </div>
+  </div>
+
+  <!-- Notice Detail -->
+  <div class="section-title">📄 通知详情</div>
+  <div class="detail-content" style="padding-top: 0;">
+    <div class="detail-tags">
+      <span class="tag-badge important">重要</span>
+      <span class="meta">王恒 · 2小时前</span>
+    </div>
+    <h2>关于期末考试安排的通知</h2>
+    <div class="body">
+      <p>各位同学：</p><br>
+      <p>根据学校教学工作安排，本学期期末考试将于第18周（2026年6月22日-6月28日）进行。</p>
+      <p>1. 请各位同学提前做好复习准备；</p>
+      <p>2. 具体考试科目安排详见附件；</p>
+      <p>3. 如有疑问请联系所在学院教务办公室。</p>
+    </div>
+    <div class="file-attach">
+      <span style="font-size: 18px;">📎</span>
+      <div><div class="fname">期末考试安排表.xlsx</div><div class="fsize">24 KB</div></div>
+    </div>
+    <div class="stats">
+      <span>已读 32/38</span>
+      <span>已完成 18/22</span>
+    </div>
+  </div>
+
+  <!-- Tab Bar — 普通学员（5个tab） -->
+  <div class="section-title" style="color: var(--color-text-3); font-size: 11px; padding-top: 12px;">⬆ 普通学员 TabBar（5个）</div>
+  <div class="tab-bar" style="position: static; margin-top: 0;">
+    <div class="tab-item"><span class="tab-icon">🏠</span><span class="tab-label">首页</span></div>
+    <div class="tab-item"><span class="tab-icon">📢</span><span class="tab-label">通知</span></div>
+    <div class="tab-item"><span class="tab-icon">📝</span><span class="tab-label">作业</span></div>
+    <div class="tab-item"><span class="tab-icon">🏥</span><span class="tab-label">请假</span></div>
+    <div class="tab-item"><span class="tab-icon">👤</span><span class="tab-label">我的</span></div>
+  </div>
+
+  <div class="section-title" style="color: var(--color-accent); font-size: 11px; padding-top: 24px;">⬇ 班干部 TabBar（6个，多一个仪表盘）</div>
+  <div class="tab-bar" style="position: static; margin-top: 0;">
+    <div class="tab-item"><span class="tab-icon">🏠</span><span class="tab-label">首页</span></div>
+    <div class="tab-item active"><span class="tab-icon">📊</span><span class="tab-label">仪表盘</span><span class="admin-badge">干部</span></div>
+    <div class="tab-item"><span class="tab-icon">📢</span><span class="tab-label">通知</span></div>
+    <div class="tab-item"><span class="tab-icon">📝</span><span class="tab-label">作业</span></div>
+    <div class="tab-item"><span class="tab-icon">🏥</span><span class="tab-label">请假</span></div>
+    <div class="tab-item"><span class="tab-icon">👤</span><span class="tab-label">我的</span></div>
+  </div>
+</div>
+
+<div style="height: 24px;"></div>
+
+<!-- ====== SCREEN 5: Dashboard (仅干部可见) ====== -->
+<div class="section-title" style="color: var(--color-accent);">──── 仪表盘（班干部专用）────</div>
+<div class="app-page" style="max-width: 480px; margin: 0 auto;">
+  <div class="nav-bar">
+    <div class="back">‹</div>
+    <div class="title">班级仪表盘</div>
+    <div class="action">⋯</div>
+  </div>
+
+  <!-- 审批概览 -->
+  <div class="section-title">📋 待处理</div>
+  <div class="status-grid">
+    <div class="status-card"><div class="num" style="color: var(--color-warning);">3</div><div class="label">待批请假</div></div>
+    <div class="status-card"><div class="num" style="color: var(--color-error);">1</div><div class="label">待批班费</div></div>
+    <div class="status-card"><div class="num" style="color: var(--color-accent);">5</div><div class="label">缺交作业</div></div>
+  </div>
+
+  <!-- 功能入口 2x2 -->
+  <div class="section-title">⚙️ 管理功能</div>
+  <div class="dashboard-grid">
+    <div class="dash-card">
+      <div class="dash-icon" style="background: var(--color-accent-bg);">📢</div>
+      <div class="dash-title">通知管理</div>
+      <div class="dash-desc">发布/编辑/删除通知</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-icon" style="background: rgba(16,185,129,0.1);">📋</div>
+      <div class="dash-title">待办管理</div>
+      <div class="dash-desc">查看完成情况</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-icon" style="background: rgba(245,158,11,0.1);">💰</div>
+      <div class="dash-title">班费管理</div>
+      <div class="dash-desc">收支/审批/公示</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-icon" style="background: rgba(239,68,68,0.1);">👥</div>
+      <div class="dash-title">成员管理</div>
+      <div class="dash-desc">信息/角色/积分</div>
+    </div>
+  </div>
+
+  <!-- 数据面板 -->
+  <div class="section-title">📊 班级数据</div>
+  <div class="dashboard-grid">
+    <div class="dash-card">
+      <div class="dash-num">38</div>
+      <div class="dash-title">班级人数</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-num" style="color: var(--color-success);">96%</div>
+      <div class="dash-title">通知阅读率</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-num">¥2,580</div>
+      <div class="dash-title">班费余额</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-num" style="color: var(--color-warning);">12</div>
+      <div class="dash-title">本周请假</div>
+    </div>
+  </div>
+
+  <!-- 待办通知快速查看 -->
+  <div class="dash-section-title">📌 待办通知完成进度</div>
+  <div style="padding: 0 12px;">
+    <div style="background: var(--color-surface); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow-card);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span style="font-size: 14px; font-weight: 600; color: var(--color-text);">体温监测表填写</span>
+        <span style="font-size: 12px; color: var(--color-text-3);">18/38</span>
+      </div>
+      <div style="height: 6px; background: var(--color-surface-2); border-radius: 3px; overflow: hidden;">
+        <div style="width: 47%; height: 100%; background: var(--color-warning); border-radius: 3px;"></div>
+      </div>
+      <div style="font-size: 11px; color: var(--color-text-3); margin-top: 6px;">⏰ 截止周五 · 20人未完成</div>
+    </div>
+  </div>
+  <div style="padding: 8px 12px 0;">
+    <div style="background: var(--color-surface); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow-card);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span style="font-size: 14px; font-weight: 600; color: var(--color-text);">学生证信息核对</span>
+        <span style="font-size: 12px; color: var(--color-text-3);">32/38</span>
+      </div>
+      <div style="height: 6px; background: var(--color-surface-2); border-radius: 3px; overflow: hidden;">
+        <div style="width: 84%; height: 100%; background: var(--color-success); border-radius: 3px;"></div>
+      </div>
+      <div style="font-size: 11px; color: var(--color-text-3); margin-top: 6px;">✅ 6人未完成</div>
+    </div>
+  </div>
+
+  <!-- 路由保护提示 -->
+  <div style="margin: 20px 12px; padding: 12px; background: var(--color-warning); color: #fff; border-radius: 8px; font-size: 12px; line-height: 1.5; text-align: center;">
+    ⚠️ 路由保护：未登录 / 非干部角色直接访问此页将重定向到首页
+  </div>
+
+  <!-- Tab Bar — 仪表盘激活态 -->
+  <div class="tab-bar" style="position: static;">
+    <div class="tab-item"><span class="tab-icon">🏠</span><span class="tab-label">首页</span></div>
+    <div class="tab-item active"><span class="tab-icon">📊</span><span class="tab-label">仪表盘</span></div>
+    <div class="tab-item"><span class="tab-icon">📢</span><span class="tab-label">通知</span></div>
+    <div class="tab-item"><span class="tab-icon">📝</span><span class="tab-label">作业</span></div>
+    <div class="tab-item"><span class="tab-icon">🏥</span><span class="tab-label">请假</span></div>
+    <div class="tab-item"><span class="tab-icon">👤</span><span class="tab-label">我的</span></div>
+  </div>
+</div>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.dataset.theme === 'dark';
+  html.dataset.theme = isDark ? 'light' : 'dark';
+  document.querySelectorAll('.toggle-btn .opt').forEach(el => {
+    el.classList.toggle('active', el.dataset.themeOpt === html.dataset.theme);
+  });
+}
+</script>
+</body>
+</html>

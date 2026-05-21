@@ -1,0 +1,1 @@
+import{C as e,S as t,T as n,b as r,t as i,v as a}from"./index-BDDyQ6Jm.js";import{t as o}from"./NavBar-I5DXoEIB.js";var s={class:`settings-page`},c=i(e({__name:`settings`,setup(e){return(e,i)=>(n(),r(`div`,s,[t(o,{title:`设置`,"show-back":``}),i[0]||=a(`div`,{class:`empty-state`},`设置功能开发中`,-1)]))}}),[[`__scopeId`,`data-v-170b64af`]]);export{c as default};

@@ -1,0 +1,1 @@
+import{j as r,p as e}from"./index-DrkMKcGl.js";function n(){return r("/api/lottery")}function i(t){return r(`/api/lottery/${t}`)}function p(t){return e(`/api/lottery/${t}/join`)}function s(t,o){return e(`/api/lottery/${t}/draw`,o)}export{i as a,s as d,n as g,p as j};

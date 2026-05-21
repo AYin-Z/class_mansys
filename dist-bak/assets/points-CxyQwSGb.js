@@ -1,0 +1,1 @@
+import{M as t,C as i}from"./index-C2J5_vMc.js";function a(){return t("/api/points/mine")}function r(n=50){return t("/api/points/ranking",{limit:n})}function s(n){return i("/api/points",n)}export{r as a,s as b,a as g};

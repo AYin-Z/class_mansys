@@ -1,0 +1,1 @@
+import{a as e,i as t}from"./index-BDDyQ6Jm.js";var n={0:`待处理`,1:`处理中`,2:`已处理`};function r(e={}){return t(`/api/suggestion`,e)}function i(t,n){return e(`/api/suggestion/${t}/handle`,n)}export{r as n,i as r,n as t};

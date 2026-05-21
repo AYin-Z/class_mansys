@@ -1,0 +1,1 @@
+import{j as e,p as n,i}from"./index-BV1WbE7V.js";function a(t){return e(`/api/notice/${t}`)}function c(){return e("/api/notice/unread/count")}function r(){return e("/api/notice")}function u(t){return n("/api/notice/create",t)}function s(t){return i(`/api/notice/${t}`)}export{r as a,c as b,u as c,s as d,a as g};

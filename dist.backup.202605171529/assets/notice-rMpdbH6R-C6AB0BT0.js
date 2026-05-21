@@ -1,0 +1,1 @@
+import{C as e,S as t,u as n}from"./index-D9bwWGDf.js";function r(e){return n(`/api/notice/${e}`)}function i(){return n(`/api/notice/unread/count`)}function a(){return n(`/api/notice`)}function o(e){return t(`/api/notice/create`,e)}function s(t){return e(`/api/notice/${t}`)}export{s as a,r as i,i as n,o as r,a as t};

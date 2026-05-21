@@ -1,0 +1,1 @@
+import{M as e,C as t,U as a}from"./index-C2J5_vMc.js";function r(){return e("/api/announcement")}function c(n){return t("/api/announcement/create",n)}function u(n){return a(`/api/announcement/${n}`)}function s(n){return e("/api/announcement/resources",void 0)}function i(n){return t("/api/announcement/resources",n)}export{r as a,i as b,c,u as d,s as g};

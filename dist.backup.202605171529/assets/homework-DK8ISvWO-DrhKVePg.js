@@ -1,0 +1,1 @@
+import{S as e,u as t}from"./index-D9bwWGDf.js";function n(){return t(`/api/homework`)}function r(e){return t(`/api/homework/${e}`)}function i(t,n){return e(`/api/homework/${t}/submit`,n)}export{n,r,i as t};

@@ -93,7 +93,8 @@ export default defineConfig({
       name: 'strip-crossorigin',
       enforce: 'post',
       transformIndexHtml(html) {
-        return html.replace(/ crossorigin/g, '')
+        // Vite 6 can emit `crossorigin` or `crossorigin=""` with or without leading space
+        return html.replace(/[\s]crossorigin(=["']?['"]?)?/g, '')
       },
     },
     // Fix @dcloudio/uni-app importing Vue internals not in standard ESM builds

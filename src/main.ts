@@ -37,6 +37,7 @@ try {
   app.component('show-captcha', showCaptcha)
   app.component('custom-nav-bar', CustomNavBar)
   app.component('custom-tab-bar', CustomTabBar)
+  app.component('uni-picker', UniPicker)
   d('custom components registered')
 
   d('mounting...')

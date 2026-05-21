@@ -1,0 +1,1 @@
+import{A as e,f as t,m as n,v as r,x as i,y as a}from"./index-D9bwWGDf.js";import{t as o}from"./NavBar-CP9SoFhh-DfGp922X.js";var s={class:`settings-page`},c=e(i({__name:`settings`,setup(e){return(e,i)=>(r(),t(`div`,s,[a(o,{title:`设置`,"show-back":``}),i[0]||=n(`div`,{class:`empty-state`},`设置功能开发中`,-1)]))}}),[[`__scopeId`,`data-v-170b64af`]]);export{c as default};

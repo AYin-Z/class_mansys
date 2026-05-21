@@ -1,0 +1,1 @@
+import{M as e,C as r,N as a}from"./index-C2J5_vMc.js";function i(){return e("/api/lottery")}function s(t){return r("/api/lottery",t)}function u(t){return e(`/api/lottery/${t}`)}function y(t){return r(`/api/lottery/${t}/join`)}function c(t,o){return r(`/api/lottery/${t}/draw`,o)}function p(t){return a(`/api/lottery/${t}/close`)}export{u as a,s as b,p as c,c as d,i as g,y as j};
