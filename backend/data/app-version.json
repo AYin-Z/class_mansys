@@ -1,13 +1,13 @@
 {
   "android": {
-    "versionName": "1.1.0",
-    "versionCode": 110,
+    "versionName": "1.2.0",
+    "versionCode": 120,
     "minVersionCode": 100,
-    "downloadUrl": "https://cls.ayinserver.xin/apk/class-mansys-v1.1.0.apk",
-    "apkSize": 4603863,
-    "releasedAt": "2026-05-15",
-    "forceUpdate": true,
-    "changelog": "v1.1.0 内测版\n- 新增：班级仪表盘 + 通知管理（查看/编辑/删除/完成追踪）\n- 新增：辅导员审批角色\n- 新增：通知待办状态标记\n- 翻新：班费三级审批流程（申请→投票→辅导员审批）\n- 翻新：主页布局（快捷功能、公共资源、全部功能弹窗）\n- 优化：投票支持可见范围与可投范围控制\n- 优化：文件上传支持 Office 文档与压缩包\n- 优化：系统时间区段修复为北京时间\n- 修复：多人交互流程与权限边界问题"
+    "downloadUrl": "https://cls.ayinserver.xin/apk/class-mansys-v1.2.0.apk",
+    "apkSize": 4900745,
+    "releasedAt": "2026-05-23",
+    "forceUpdate": false,
+    "changelog": "v1.2.0\n- 修复：APK 远程加载模式导致网络抖动时白屏/无法连接的问题\n- APK 改为加载本地静态资源，API 正常指向 cls.ayinserver.xin\n- 优化：离线可用性大幅提升"
   },
   "ios": {
     "versionName": "",

@@ -103,8 +103,15 @@ export async function checkAppUpdate(opts: CheckOptions = {}): Promise<{
     )
 
     if (confirmed) {
-      // 浏览器中打开下载链接
-      window.open(downloadUrl, '_system')
+      // 触发系统下载——创建隐藏 a 标签模拟点击
+      // Capacitor WebView 会拦截 .apk 链接走系统下载管理器
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      a.download = remote.downloadUrl.split('/').pop() || 'class-mansys.apk'
+      a.style.display = 'none'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     } else {
       localStorage.setItem(IGNORE_VERSION_KEY, String(remote.versionCode))
     }
