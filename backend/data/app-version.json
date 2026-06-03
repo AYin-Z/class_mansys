@@ -1,13 +1,13 @@
 {
   "android": {
     "versionName": "1.2.0",
-    "versionCode": 120,
+    "versionCode": 202605250001,
     "minVersionCode": 100,
     "downloadUrl": "https://cls.ayinserver.xin/apk/class-mansys-v1.2.0.apk",
-    "apkSize": 4900745,
-    "releasedAt": "2026-05-23",
+    "apkSize": 5038080,
+    "releasedAt": "2026-05-25",
     "forceUpdate": false,
-    "changelog": "v1.2.0\n- 修复：APK 远程加载模式导致网络抖动时白屏/无法连接的问题\n- APK 改为加载本地静态资源，API 正常指向 cls.ayinserver.xin\n- 优化：离线可用性大幅提升"
+    "changelog": "v1.2.0\n- 新增成员信息完善与展示\n- 优化相册加载性能\n- 修复已知问题"
   },
   "ios": {
     "versionName": "",

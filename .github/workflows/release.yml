@@ -1,0 +1,197 @@
+name: Android Release (AAB + GitHub Release)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: self-hosted
+
+    env:
+      ANDROID_HOME: /home/ayin/android-sdk
+      JAVA_HOME: /usr/lib/jvm/java-21-openjdk-amd64
+      KEYSTORE_PATH: /home/ayin/android-key/class-mansys-release.keystore
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: ✅ 解析版本号
+        id: version
+        run: |
+          # 从 tag 提取版本（v1.0.0 → 1.0.0）
+          TAG="${{ github.ref_name }}"
+          VERSION_NAME="${TAG#v}"
+          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_OUTPUT
+          echo "TAG=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: ✅ 生成 versionCode
+        id: version-code
+        run: |
+          # versionCode = YYYYMMDD + 序号（release 从 1 开始）
+          BASE_CODE=$(date +%Y%m%d)
+          COUNTER_FILE="/tmp/class-mansys-release-counter"
+          if [ -f "$COUNTER_FILE" ]; then
+            COUNT=$(cat "$COUNTER_FILE")
+            COUNT=$((COUNT + 1))
+          else
+            COUNT=1
+          fi
+          echo "$COUNT" > "$COUNTER_FILE"
+          VERSION_CODE="${BASE_CODE}$(printf '%04d' $COUNT)"
+          echo "VERSION_CODE=${VERSION_CODE}" >> $GITHUB_OUTPUT
+
+      - name: 📦 写入 Keystore
+        run: |
+          mkdir -p /home/ayin/android-key
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > /home/ayin/android-key/class-mansys-release.keystore
+          chmod 600 /home/ayin/android-key/class-mansys-release.keystore
+
+      - name: 📦 Install frontend dependencies
+        run: npm ci
+        working-directory: frontend-v3
+
+      - name: 🏗️ Build frontend (H5)
+        run: npm run build
+        working-directory: frontend-v3
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || 'https://cls.ayinserver.xin' }}
+
+      - name: 🔄 Sync Capacitor Android
+        run: npx cap sync android
+        working-directory: frontend-v3
+
+      - name: 🏗️ Build AAB (prodRelease)
+        run: |
+          cd frontend-v3/android
+          chmod +x gradlew
+          # 自托管 runner 默认 Java 25 不兼容 Gradle 8.14，显式使用 Java 21
+          export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+          ./gradlew bundleProdRelease \
+            -PversionCode=${{ steps.version-code.outputs.VERSION_CODE }} \
+            -PversionName=${{ steps.version.outputs.VERSION_NAME }}
+
+      - name: 🏗️ Build APK (prodRelease)
+        run: |
+          cd frontend-v3/android
+          export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+          ./gradlew assembleProdRelease \
+            -PversionCode=${{ steps.version-code.outputs.VERSION_CODE }} \
+            -PversionName=${{ steps.version.outputs.VERSION_NAME }}
+
+      - name: 📋 列出构建产物
+        id: artifacts
+        run: |
+          echo "=== AAB files ==="
+          find frontend-v3/android/app/build/outputs/bundle -name "*.aab" -type f
+          echo "=== APK files ==="
+          find frontend-v3/android/app/build/outputs/apk -name "*release*.apk" -type f
+          # 获取 AAB 路径
+          AAB=$(find frontend-v3/android/app/build/outputs/bundle -name "*prod*release*.aab" -type f | head -1)
+          if [ -z "$AAB" ]; then
+            AAB=$(find frontend-v3/android/app/build/outputs/bundle -name "*.aab" -type f | head -1)
+          fi
+          APK=$(find frontend-v3/android/app/build/outputs/apk -name "*prod*release*.apk" -type f | head -1)
+          if [ -z "$APK" ]; then
+            APK=$(find frontend-v3/android/app/build/outputs/apk -name "*release*.apk" -type f | head -1)
+          fi
+          echo "AAB_PATH=${AAB}" >> $GITHUB_OUTPUT
+          echo "APK_PATH=${APK}" >> $GITHUB_OUTPUT
+          echo "AAB_NAME=$(basename ${AAB})" >> $GITHUB_OUTPUT
+          echo "APK_NAME=$(basename ${APK})" >> $GITHUB_OUTPUT
+
+      - name: 📦 复制 APK 到 backend/apk/
+        run: |
+          mkdir -p backend/apk
+          APK_NAME="class-mansys-v${{ steps.version.outputs.VERSION_NAME }}-release.apk"
+          if [ -n "${{ steps.artifacts.outputs.APK_PATH }}" ]; then
+            cp "${{ steps.artifacts.outputs.APK_PATH }}" "backend/apk/${APK_NAME}"
+            echo "Copied: backend/apk/${APK_NAME}"
+            ls -lh "backend/apk/${APK_NAME}"
+          fi
+
+      - name: 📝 更新 app-version.json
+        run: |
+          APK_PATH="backend/apk/class-mansys-v${{ steps.version.outputs.VERSION_NAME }}-release.apk"
+          APK_SIZE=$(stat -c%s "$APK_PATH" 2>/dev/null || echo 0)
+          # 从 tag 注释或最近的 git log 获取 changelog
+          CHANGELOG="Release ${{ steps.version.outputs.VERSION_NAME }}"
+          # 转义
+          CHANGELOG_ESCAPED=$(echo "$CHANGELOG" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')
+          bash scripts/update-app-version.sh \
+            "${{ steps.version.outputs.VERSION_NAME }}" \
+            "${{ steps.version-code.outputs.VERSION_CODE }}" \
+            "$APK_SIZE" \
+            "$CHANGELOG_ESCAPED"
+
+      - name: 🚀 提交 APK 和版本文件到仓库
+        run: |
+          git config user.name "CI Bot"
+          git config user.email "ci@clamansys.app"
+          APK_NAME="class-mansys-v${{ steps.version.outputs.VERSION_NAME }}-release.apk"
+          git add "backend/apk/${APK_NAME}"
+          git add backend/data/app-version.json
+          git commit -m "chore: release v${{ steps.version.outputs.VERSION_NAME }} (code ${{ steps.version-code.outputs.VERSION_CODE }})" || echo "无变更"
+          git push origin main
+
+      - name: 🚀 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ steps.version.outputs.VERSION_NAME }}
+          body: |
+            ## class_mansys v${{ steps.version.outputs.VERSION_NAME }}
+
+            ### Android 构建信息
+            - versionCode: ${{ steps.version-code.outputs.VERSION_CODE }}
+            - AAB: ${{ steps.artifacts.outputs.AAB_NAME }}
+            - APK: ${{ steps.artifacts.outputs.APK_NAME }}
+
+            ### 下载
+            - APK: https://cls.ayinserver.xin/apk/class-mansys-v${{ steps.version.outputs.VERSION_NAME }}-release.apk
+
+            > 自动构建于 $(date '+%Y-%m-%d %H:%M:%S CST')
+          files: |
+            ${{ steps.artifacts.outputs.AAB_PATH }}
+            ${{ steps.artifacts.outputs.APK_PATH }}
+          draft: false
+          prerelease: false
+
+      - name: 🔄 重启后端服务
+        run: |
+          export XDG_RUNTIME_DIR=/run/user/1000
+          export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+          systemctl --user restart class-mansys.service
+
+      - name: ✅ 验证
+        run: |
+          sleep 3
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3002/ 2>/dev/null || echo "000")
+          echo "Frontend status: $STATUS"
+          echo "Tag: ${{ steps.version.outputs.TAG }}"
