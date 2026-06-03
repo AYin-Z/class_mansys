@@ -1,12 +1,17 @@
-name: Deploy class_mansys
+name: Deploy H5 (frontend only)
 
 on:
-  push:
-    branches: [main]
+  # push 到 main 时仅触发 Android 构建流程（android-build.yml），
+  # 本流程仅手动执行 H5 快速部署
   workflow_dispatch:
+    inputs:
+      reason:
+        description: '部署原因'
+        required: false
+        default: '手动 H5 热更新'
 
 jobs:
-  deploy:
+  deploy-h5:
     runs-on: self-hosted
 
     steps:
@@ -21,12 +26,14 @@ jobs:
           node-version: '22'
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
-        working-directory: /home/ayin/Current_Works/class_mansys
+        run: npm ci
+        working-directory: /home/ayin/Current_Works/class_mansys/frontend-v3
 
       - name: Build H5 (production)
-        run: npm run build:h5
-        working-directory: /home/ayin/Current_Works/class_mansys
+        run: npm run build
+        working-directory: /home/ayin/Current_Works/class_mansys/frontend-v3
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || 'https://cls.ayinserver.xin' }}
 
       - name: Restart backend
         run: |
