@@ -37,6 +37,7 @@ _legacy/
 # AI tool directories
 .agents/
 .codebuddy/
+.reasonix/
 rules/
 
 # Python
