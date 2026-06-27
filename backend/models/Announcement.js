@@ -1,10 +1,10 @@
 const db = require('../config/database');
 
 class Announcement {
-  static async create({ title, content, creator_id }) {
+  static async create({ title, content, creator_id, is_pinned }) {
     const [result] = await db.query(
-      'INSERT INTO announcements (title, content, creator_id) VALUES (?, ?, ?)',
-      [title, content, creator_id]
+      'INSERT INTO announcements (title, content, creator_id, is_pinned) VALUES (?, ?, ?, ?)',
+      [title, content, creator_id, is_pinned ? 1 : 0]
     );
     return result.insertId;
   }

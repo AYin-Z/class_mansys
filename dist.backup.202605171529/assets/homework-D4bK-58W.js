@@ -1,1 +1,0 @@
-import{j as r,p as e}from"./index-BV1WbE7V.js";function i(){return r("/api/homework")}function m(o){return r(`/api/homework/${o}`)}function s(o,t){return e(`/api/homework/${o}/submit`,t)}export{i as a,m as g,s};

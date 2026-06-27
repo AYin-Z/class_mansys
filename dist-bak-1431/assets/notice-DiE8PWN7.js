@@ -1,1 +1,0 @@
-import{a as e,i as t,r as n}from"./index-BDDyQ6Jm.js";function r(e){return t(`/api/notice/${e}`)}function i(){return t(`/api/notice/unread/count`)}function a(){return t(`/api/notice`)}function o(t){return e(`/api/notice/create`,t)}function s(e){return n(`/api/notice/${e}`)}export{i as a,a as i,s as n,r,o as t};

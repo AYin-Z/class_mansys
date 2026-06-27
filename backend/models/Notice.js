@@ -106,6 +106,15 @@ class Notice {
   }
 
   // ---- 待办完成 ----
+
+  static async isCompletedBy(notice_id, user_id) {
+    const [rows] = await db.query(
+      'SELECT id FROM notice_completions WHERE notice_id = ? AND user_id = ?',
+      [notice_id, user_id]
+    );
+    return rows.length > 0;
+  }
+
   static async markComplete(notice_id, user_id) {
     const [result] = await db.query(
       'INSERT IGNORE INTO notice_completions (notice_id, user_id) VALUES (?, ?)',

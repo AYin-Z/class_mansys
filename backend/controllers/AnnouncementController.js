@@ -85,12 +85,25 @@ class AnnouncementController {
       const file = req.file;
       const ext = path.extname(file.originalname).slice(1).toLowerCase() || 'file';
       const url = `/uploads/resources/${file.filename}`;
+
+      // 同时创建资源记录
+      const resourceId = await Resource.create({
+        name: req.body.name || file.originalname,
+        type: req.body.type || ext,
+        url,
+        size: file.size,
+        uploader_id: req.user.id,
+        category: req.body.category || '其他',
+        description: req.body.description || '',
+      });
+
       res.json({
         success: true,
         url,
         filename: file.originalname,
         size: file.size,
-        type: ext
+        type: ext,
+        id: resourceId,
       });
     } catch (e) {
       console.error('文件上传失败:', e);

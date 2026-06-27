@@ -1,5 +1,20 @@
 const db = require('../config/database');
 
+const PUBLIC_USER_COLUMNS = [
+  'id',
+  'name',
+  'nickName',
+  'student_id',
+  'class_id',
+  'role',
+  'phone',
+  'email',
+  'avatarUrl',
+  'gender',
+  'created_at',
+  'updated_at'
+].join(', ');
+
 class User {
   static async create(userData) {
     const { openid, nickName, avatarUrl, gender, student_id, name, class_id, role, phone, email } = userData;
@@ -48,8 +63,13 @@ class User {
   }
 
   static async getAll() {
-    const [rows] = await db.query('SELECT * FROM users');
+    const [rows] = await db.query(`SELECT ${PUBLIC_USER_COLUMNS} FROM users`);
     return rows;
+  }
+
+  static async findPublicById(id) {
+    const [rows] = await db.query(`SELECT ${PUBLIC_USER_COLUMNS} FROM users WHERE id = ?`, [id]);
+    return rows[0];
   }
 
   static async update(id, userData) {

@@ -37,7 +37,17 @@ const features: FeatureItem[] = [
 ]
 
 function canOpen(item: FeatureItem): boolean {
-  return !!item.ready && (!item.admin || userStore.isAdmin)
+  if (!item.ready) return false
+  if (!item.admin) return true
+  // admin-only: dashboard, admin panels, approval/management pages
+  if (['/pages/dashboard/index', '/pages/notice/admin', '/pages/leave/approvals',
+       '/pages/fee/approvals', '/pages/suggestion/inbox',
+       '/pages/points/manage', '/pages/vote/manage',
+       '/pages/challenge/manage', '/pages/lottery/manage',
+       '/pages/announcement/admin'].includes(item.path)) {
+    return userStore.isAdmin
+  }
+  return true
 }
 
 function go(item: FeatureItem) {
@@ -61,13 +71,15 @@ function go(item: FeatureItem) {
   </div>
 </template>
 <style scoped>
-.features-page { padding-bottom: 32px; }
+.features-page { padding-bottom: 80px; }
 .grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   padding: 16px 12px;
 }
+@media (min-width: 768px) { .grid { grid-template-columns: repeat(6, 1fr); } }
+@media (min-width: 1100px) { .grid { grid-template-columns: repeat(8, 1fr); } }
 .grid-item {
   background: var(--color-surface);
   border-radius: var(--radius-md);

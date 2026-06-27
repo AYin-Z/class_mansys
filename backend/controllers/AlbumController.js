@@ -99,13 +99,36 @@ class AlbumController {
       if (!req.file) {
         return res.status(400).json({ success: false, error: '请选择图片' });
       }
+      const albumId = parseInt(req.body.album_id, 10);
+      if (!albumId) {
+        return res.status(400).json({ success: false, error: '缺少相册 ID' });
+      }
+
+      const album = await Album.findById(albumId);
+      if (!album) {
+        return res.status(404).json({ success: false, error: '相册不存在' });
+      }
+
       const file = req.file;
       const url = `/uploads/albums/${file.filename}`;
+      const autoApprove = isAdmin(req.user) || Number(album.creator_id) === Number(req.user.id);
+
+      const photoId = await Photo.create({
+        album_id: albumId,
+        url,
+        description: req.body.description || '',
+        uploader_id: req.user.id,
+        auto_approve: autoApprove,
+      });
+
       res.json({
         success: true,
         url,
         filename: file.originalname,
-        size: file.size
+        size: file.size,
+        id: photoId,
+        autoApproved: autoApprove,
+        message: autoApprove ? '上传成功' : '上传成功，等待审核',
       });
     } catch (e) {
       console.error('图片上传失败:', e);

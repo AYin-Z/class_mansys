@@ -54,6 +54,11 @@ class Points {
     );
     return rows;
   }
+
+  static async deleteById(id) {
+    const [result] = await db.query('DELETE FROM points WHERE id = ?', [id]);
+    return result.affectedRows > 0;
+  }
 }
 
 module.exports = Points;

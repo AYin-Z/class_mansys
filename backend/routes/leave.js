@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const LeaveController = require('../controllers/LeaveController');
 const { authenticateToken, authorizeAdmin } = require('../middleware/auth');
+const { uploadLeaveProof } = require('../config/multer');
+
+// 上传请假证明材料
+router.post('/upload-proof', authenticateToken, uploadLeaveProof.single('file'), LeaveController.uploadProof);
 
 // 提交请假申请
 router.post('/apply', authenticateToken, LeaveController.applyLeave);

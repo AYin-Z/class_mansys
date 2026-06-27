@@ -51,6 +51,17 @@ class PointsController {
       res.status(500).json({ success: false, error: '操作失败' });
     }
   }
+
+  static async deleteRecord(req, res) {
+    try {
+      const Points = require('../models/Points');
+      const ok = await Points.deleteById(req.params.id);
+      if (!ok) return res.status(404).json({ success: false, error: '记录不存在' });
+      res.json({ success: true });
+    } catch (e) {
+      res.status(500).json({ success: false, error: '删除失败' });
+    }
+  }
 }
 
 module.exports = PointsController;

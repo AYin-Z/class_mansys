@@ -8,7 +8,7 @@ class NoticeController {
         return res.status(400).json({ success: false, error: '标题和内容必填' });
       }
 
-      const noticeId = await Notice.create({
+      const id = await Notice.create({
         title,
         content,
         type: type || '日常',
@@ -19,7 +19,7 @@ class NoticeController {
         creator_id: req.user.id
       });
 
-      res.json({ success: true, noticeId, message: '通知发布成功' });
+      res.json({ success: true, data: { id }, message: '通知发布成功' });
     } catch (error) {
       console.error('通知发布失败:', error);
       res.status(500).json({ success: false, error: '通知发布失败' });
@@ -46,7 +46,20 @@ class NoticeController {
       // 标记为已读（容错，失败不影响详情返回）
       try { await Notice.markAsRead(req.params.id, req.user.id); } catch (_) { /* ignore */ }
 
-      res.json({ success: true, notice });
+      // 查询当前用户的待办完成状态
+      let isCompleted = false;
+      let completion = null;
+      if (notice.is_todo) {
+        try {
+          isCompleted = !!(await Notice.isCompletedBy(req.params.id, req.user.id));
+          const { isAdmin } = require('../shared/constants');
+          if (isAdmin({ role: req.user.role })) {
+            completion = await Notice.getTodoCompletionStatus(req.params.id);
+          }
+        } catch (_) { /* ignore */ }
+      }
+
+      res.json({ success: true, notice: { ...notice, is_completed: isCompleted }, completion });
     } catch (error) {
       console.error('获取通知详情失败:', error);
       res.status(500).json({ success: false, error: '获取通知详情失败' });

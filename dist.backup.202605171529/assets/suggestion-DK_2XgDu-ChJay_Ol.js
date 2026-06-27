@@ -1,1 +1,0 @@
-import{S as e,u as t}from"./index-D9bwWGDf.js";var n={0:`待处理`,1:`处理中`,2:`已处理`};function r(e={}){return t(`/api/suggestion`,e)}function i(t,n){return e(`/api/suggestion/${t}/handle`,n)}export{n,r,i as t};

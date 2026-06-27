@@ -40,10 +40,11 @@ class Challenge {
   }
 
   // ---- 申请 ----
-  static async apply({ challenge_id, user_id }) {
+  static async apply({ challenge_id, user_id, proof_urls, notes }) {
+    const proofJson = proof_urls && proof_urls.length > 0 ? JSON.stringify(proof_urls) : null;
     const [result] = await db.query(
-      'INSERT INTO challenge_applications (challenge_id, user_id) VALUES (?, ?)',
-      [challenge_id, user_id]
+      'INSERT INTO challenge_applications (challenge_id, user_id, proof_urls, notes) VALUES (?, ?, ?, ?)',
+      [challenge_id, user_id, proofJson, notes || '']
     );
     return result.insertId;
   }

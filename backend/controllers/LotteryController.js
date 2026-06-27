@@ -5,7 +5,6 @@ const { isAdmin } = require('../shared/constants');
 class LotteryController {
   static async create(req, res) {
     try {
-      if (!isAdmin(req.user)) return res.status(403).json({ success: false, error: '无权创建抽奖' });
       const { name, description, rules, start_time, end_time } = req.body || {};
       if (!name || !rules || !start_time || !end_time) {
         return res.status(400).json({ success: false, error: 'name/rules/start_time/end_time 必填' });

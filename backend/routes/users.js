@@ -17,7 +17,10 @@ router.get('/', authenticateToken, authorizeAdmin, async (req, res) => {
 // 获取单个用户
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    if (Number(req.user.id) !== Number(req.params.id) && !isAdmin(req.user)) {
+      return res.status(403).json({ success: false, error: '权限不足' });
+    }
+    const user = await User.findPublicById(req.params.id);
     if (!user) {
       return res.status(404).json({ success: false, error: '用户不存在' });
     }
@@ -37,7 +40,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
     
     const success = await User.update(req.params.id, req.body);
     if (success) {
-      res.json({ success: true, message: '更新成功' });
+      const user = await User.findPublicById(req.params.id);
+      res.json({ success: true, message: '更新成功', user });
     } else {
       res.status(404).json({ success: false, error: '用户不存在' });
     }

@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const db = require('./config/database');
@@ -79,8 +80,12 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// H5 前端静态文件托管（构建产物在 dist/）
-const h5DistPath = path.join(__dirname, '..', 'dist');
+// H5 前端静态文件托管（兼容旧 root dist 与新 frontend-v3/dist）
+const h5DistCandidates = [
+  path.join(__dirname, '..', 'dist'),
+  path.join(__dirname, '..', 'frontend-v3', 'dist')
+];
+const h5DistPath = h5DistCandidates.find((dir) => fs.existsSync(path.join(dir, 'index.html'))) || h5DistCandidates[0];
 app.use(express.static(h5DistPath, {
   setHeaders: (res, path) => {
     // Vite 构建产物带 crossorigin 属性，需 CORS 头
@@ -112,6 +117,9 @@ app.use((req, res) => {
 // 错误处理
 app.use((err, req, res, next) => {
   console.error(err);
+  if (err && err.message === '不支持的文件类型') {
+    return res.status(400).json({ success: false, error: err.message });
+  }
   res.status(500).json({ error: '服务器内部错误' });
 });
 

@@ -118,7 +118,7 @@ const totalBadge = () => unreadNoticeCount.value + pendingHomeworkCount.value
   </div>
 </template>
 <style scoped>
-.profile-page { padding-bottom: 32px; }
+.profile-page { padding-bottom: 80px; }
 .user-card {
   display: flex; align-items: center; gap: 16px;
   padding: 24px 20px; background: var(--color-surface);

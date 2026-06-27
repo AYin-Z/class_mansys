@@ -1,0 +1,115 @@
+/* ========== 区队管理系统 V2 — 设计系统 ========== */
+
+:root,
+[data-theme="light"] {
+  --color-bg:         #f5f6f8;
+  --color-surface:    #ffffff;
+  --color-surface-2:  #f9fafb;
+  --color-surface-hover: #f0f1f3;
+  --color-border:     #e5e7eb;
+
+  --color-primary:    #1a3a5c;
+  --color-primary-container: #d6e4f0;
+  --color-accent:     #2d7ff9;
+  --color-accent-bg:  #e8f0fe;
+
+  --color-text:       #1f2937;
+  --color-text-2:     #6b7280;
+  --color-text-3:     #9ca3af;
+  --color-text-on-primary: #ffffff;
+
+  --color-success:    #10b981;
+  --color-success-bg: #d1fae5;
+  --color-warning:    #f59e0b;
+  --color-warning-bg: #fef3c7;
+  --color-error:      #ef4444;
+  --color-error-bg:   #fee2e2;
+
+  --color-hero-from:  #1a3a5c;
+  --color-hero-to:    #254e7a;
+
+  --shadow-card:      0 1px 3px rgba(0,0,0,0.06);
+  --shadow-lift:      0 4px 12px rgba(0,0,0,0.08);
+
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-xl:   18px;
+  --radius-full: 9999px;
+
+  --spacing-xs:  4px;
+  --spacing-sm:  8px;
+  --spacing-md:  12px;
+  --spacing-lg:  16px;
+  --spacing-xl:  24px;
+
+  --font-body:   -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono:   ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --navbar-blur: none;
+}
+
+[data-theme="dark"] {
+  --color-bg:         #0a1628;
+  --color-surface:    #0f1d35;
+  --color-surface-2:  #152545;
+  --color-surface-hover: #1a2d52;
+  --color-border:     rgba(255,255,255,0.06);
+
+  --color-primary:    #1e3a5f;
+  --color-primary-container: #1e3a5f;
+  --color-accent:     #2d7ff9;
+  --color-accent-bg:  rgba(45,127,249,0.08);
+
+  --color-text:       #e2e8f0;
+  --color-text-2:     #64748b;
+  --color-text-3:     #475569;
+  --color-text-on-primary: #f1f5f9;
+
+  --color-success:    #10b981;
+  --color-success-bg: rgba(16,185,129,0.12);
+  --color-warning:    #f59e0b;
+  --color-warning-bg: rgba(245,158,11,0.12);
+  --color-error:      #ef4444;
+  --color-error-bg:   rgba(239,68,68,0.12);
+
+  --color-hero-from:  #0a1628;
+  --color-hero-to:    #0f1d35;
+
+  --shadow-card:      0 1px 3px rgba(0,0,0,0.25);
+  --shadow-lift:      0 4px 12px rgba(0,0,0,0.35);
+
+  --navbar-blur:      blur(12px);
+}
+
+/* ========== Global Reset ========== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+  transition: background 0.3s, color 0.3s;
+}
+
+a { color: var(--color-accent); text-decoration: none; }
+button { font-family: inherit; cursor: pointer; }
+input, textarea { font-family: inherit; }
+
+/* ========== Utility Classes ========== */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-2);
+  padding: 20px var(--spacing-lg) 12px;
+}

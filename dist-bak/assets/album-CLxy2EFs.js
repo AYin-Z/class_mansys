@@ -1,1 +1,0 @@
-import{M as t,C as u}from"./index-C2J5_vMc.js";function n(){return t("/api/album")}function r(a){return u("/api/album",a)}function e(a){return t(`/api/album/${a}`)}function i(a){return u("/api/album/photos",a)}export{e as a,r as c,n as g,i as u};

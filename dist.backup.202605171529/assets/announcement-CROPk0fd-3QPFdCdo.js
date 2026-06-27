@@ -1,1 +1,0 @@
-import{u as e}from"./index-D9bwWGDf.js";function t(){return e(`/api/announcement`)}function n(t){return e(`/api/announcement/${t}`)}function r(t){return e(`/api/announcement/resources`,t?{category:t}:void 0)}export{r as n,t as r,n as t};

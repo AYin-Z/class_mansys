@@ -24,8 +24,7 @@ dist
 # 默认忽略所有 .env 文件，但显式白名单 .env.example / .env.development，
 # 方便多人协作时共享无密的默认配置
 **/.env
-.env.*.local
-.env.local
+**/.env.*
 !.env.example
 !.env.development
 
@@ -83,6 +82,13 @@ android/app/release/
 android/app/debug/
 android/captures/
 
+# CI 临时文件
+scripts/.versionCode
+scripts/.versionName
+
 # HBuilderX CLI 打包过程日志（排错辅助，不入仓库）
 pack.log
 publish.log
+
+# Android 签名密钥目录（本地 CI runner 专用，不入仓库）
+android-key/

@@ -288,7 +288,7 @@
 ## Summary Statistics
 
 - **Route files:** 18
-- **Total endpoints:** ~106 (including legacy/duplicate paths)
+- **Total endpoints:** ~126 (including legacy/duplicate paths)
 - **Public endpoints (no auth):** `GET /api/classes`, `POST /api/auth/login|register|refresh|login-with-password|login-with-phone|send-code|phone-code-login|email-code-login|set-password`, `GET /api/app/latest`, `GET /health`
 - **Auth mechanism:** JWT Bearer tokens, role-based admin checks (role 1-8 = admin)
 - **Consistent response pattern:** `{ success: boolean }` wrapper across all endpoints

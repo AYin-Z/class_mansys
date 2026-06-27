@@ -109,7 +109,7 @@ onMounted(async () => {
 
 <style scoped>
 .about-page {
-  padding-bottom: 32px;
+  padding-bottom: 80px;
   min-height: 100vh;
 }
 

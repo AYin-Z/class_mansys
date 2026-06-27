@@ -4,12 +4,12 @@ const { isAdmin } = require('../shared/constants');
 class LeaveController {
   static async applyLeave(req, res) {
     try {
-      const leaveId = await Leave.create({
+      const id = await Leave.create({
         user_id: req.user.id,
         ...req.body
       });
       
-      res.json({ success: true, leaveId, message: '请假申请提交成功' });
+      res.json({ success: true, data: { id }, message: '请假申请提交成功' });
     } catch (error) {
       console.error('请假申请失败:', error);
       res.status(500).json({ success: false, error: '请假申请失败' });
@@ -18,6 +18,8 @@ class LeaveController {
 
   static async getMyLeaves(req, res) {
     try {
+      // 自动销假：过期未销假的标记为已取消
+      await Leave.autoCancelExpired();
       const leaves = await Leave.findByUserId(req.user.id);
       res.json({ success: true, leaves });
     } catch (error) {
@@ -27,6 +29,7 @@ class LeaveController {
 
   static async getAllLeaves(req, res) {
     try {
+      await Leave.autoCancelExpired();
       const leaves = await Leave.getAllWithApplicants();
       res.json({ success: true, leaves });
     } catch (error) {
@@ -73,6 +76,24 @@ class LeaveController {
       }
     } catch (error) {
       res.status(500).json({ success: false, error: '审批失败' });
+    }
+  }
+
+  static async uploadProof(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, error: '请选择图片' });
+      }
+      const url = `/uploads/leaves/${req.file.filename}`;
+      res.json({
+        success: true,
+        url,
+        filename: req.file.originalname,
+        size: req.file.size,
+      });
+    } catch (e) {
+      console.error('证明材料上传失败:', e);
+      res.status(500).json({ success: false, error: '证明材料上传失败' });
     }
   }
 

@@ -13,13 +13,18 @@ const pool = mysql.createPool({
   connectTimeout: 10000,
   enableKeepAlive: true,
   keepAliveInitialDelay: 10000,
-  timezone: '+08:00'
+  // 不设 timezone，用 dateStrings 避免时区转换，保留原始字符串
+  dateStrings: true,
+  charset: 'utf8mb4'
 });
 
-// 每个新连接自动设置时区为 +08:00
+// 每个新连接设置时区和字符集
 pool.on('connection', (conn) => {
   conn.query("SET time_zone = '+8:00'", (err) => {
     if (err) console.error('设置时区失败:', err.message);
+  });
+  conn.query("SET NAMES utf8mb4", (err) => {
+    if (err) console.error('设置字符集失败:', err.message);
   });
 });
 

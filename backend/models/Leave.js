@@ -2,15 +2,16 @@ const db = require('../config/database');
 
 class Leave {
   static async create(leaveData) {
-    const { user_id, leave_type, type, start_time, end_time, reason } = leaveData;
+    const { user_id, leave_type, type, start_time, end_time, reason, attachments } = leaveData;
     const finalType = leave_type || type;
     // 兼容 ISO 8601 格式（前端可能发 "2026-05-15T08:00:00.000Z"）
     const fmtStart = start_time ? start_time.replace('T', ' ').replace(/\.\d+Z$/, '') : null;
     const fmtEnd = end_time ? end_time.replace('T', ' ').replace(/\.\d+Z$/, '') : null;
+    const attJson = attachments && attachments.length > 0 ? JSON.stringify(attachments) : null;
     
     const [result] = await db.query(
-      'INSERT INTO leaves (user_id, leave_type, start_time, end_time, reason) VALUES (?, ?, ?, ?, ?)',
-      [user_id, finalType, fmtStart, fmtEnd, reason]
+      'INSERT INTO leaves (user_id, leave_type, start_time, end_time, reason, attachments) VALUES (?, ?, ?, ?, ?, ?)',
+      [user_id, finalType, fmtStart, fmtEnd, reason, attJson]
     );
     
     return result.insertId;
@@ -76,6 +77,14 @@ class Leave {
     );
     
     return result.affectedRows > 0;
+  }
+
+  /** 自动销假：已过结束时间且未销假的标记为已销假 */
+  static async autoCancelExpired() {
+    const [result] = await db.query(
+      'UPDATE leaves SET is_cancelled = true, cancelled_time = NOW() WHERE status = 1 AND is_cancelled = 0 AND end_time < NOW()'
+    );
+    return result.affectedRows;
   }
 }
 

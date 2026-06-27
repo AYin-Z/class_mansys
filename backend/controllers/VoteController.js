@@ -5,9 +5,6 @@ const { isAdmin } = require('../shared/constants');
 class VoteController {
   static async createVote(req, res) {
     try {
-      if (!isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '需要管理员权限' });
-      }
       const { title, description, type, start_time, end_time, options, visible_scope, vote_scope } = req.body || {};
       // Validate scopes
       const validScopes = ['all', 'admin'];

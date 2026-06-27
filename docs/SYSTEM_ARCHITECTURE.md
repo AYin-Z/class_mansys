@@ -90,7 +90,7 @@ graph TB
 
     subgraph "数据层 Data"
         REPO[Repository<br/>SQL 封装]
-        MYSQL[(MySQL 8<br/>33 表)]
+        MYSQL[(MySQL 8<br/>31 表)]
     end
 
     APK -->|HTTPS| TUNNEL
@@ -548,7 +548,7 @@ erDiagram
     classes ||--o{ users : "class_id"
 ```
 
-### 6.2 表清单（33 张）
+### 6.2 表清单（31 张）
 
 **核心业务表（22 张）**：`users`, `classes`, `leaves`, `notices`, `notice_reads`, `notice_completions`, `announcements`, `resources`, `albums`, `photos`, `messages`, `expenses`, `homeworks`, `homework_submissions`, `psychological_applications`, `challenges`, `challenge_applications`, `challenge_records`, `votes`, `vote_options`, `vote_records`, `suggestions`
 
@@ -872,7 +872,7 @@ gantt
 | 1 | 前端使用 Vue 3 + Vite，**不**用 uni-app | uni-app 跨平台价值在放弃小程序后归零；Vue 3 + Vite 生态更好，调试体验更优 | React Native / Flutter（学习成本高） |
 | 2 | 用 Capacitor 而**非** HBuilderX 云打包 | Capacitor 与标准 Web 技术栈完全兼容，CI/CD 友好；HBuilderX 必须人工操作 | HBuilderX 云打包（旧方案，正在脱离） |
 | 3 | 后端保持 Express（不引入 Nest.js） | 项目规模 38 人，Nest.js 的 DI + 装饰器过度工程化；Express 足够轻量 | Nest.js（重但规范）、Fastify（性能好但生态小） |
-| 4 | 手写 SQL（暂不引入 ORM） | 33 张表，查询复杂度可控；ORM 引入的学习/维护成本 > 收益。P2 期评估是否引入 Prisma/Drizzle | Prisma（类型安全）、Drizzle（轻量）、Sequelize |
+| 4 | 手写 SQL（暂不引入 ORM） | 31 张表，查询复杂度可控；ORM 引入的学习/维护成本 > 收益。P2 期评估是否引入 Prisma/Drizzle | Prisma（类型安全）、Drizzle（轻量）、Sequelize |
 | 5 | 本地部署 + CF Tunnel（放弃 CloudBase） | 降低成本、简化运维、数据主权在本地。CloudBase 仅作备份 | 保留 CloudBase（月费 30-50 元） |
 | 6 | 双认证架构保留（CloudBase + JWT） | CloudBase 提供手机号/邮箱 OTP 等前端验证能力（免自己开发），后端 JWT 作业务鉴权 | 纯 JWT 自建密码登录（需重写注册/验证码流程） |
 | 7 | 模块化 Permission 矩阵 | 一条权限声明一组允许角色，集中维护；避免散落在各组件/Controller 的硬编码 `role === 2` | 散落硬编码（已弃用）、CASL/RBAC 库（过重） |

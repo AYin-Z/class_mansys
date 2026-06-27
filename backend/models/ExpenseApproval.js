@@ -61,13 +61,31 @@ class ExpenseApproval {
     );
     if (result.affectedRows === 0) return false;
 
-    await db.query('UPDATE expenses SET approval_step = -1, status = 1, approver_id = ?, approval_time = NOW() WHERE id = ?', [approverId, expenseId]);
+    const expense = await this.getExpenseInfo(expenseId);
+    if (!expense) return false;
+
+    const steps = this.determineSteps(expense.amount);
+    if (steps.length > 2) {
+      await db.query('UPDATE expenses SET approval_step = 3 WHERE id = ?', [expenseId]);
+    } else {
+      await db.query('UPDATE expenses SET approval_step = -1, status = 1, approver_id = ?, approval_time = NOW() WHERE id = ?', [approverId, expenseId]);
+    }
     return true;
   }
 
   // 用户投票（step 3 大额审批）
   static async castVote(expenseId, userId, vote) {
     try {
+      const expense = await this.getExpenseInfo(expenseId);
+      if (!expense) {
+        return { success: false, error: '记录不存在' };
+      }
+      if (Number(expense.user_id) === Number(userId)) {
+        return { success: false, error: '申请人不能参与本人费用投票' };
+      }
+      if (expense.approval_step !== 3 || expense.status !== 0) {
+        return { success: false, error: '当前费用不在投票阶段' };
+      }
       await db.query(
         'INSERT INTO expense_approval_votes (expense_id, user_id, vote) VALUES (?, ?, ?)',
         [expenseId, userId, vote]

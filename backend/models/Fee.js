@@ -65,9 +65,12 @@ class Fee {
   static async getBalance() {
     const [incomeRows] = await db.query("SELECT SUM(amount) as total FROM expenses WHERE type = '收入' AND status = 1");
     const [expenseRows] = await db.query("SELECT SUM(amount) as total FROM expenses WHERE type = '支出' AND status = 1");
+    const [collectionRows] = await db.query("SELECT COALESCE(SUM(collected_amount), 0) as total FROM fee_collections WHERE status >= 1");
     const income = incomeRows[0].total || 0;
     const expense = expenseRows[0].total || 0;
-    return { balance: income - expense, totalIncome: income, totalExpense: expense };
+    const collected = parseFloat(collectionRows[0].total) || 0;
+    const totalIncome = income + collected;
+    return { balance: totalIncome - expense, totalIncome, totalExpense: expense, totalCollected: collected };
   }
 
   // === 新增方法 ===

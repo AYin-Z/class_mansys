@@ -73,6 +73,10 @@ const LotteryDetail = () => import('../pages/lottery/detail.vue')
 // Points
 const PointsIndex = () => import('../pages/points/index.vue')
 
+// Admin
+const AdminMembers = () => import('@/pages/admin/members.vue')
+const AdminMemberDetail = () => import('@/pages/admin/member-detail.vue')
+
 // Management pages
 const PointsManage = () => import('@/pages/points/manage.vue')
 const VoteManage = () => import('@/pages/vote/manage.vue')
@@ -97,7 +101,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/pages/notice/admin', name: 'notice-admin', component: NoticeAdmin, meta: { requiresAdmin: true } },
 
   // ===== 仪表盘 =====
-  { path: '/pages/dashboard/index', name: 'dashboard-index', component: Dashboard, meta: { requiresAdmin: true } },
+  { path: '/pages/dashboard/index', name: 'dashboard-index', component: Dashboard },
 
   // ===== 请假 =====
   { path: '/pages/leave/index', name: 'leave-index', component: LeaveList },
@@ -150,6 +154,10 @@ const routes: RouteRecordRaw[] = [
 
   // ===== 积分 =====
   { path: '/pages/points/index', name: 'points-index', component: PointsIndex },
+
+  // ===== 管理员 =====
+  { path: '/pages/admin/members', name: 'admin-members', component: AdminMembers, meta: { requiresAdmin: true } },
+  { path: '/pages/admin/member-detail', name: 'admin-member-detail', component: AdminMemberDetail, meta: { requiresAdmin: true } },
 
   // ===== 管理后台 =====
   { path: '/pages/points/manage', name: 'points-manage', component: PointsManage, meta: { requiresAdmin: true } },

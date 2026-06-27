@@ -1,1 +1,0 @@
-import{j as a,p as n}from"./index-CRD6KRas.js";const t={0:"待审批",1:"已通过",2:"已拒绝"};function p(){return a("/api/challenge")}function g(e){return a(`/api/challenge/${e}`)}function r(e){return n(`/api/challenge/${e}/apply`)}export{t as C,r as a,p as b,g};
