@@ -329,6 +329,28 @@ async function genToken() {
   } catch (e: any) { showToast(e?.message || '创建失败', 'error') }
 }
 
+/** 一键：新建令牌 + 复制给 AI 的提示词（老令牌看不到明文，这是最顺的路径） */
+async function genTokenAndCopyPrompt() {
+  try {
+    const res = await createApiToken(newTokenName.value.trim() || '我的智能体', newTokenWrite.value)
+    if (!res?.token) throw new Error('服务端未返回令牌，请重试')
+    freshToken.value = res.token
+    mcpCheck.value = null
+    newTokenName.value = ''
+    await loadAccess()
+    await copyText(buildMcpAgentPrompt({
+      endpoint: mcpEndpoint.value,
+      token: res.token,
+      allowWrite: res.allowWrite
+    }))
+    showToast('令牌已生成，提示词已复制——直接粘给你的 AI 即可')
+    await nextTick()
+    tokenBoxRef.value?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  } catch (e: any) {
+    showToast(e?.message || '生成失败', 'error')
+  }
+}
+
 /** 用户确认已保存后收起明文 */
 function dismissFreshToken() {
   freshToken.value = ''
@@ -591,40 +613,47 @@ function stopBotPolling() {
                 <code>{{ freshToken }}</code>
                 <button class="btn-ghost" @click="copyToken">复制</button>
               </div>
-
-              <div class="acc-hint">
-                <b>要"下载"什么吗？不用。</b>MCP 是协议不是软件：你已有的 AI 客户端（Claude Desktop / Cursor / DSH 等）
-                里填一段配置就能用——不需要装 Node、不需要拷代码、不需要数据库。只有客户端"只支持命令行方式"时，
-                才需要一次性桥接（第 3 步的提示词里已经写好，让 AI 自己装）。
-              </div>
-
-              <div class="acc-hint"><b>方式一（最省事）：把下面这段发给你的 AI，让它自己配好</b></div>
-              <div class="code-block">
-                <pre>{{ mcpPrompt }}</pre>
-                <button class="btn-primary" @click="copyText(mcpPrompt)">复制给 AI 的提示词</button>
-              </div>
-
-              <div class="acc-hint"><b>方式二：手动粘配置（HTTP）</b></div>
-              <div class="code-block">
-                <pre>{{ mcpConfig }}</pre>
-                <button class="btn-ghost" @click="copyText(mcpConfig)">复制配置</button>
-              </div>
-
-              <div class="acc-hint">连接地址：{{ mcpEndpoint }}</div>
-              <div class="acc-row">
-                <button class="btn-ghost" @click="checkMcp">连接自检</button>
-                <span v-if="mcpCheck" class="acc-hint" :class="{ bad: !mcpCheck.ok }">{{ mcpCheck.text }}</span>
-              </div>
-
-              <details class="acc-details">
-                <summary class="acc-hint">方式三：stdio（仅当客户端与服务器在同一台机器；需要本机有仓库和 Node）</summary>
-                <div class="code-block">
-                  <pre>{{ mcpStdioConfig }}</pre>
-                  <button class="btn-ghost" @click="copyText(mcpStdioConfig)">复制配置</button>
-                </div>
-              </details>
+            </div>
+            <div v-else class="acc-hint warn">
+              已有令牌看不到明文（服务端只存哈希，这是安全设计）。要用下面的提示词，点右上角「生成令牌并复制提示词」——系统会新建一个并自动复制好。
             </div>
 
+            <div class="acc-row">
+              <button class="btn-primary" @click="genTokenAndCopyPrompt">生成令牌并复制提示词</button>
+            </div>
+
+            <div class="acc-hint">
+              <b>要"下载"什么吗？不用。</b>MCP 是协议不是软件：你已有的 AI 客户端（Claude Desktop / Cursor / DSH 等）
+              里填一段配置就能用——不需要装 Node、不需要拷代码、不需要数据库。只有客户端"只支持命令行方式"时，
+              才需要一次性桥接（第 3 步的提示词里已经写好，让 AI 自己装）。
+            </div>
+
+            <div class="acc-hint"><b>方式一（最省事）：把下面这段发给你的 AI，让它自己配好</b></div>
+            <div class="code-block">
+              <pre>{{ mcpPrompt }}</pre>
+              <button class="btn-primary" @click="copyText(mcpPrompt)">复制给 AI 的提示词</button>
+            </div>
+
+            <div class="acc-hint"><b>方式二：手动粘配置（HTTP）</b></div>
+            <div class="code-block">
+              <pre>{{ mcpConfig }}</pre>
+              <button class="btn-ghost" @click="copyText(mcpConfig)">复制配置</button>
+            </div>
+
+            <div class="acc-hint">连接地址：{{ mcpEndpoint }}</div>
+            <div class="acc-row">
+              <button class="btn-ghost" :disabled="!freshToken" @click="checkMcp">连接自检</button>
+              <span v-if="mcpCheck" class="acc-hint" :class="{ bad: !mcpCheck.ok }">{{ mcpCheck.text }}</span>
+              <span v-else-if="!freshToken" class="acc-hint">（自检需要刚生成的令牌明文；也可直接用提示词让 AI 验证）</span>
+            </div>
+
+            <details class="acc-details">
+              <summary class="acc-hint">方式三：stdio（仅当客户端与服务器在同一台机器；需要本机有仓库和 Node）</summary>
+              <div class="code-block">
+                <pre>{{ mcpStdioConfig }}</pre>
+                <button class="btn-ghost" @click="copyText(mcpStdioConfig)">复制配置</button>
+              </div>
+            </details>
             <div v-if="tokens.length" class="acc-list">
               <div v-for="t in tokens" :key="t.id" class="acc-item">
                 <span>
@@ -765,6 +794,8 @@ function stopBotPolling() {
 .code-block .btn-ghost { margin-top: 6px; }
 .acc-details summary { cursor: pointer; margin-bottom: 8px; }
 .acc-hint.bad { color: var(--color-danger, #e5484d); }
+.acc-hint.warn { color: var(--color-warning); }
+.btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
 .tag { display: inline-block; padding: 0 5px; border-radius: 6px; background: var(--color-surface-hover); color: var(--color-text-3); }
 .tag.write { background: var(--color-accent-bg); color: var(--color-accent); }
 .help-link { color: var(--color-accent); cursor: pointer; }
