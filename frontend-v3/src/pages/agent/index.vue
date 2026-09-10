@@ -4,6 +4,7 @@ import NavBar from '@/components/ui/NavBar.vue'
 import { showToast } from '@/utils/ui'
 import { apiUrl, getToken } from '@/utils/request'
 import { renderMarkdown } from '@/utils/markdown'
+import { buildMcpAgentPrompt, buildMcpConfigJson, buildMcpStdioConfig } from '@/utils/mcpPrompt'
 import { mediaUrl, openMedia } from '@/utils/media'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
@@ -67,27 +68,20 @@ const tokens = ref<AgentApiToken[]>([])
 const newTokenName = ref('')
 const newTokenWrite = ref(false)
 const freshToken = ref('')
-const mcpCheck = ref<{ ok: boolean; text: string } | null>(null)
+const mcpCheck = ref<{ ok: boolean; text: string; toolCount?: number; allowWrite?: boolean } | null>(null)
 const bindCodeRef = ref<HTMLElement | null>(null)
 const tokenBoxRef = ref<HTMLElement | null>(null)
 const mcpEndpoint = computed(() => (typeof window !== 'undefined' ? window.location.origin : '') + '/api/mcp')
-const mcpConfig = computed(() => JSON.stringify({
-  mcpServers: {
-    'class-mansys': {
-      url: mcpEndpoint.value,
-      headers: { Authorization: 'Bearer ' + (freshToken.value || 'cm_你的令牌') }
-    }
-  }
-}, null, 2))
-const mcpStdioConfig = computed(() => JSON.stringify({
-  mcpServers: {
-    'class-mansys': {
-      command: 'node',
-      args: ['/home/ayin/Current_Works/class_mansys/backend/mcp/server.js'],
-      env: { CM_API_TOKEN: freshToken.value || 'cm_你的令牌' }
-    }
-  }
-}, null, 2))
+const mcpConfig = computed(() => buildMcpConfigJson(mcpEndpoint.value, freshToken.value))
+const mcpStdioConfig = computed(() => buildMcpStdioConfig(freshToken.value))
+const mcpPrompt = computed(() =>
+  buildMcpAgentPrompt({
+    endpoint: mcpEndpoint.value,
+    token: freshToken.value,
+    allowWrite: mcpCheck.value?.allowWrite ?? newTokenWrite.value,
+    toolCount: mcpCheck.value?.toolCount,
+  }),
+)
 let bindTimer: any = null
 
 onMounted(async () => {
@@ -349,6 +343,8 @@ async function checkMcp() {
     const data = await mcpSelfCheck(freshToken.value)
     mcpCheck.value = {
       ok: true,
+      toolCount: data.toolCount,
+      allowWrite: data.allowWrite,
       text: '连接正常：' + data.toolCount + ' 个工具 · ' + (data.allowWrite ? '可读写' : '只读') + '（身份：' + ((data.user || {}).name || '') + '）'
     }
   } catch (e: any) {
@@ -596,11 +592,24 @@ function stopBotPolling() {
                 <button class="btn-ghost" @click="copyToken">复制</button>
               </div>
 
-              <div class="acc-hint"><b>客户端配置（HTTP，推荐：不用装任何东西）</b></div>
+              <div class="acc-hint">
+                <b>要"下载"什么吗？不用。</b>MCP 是协议不是软件：你已有的 AI 客户端（Claude Desktop / Cursor / DSH 等）
+                里填一段配置就能用——不需要装 Node、不需要拷代码、不需要数据库。只有客户端"只支持命令行方式"时，
+                才需要一次性桥接（第 3 步的提示词里已经写好，让 AI 自己装）。
+              </div>
+
+              <div class="acc-hint"><b>方式一（最省事）：把下面这段发给你的 AI，让它自己配好</b></div>
+              <div class="code-block">
+                <pre>{{ mcpPrompt }}</pre>
+                <button class="btn-primary" @click="copyText(mcpPrompt)">复制给 AI 的提示词</button>
+              </div>
+
+              <div class="acc-hint"><b>方式二：手动粘配置（HTTP）</b></div>
               <div class="code-block">
                 <pre>{{ mcpConfig }}</pre>
                 <button class="btn-ghost" @click="copyText(mcpConfig)">复制配置</button>
               </div>
+
               <div class="acc-hint">连接地址：{{ mcpEndpoint }}</div>
               <div class="acc-row">
                 <button class="btn-ghost" @click="checkMcp">连接自检</button>
@@ -608,7 +617,7 @@ function stopBotPolling() {
               </div>
 
               <details class="acc-details">
-                <summary class="acc-hint">本机 stdio 方式（仅当你和服务器在同一台机器时用）</summary>
+                <summary class="acc-hint">方式三：stdio（仅当客户端与服务器在同一台机器；需要本机有仓库和 Node）</summary>
                 <div class="code-block">
                   <pre>{{ mcpStdioConfig }}</pre>
                   <button class="btn-ghost" @click="copyText(mcpStdioConfig)">复制配置</button>
