@@ -16,6 +16,7 @@ async function req(method, path, opts) {
   opts = opts || {};
   const headers = { 'Content-Type': 'application/json' };
   if (opts.token) headers['Authorization'] = 'Bearer ' + opts.token;
+  if (opts.headers) Object.assign(headers, opts.headers);
   if (opts.origin) headers['Origin'] = opts.origin;
   const res = await fetch(BASE + path, { method, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
   const text = await res.text();
@@ -289,6 +290,46 @@ const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
     check('吊销后令牌标记为 revoked', !!still && !!still.revoked_at, JSON.stringify(still || {}).slice(0, 120));
   } else {
     check('拿到新建令牌的 id', false, 'token not found in list');
+  }
+
+  section('MCP over HTTP（令牌即身份，客户端只填 URL + 令牌）');
+  const roTok = await req('POST', '/api/agent/tokens', { token: student6Token, body: { name: 'E2E只读' } });
+  const rwTok = await req('POST', '/api/agent/tokens', { token: student6Token, body: { name: 'E2E读写', allowWrite: true } });
+  const roPlain = ((roTok.data || {}).data || {}).token || '';
+  const rwPlain = ((rwTok.data || {}).data || {}).token || '';
+  check('只读/读写令牌均可创建', !!roPlain && !!rwPlain && roPlain !== rwPlain);
+
+  const anonInfo = await req('GET', '/api/mcp/info', {});
+  check('MCP 未带令牌返回 401', anonInfo.status === 401, 'status=' + anonInfo.status);
+  const badInfo = await req('GET', '/api/mcp/info', { token: 'cm_deadbeefdeadbeef' });
+  check('MCP 无效令牌返回 401', badInfo.status === 401, 'status=' + badInfo.status);
+
+  const roInfo = await req('GET', '/api/mcp/info', { token: roPlain });
+  const roData = roInfo.data.data || {};
+  check('只读令牌自检通过且不含写工具', roInfo.status === 200 && roData.allowWrite === false && roData.tools.indexOf('cm_apply_leave') === -1, JSON.stringify(roData).slice(0, 100));
+  const rwInfo = await req('GET', '/api/mcp/info', { token: rwPlain });
+  const rwData = rwInfo.data.data || {};
+  check('读写令牌包含写工具', rwInfo.status === 200 && rwData.allowWrite === true && rwData.tools.indexOf('cm_apply_leave') > -1, JSON.stringify(rwData).slice(0, 100));
+  check('写工具只在读写令牌下出现', rwData.toolCount > roData.toolCount, roData.toolCount + ' vs ' + rwData.toolCount);
+
+  // MCP 协议要求同时接受 json 与 sse
+  const mcpAccept = { Accept: 'application/json, text/event-stream' };
+  const mcpTools = await req('POST', '/api/mcp', {
+    token: roPlain,
+    headers: mcpAccept,
+    body: { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }
+  });
+  const mcpBody = mcpTools.data || {};
+  check('MCP 协议端点可列出工具', mcpTools.status === 200 && mcpBody.result && Array.isArray(mcpBody.result.tools) && mcpBody.result.tools.length === roData.toolCount, ('status=' + mcpTools.status + ' tools=' + ((mcpBody.result || {}).tools || []).length).slice(0, 80));
+
+  const roList = await req('GET', '/api/agent/tokens', { token: student6Token });
+  const roRow = ((roList.data || {}).tokens || []).find(function (t) { return t.prefix === roPlain.slice(0, 10); });
+  if (roRow) {
+    await req('DELETE', '/api/agent/tokens/' + roRow.id, { token: student6Token });
+    const afterRevoke = await req('GET', '/api/mcp/info', { token: roPlain });
+    check('吊销后 MCP 立即失效', afterRevoke.status === 401, 'status=' + afterRevoke.status);
+  } else {
+    check('吊销后 MCP 立即失效', false, 'token not found');
   }
 
   section('助手附件与富媒体');

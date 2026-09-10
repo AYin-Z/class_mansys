@@ -134,7 +134,7 @@ function buildTools(app) {
   const mounts = (app.locals && app.locals.routeMounts) || [];
   const routes = [];
   for (const [mount, router] of mounts) {
-    if (mount.startsWith('/api/agent')) continue; // 自身接口不暴露为工具
+    if (mount.startsWith('/api/agent') || mount.startsWith('/api/mcp')) continue; // 自身接口不暴露为工具
     collectRoutes(router, mount, routes);
   }
 
@@ -143,7 +143,7 @@ function buildTools(app) {
 
   // 1) 模块工具：action 枚举 = 真实端点
   for (const [mount] of mounts) {
-    if (mount.startsWith('/api/agent')) continue;
+    if (mount.startsWith('/api/agent') || mount.startsWith('/api/mcp')) continue;
     const list = routes.filter((r) => r.path.startsWith(mount + '/') || r.path === mount);
     if (!list.length) continue;
     const name = moduleKey(mount);

@@ -35,16 +35,28 @@ describe('个人访问令牌（需要测试库）', () => {
   it('创建 → 校验通过 → 吊销后失效', async () => {
     if (!ready) return;
     const { token } = await ApiTokenService.create(userId, '单元测试令牌');
-    const [rows] = await db.query('SELECT id, token_hash, prefix FROM api_tokens WHERE prefix = ?', [token.slice(0, 10)]);
+    const [rows] = await db.query('SELECT id, token_hash, prefix, allow_write FROM api_tokens WHERE prefix = ?', [token.slice(0, 10)]);
     const row = rows[rows.length - 1];
     created.push(row.id);
     expect(row.token_hash).not.toBe(token); // 库里不存明文
     expect(row.token_hash).toMatch(/^[a-f0-9]{64}$/);
-    expect(await ApiTokenService.verify(token)).toBe(userId);
+    expect(row.allow_write).toBe(0); // 默认只读
+    const verified = await ApiTokenService.verify(token);
+    expect(verified.userId).toBe(userId);
+    expect(verified.allowWrite).toBe(false);
     expect(await ApiTokenService.verify('cm_deadbeef')).toBe(null);
     expect(await ApiTokenService.verify('')).toBe(null);
     expect(await ApiTokenService.revoke(userId, row.id)).toBe(true);
     expect(await ApiTokenService.verify(token)).toBe(null);
+  });
+
+  it('写权限令牌 allowWrite=true 且能按作用域区分', async () => {
+    if (!ready) return;
+    const { token } = await ApiTokenService.create(userId, '写权限令牌', true);
+    const [rows] = await db.query('SELECT id FROM api_tokens WHERE prefix = ?', [token.slice(0, 10)]);
+    created.push(rows[rows.length - 1].id);
+    const verified = await ApiTokenService.verify(token);
+    expect(verified.allowWrite).toBe(true);
   });
 
   it('列表返回前缀而不含明文，且不串用户', async () => {

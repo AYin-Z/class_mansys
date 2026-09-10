@@ -20,6 +20,7 @@ import {
   getBotLogin,
   startBotLogin,
   pollBotLogin,
+  mcpSelfCheck,
   type AgentMessage,
   type AgentPendingAction,
   type AgentAttachment,
@@ -62,7 +63,27 @@ const bindCodeLeft = ref(0)
 const bindings = ref<WechatBinding[]>([])
 const tokens = ref<AgentApiToken[]>([])
 const newTokenName = ref('')
+const newTokenWrite = ref(false)
 const freshToken = ref('')
+const mcpCheck = ref<{ ok: boolean; text: string } | null>(null)
+const mcpEndpoint = computed(() => (typeof window !== 'undefined' ? window.location.origin : '') + '/api/mcp')
+const mcpConfig = computed(() => JSON.stringify({
+  mcpServers: {
+    'class-mansys': {
+      url: mcpEndpoint.value,
+      headers: { Authorization: 'Bearer ' + (freshToken.value || 'cm_你的令牌') }
+    }
+  }
+}, null, 2))
+const mcpStdioConfig = computed(() => JSON.stringify({
+  mcpServers: {
+    'class-mansys': {
+      command: 'node',
+      args: ['/home/ayin/Current_Works/class_mansys/backend/mcp/server.js'],
+      env: { CM_API_TOKEN: freshToken.value || 'cm_你的令牌' }
+    }
+  }
+}, null, 2))
 let bindTimer: any = null
 
 onMounted(async () => {
@@ -296,13 +317,37 @@ async function doUnbind(id: number) {
 
 async function genToken() {
   try {
-    const res = await createApiToken(newTokenName.value.trim() || '我的智能体')
+    const res = await createApiToken(newTokenName.value.trim() || '我的智能体', newTokenWrite.value)
     if (res?.success) {
-      freshToken.value = res.token
+      freshToken.value = res.data?.token || ''
+      mcpCheck.value = null
       newTokenName.value = ''
       await loadAccess()
     }
   } catch (e: any) { showToast(e?.message || '创建失败', 'error') }
+}
+
+/** 不用 AI 客户端也能验证：拿令牌调 /api/mcp/info */
+async function checkMcp() {
+  if (!freshToken.value) return
+  mcpCheck.value = { ok: false, text: '检测中…' }
+  try {
+    const res = await mcpSelfCheck(freshToken.value)
+    if (res?.success && res.data) {
+      mcpCheck.value = { ok: true, text: '连接正常：' + res.data.toolCount + ' 个工具 · ' + (res.data.allowWrite ? '可读写' : '只读') }
+    } else {
+      mcpCheck.value = { ok: false, text: res?.error || '连接失败' }
+    }
+  } catch (e: any) {
+    mcpCheck.value = { ok: false, text: e?.message || '连接失败' }
+  }
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+    showToast('已复制')
+  } catch (_) { showToast('复制失败，请手动选择复制', 'error') }
 }
 
 async function copyToken() {
@@ -500,22 +545,56 @@ function stopBotPolling() {
           </div>
 
           <div class="acc-block">
-            <div class="acc-title">MCP 令牌（给你的 agent 用）</div>
+            <div class="acc-title">MCP 令牌（让你自己的 AI 助手接进来）</div>
             <div class="acc-hint">
-              生成令牌后可在你自己的 AI 客户端（Claude Desktop / Cursor / DSH 等）里接入本系统，读取你的请假、考勤、账单等数据；令牌等同你的身份，请勿外传。默认只读。
+              令牌 = <b>你在本系统的身份副本</b>：把它交给你自己的 AI 客户端（Claude Desktop / Cursor / DSH / 任何支持 MCP 的 agent），
+              对方就能替你查请假、考勤、账单，甚至提交请假（需你二次确认）。<br />
+              三步：① 生成令牌 → ② 复制下面的配置 → ③ 粘贴进客户端的 MCP 设置。<br />
+              令牌只显示一次，服务端只存哈希；随时可吊销。默认<b>只读</b>。
             </div>
             <div class="acc-row">
               <input v-model="newTokenName" class="acc-input" placeholder="令牌备注，如：我的电脑" />
               <button class="btn-primary" @click="genToken">生成令牌</button>
             </div>
-            <div v-if="freshToken" class="acc-row token-fresh">
-              <code>{{ freshToken }}</code>
-              <button class="btn-ghost" @click="copyToken">复制</button>
+            <label class="acc-check">
+              <input v-model="newTokenWrite" type="checkbox" />
+              <span>允许写操作（请假、报销、建议等；每次仍需你在会话里确认后才会落库）</span>
+            </label>
+
+            <div v-if="freshToken" class="token-box">
+              <div class="acc-hint"><b>你的令牌（只显示这一次）</b></div>
+              <div class="acc-row token-fresh">
+                <code>{{ freshToken }}</code>
+                <button class="btn-ghost" @click="copyToken">复制</button>
+              </div>
+
+              <div class="acc-hint"><b>客户端配置（HTTP，推荐：不用装任何东西）</b></div>
+              <div class="code-block">
+                <pre>{{ mcpConfig }}</pre>
+                <button class="btn-ghost" @click="copyText(mcpConfig)">复制配置</button>
+              </div>
+              <div class="acc-hint">连接地址：{{ mcpEndpoint }}</div>
+              <div class="acc-row">
+                <button class="btn-ghost" @click="checkMcp">连接自检</button>
+                <span v-if="mcpCheck" class="acc-hint" :class="{ bad: !mcpCheck.ok }">{{ mcpCheck.text }}</span>
+              </div>
+
+              <details class="acc-details">
+                <summary class="acc-hint">本机 stdio 方式（仅当你和服务器在同一台机器时用）</summary>
+                <div class="code-block">
+                  <pre>{{ mcpStdioConfig }}</pre>
+                  <button class="btn-ghost" @click="copyText(mcpStdioConfig)">复制配置</button>
+                </div>
+              </details>
             </div>
-            <div v-if="freshToken" class="acc-hint">该令牌只显示这一次，请立即保存。</div>
+
             <div v-if="tokens.length" class="acc-list">
               <div v-for="t in tokens" :key="t.id" class="acc-item">
-                <span>{{ t.name || '未命名' }} · {{ t.prefix }}…（{{ t.last_used_at ? '最近使用 ' + t.last_used_at : '未使用' }}）</span>
+                <span>
+                  {{ t.name || '未命名' }} · {{ t.prefix }}…
+                  <span class="tag" :class="{ write: !!t.allow_write }">{{ t.allow_write ? '读写' : '只读' }}</span>
+                  （{{ t.last_used_at ? '最近使用 ' + t.last_used_at : '未使用' }}）
+                </span>
                 <button class="btn-ghost" @click="doRevoke(t.id)">吊销</button>
               </div>
             </div>
@@ -636,6 +715,19 @@ function stopBotPolling() {
 .qr-box { text-align: center; margin: 6px 0 10px; }
 .qr-box img { width: 220px; height: 220px; background: #fff; border-radius: 12px; padding: 6px; }
 .token-fresh code { flex: 1; font-size: 11px; word-break: break-all; color: var(--color-text-2); }
+.acc-check { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--color-text-3); line-height: 1.5; margin-bottom: 10px; }
+.acc-check input { margin-top: 2px; }
+.token-box { border: 1px dashed var(--color-border); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
+.code-block { position: relative; margin-bottom: 8px; }
+.code-block pre {
+  margin: 0; padding: 10px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-all;
+  background: var(--color-surface-hover); border-radius: 8px; color: var(--color-text-2); max-height: 190px; overflow: auto;
+}
+.code-block .btn-ghost { margin-top: 6px; }
+.acc-details summary { cursor: pointer; margin-bottom: 8px; }
+.acc-hint.bad { color: var(--color-danger, #e5484d); }
+.tag { display: inline-block; padding: 0 5px; border-radius: 6px; background: var(--color-surface-hover); color: var(--color-text-3); }
+.tag.write { background: var(--color-accent-bg); color: var(--color-accent); }
 .acc-list { margin-top: 4px; }
 .acc-item {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;

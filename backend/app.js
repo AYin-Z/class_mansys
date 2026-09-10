@@ -123,7 +123,8 @@ const ROUTE_MOUNTS = [
   ['/api/company', require('./routes/company')],
   ['/api/agent', require('./routes/agent')],
   ['/api/agent/channel', require('./routes/channel')],
-  ['/api/agent/tokens', require('./routes/agentTokens')]
+  ['/api/agent/tokens', require('./routes/agentTokens')],
+  ['/api/mcp', require('./routes/mcp')]
 ];
 for (const [mount, router] of ROUTE_MOUNTS) {
   app.use(mount, router);

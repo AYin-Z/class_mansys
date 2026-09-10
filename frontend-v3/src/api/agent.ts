@@ -1,4 +1,4 @@
-import { get, post, del, uploadFile } from '../utils/request'
+import { get, post, del, uploadFile, apiUrl } from '../utils/request'
 
 export interface AgentMessage {
   id?: number
@@ -74,6 +74,7 @@ export interface AgentApiToken {
   id: number
   name: string | null
   prefix: string
+  allow_write?: number | boolean
   last_used_at?: string | null
   revoked_at?: string | null
   created_at: string
@@ -83,8 +84,14 @@ export function listApiTokens(): Promise<{ success: boolean; tokens: AgentApiTok
   return get('/api/agent/tokens')
 }
 
-export function createApiToken(name: string): Promise<{ success: boolean; token: string; prefix: string; message?: string }> {
-  return post('/api/agent/tokens', { name })
+export function createApiToken(name: string, allowWrite = false): Promise<{ success: boolean; data: { token: string; prefix: string; allowWrite: boolean }; message?: string }> {
+  return post('/api/agent/tokens', { name, allowWrite })
+}
+
+/** 用令牌自检 MCP 通道（工具数 / 是否可写），不需要 AI 客户端即可验证 */
+export async function mcpSelfCheck(token: string): Promise<{ success: boolean; data?: { user?: { name?: string }; toolCount?: number; allowWrite?: boolean }; error?: string }> {
+  const res = await fetch(apiUrl('/api/mcp/info'), { headers: { Authorization: 'Bearer ' + token } })
+  return res.json().catch(() => ({ success: false, error: '解析响应失败' }))
 }
 
 export function revokeApiToken(id: number): Promise<{ success: boolean; message?: string }> {

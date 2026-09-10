@@ -12,7 +12,7 @@ const mysql = require('mysql2/promise');
 
 const SRC_DB = process.env.DB_NAME || 'class_manage_sys';
 const TEST_DB = process.argv[2] || 'class_manage_sys_test';
-const MIGRATIONS = ['008_add_suggestion_view_token.sql', '009_add_company.sql', '010_add_class_scope.sql', '011_add_user_member_type.sql', '012_add_agent.sql', '013_add_channel_and_tokens.sql'];
+const MIGRATIONS = ['008_add_suggestion_view_token.sql', '009_add_company.sql', '010_add_class_scope.sql', '011_add_user_member_type.sql', '012_add_agent.sql', '013_add_channel_and_tokens.sql', '014_add_api_token_scope.sql'];
 
 function baseConn() {
   return {

@@ -122,7 +122,10 @@ const schemas = {
     })).max(6).optional()
   }),
   agentConfirm: passthrough({ actionId: idLike }),
-  apiTokenCreate: passthrough({ name: z.string().trim().min(1, '请填写令牌备注').max(50) }),
+  apiTokenCreate: passthrough({
+    name: z.string().trim().min(1, '请填写令牌备注').max(50),
+    allowWrite: z.boolean().optional()
+  }),
 
   // ---------- 管理 ----------
   leaveConfigUpdate: passthrough({
