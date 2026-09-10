@@ -104,9 +104,9 @@ CM_API_TOKEN=cm_xxx CM_ALLOW_WRITE=1 node backend/mcp/server.js   # stdio，由 
 ```bash
 # 后端：lint + 单测（111 项，含 MCP 工具映射 / iLink 协议构造 / 令牌哈希）
 cd backend && npm run lint && npm test
-# 前端：lint + 类型 + 单测（20 项）+ 构建
+# 前端：lint + 类型 + 单测（39 项，含 API 拆包契约与用户手册渲染）+ 构建
 cd frontend-v3 && npm run lint && npm run typecheck && npm test && npm run build
-# 端到端（独立测试库 + 独立端口，93 项）
+# 端到端（独立测试库 + 独立端口，101 项）
 cd backend && node tests/setup-test-db.js class_manage_sys_test && \
   DB_NAME=class_manage_sys_test NODE_ENV=test node tests/fixtures.js && \
   DB_NAME=class_manage_sys_test PORT=3102 NODE_ENV=test AGENT_LLM_MODE=mock nohup node app.js > /tmp/e2e-srv.log 2>&1 & \

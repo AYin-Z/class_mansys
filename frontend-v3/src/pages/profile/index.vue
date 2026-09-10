@@ -93,6 +93,12 @@ const totalBadge = () => unreadNoticeCount.value + pendingHomeworkCount.value
 
     <!-- 更多 -->
     <div class="menu-group">
+      <div class="menu-item" @click="router.push('/pages/help/index')">
+        <span class="icon">📖</span>
+        <span class="label">用户手册</span>
+        <span class="tag-new">新</span>
+        <span class="arrow">›</span>
+      </div>
       <div class="menu-item" @click="router.push('/pages/features/index')">
         <span class="icon">📱</span>
         <span class="label">全部功能</span>
@@ -158,6 +164,10 @@ const totalBadge = () => unreadNoticeCount.value + pendingHomeworkCount.value
 }
 .badge-count {
   background: var(--color-accent);
+}
+.tag-new {
+  font-size: 10px; color: #fff; background: var(--color-accent);
+  border-radius: 6px; padding: 1px 5px; margin-right: 2px;
 }
 
 .version { text-align: center; font-size: 12px; color: var(--color-text-3); padding: 16px; }

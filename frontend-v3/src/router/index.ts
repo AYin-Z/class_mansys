@@ -22,6 +22,7 @@ const NoticeAdmin = () => import('@/pages/notice/admin.vue')
 const Dashboard = () => import('@/pages/dashboard/index.vue')
 const CompanyIndex = () => import('@/pages/company/index.vue')
 const AgentPage = () => import('@/pages/agent/index.vue')
+const HelpPage = () => import('@/pages/help/index.vue')
 
 // Leave
 const LeaveList = () => import('@/pages/leave/index.vue')
@@ -111,6 +112,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/pages/dashboard/index', name: 'dashboard-index', component: Dashboard, meta: { requiresAdmin: true } },
   { path: '/pages/company/index', name: 'company-index', component: CompanyIndex, meta: { requiresAdmin: true } },
   { path: '/pages/agent/index', name: 'agent-index', component: AgentPage },
+  { path: '/pages/help/index', name: 'help-index', component: HelpPage },
 
   // ===== 请假 =====
   { path: '/pages/leave/index', name: 'leave-index', component: LeaveList },

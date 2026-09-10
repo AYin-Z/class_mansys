@@ -6,6 +6,7 @@ import { apiUrl, getToken } from '@/utils/request'
 import { renderMarkdown } from '@/utils/markdown'
 import { mediaUrl, openMedia } from '@/utils/media'
 import { useUserStore } from '@/stores/user'
+import { useRouter } from 'vue-router'
 import {
   agentChat,
   agentConfirm,
@@ -49,6 +50,7 @@ const listening = ref(false)
 const attachments = ref<AgentAttachment[]>([])
 
 const userStore = useUserStore()
+const router = useRouter()
 const canManageChannel = computed(() => userStore.hasPermission('MANAGE_CHANNEL'))
 
 // —— 微信机器人（超管） ——
@@ -66,6 +68,8 @@ const newTokenName = ref('')
 const newTokenWrite = ref(false)
 const freshToken = ref('')
 const mcpCheck = ref<{ ok: boolean; text: string } | null>(null)
+const bindCodeRef = ref<HTMLElement | null>(null)
+const tokenBoxRef = ref<HTMLElement | null>(null)
 const mcpEndpoint = computed(() => (typeof window !== 'undefined' ? window.location.origin : '') + '/api/mcp')
 const mcpConfig = computed(() => JSON.stringify({
   mcpServers: {
@@ -287,24 +291,26 @@ function startVoice() {
 async function loadAccess() {
   try {
     const [b, t] = await Promise.all([listBindings(), listApiTokens()])
-    if (b?.success) bindings.value = b.bindings || []
-    if (t?.success) tokens.value = (t.tokens || []).filter((x) => !x.revoked_at)
-  } catch (_) { /* 忽略 */ }
+    bindings.value = b || []
+    tokens.value = (t || []).filter((x) => !x.revoked_at)
+  } catch (_) { /* 侧栏信息失败不阻塞对话 */ }
 }
 
 async function genBindCode() {
   try {
     const res = await issueBindCode()
-    if (res?.success) {
-      bindCode.value = res.code
-      bindCodeLeft.value = res.expiresInSec || 900
-      if (bindTimer) clearInterval(bindTimer)
-      bindTimer = setInterval(() => {
-        bindCodeLeft.value -= 1
-        if (bindCodeLeft.value <= 0) { clearInterval(bindTimer); bindCode.value = '' }
-      }, 1000)
-    }
-  } catch (e: any) { showToast(e?.message || '生成失败', 'error') }
+    if (!res?.code) throw new Error('服务端未返回绑定码，请重试')
+    bindCode.value = res.code
+    bindCodeLeft.value = res.expiresInSec || 900
+    if (bindTimer) clearInterval(bindTimer)
+    bindTimer = setInterval(() => {
+      bindCodeLeft.value -= 1
+      if (bindCodeLeft.value <= 0) { clearInterval(bindTimer); bindCode.value = '' }
+    }, 1000)
+    showToast('绑定码已生成，请在微信里发送 /绑定 ' + res.code)
+    await nextTick()
+    bindCodeRef.value?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  } catch (e: any) { showToast(e?.message || '生成失败，请重试', 'error') }
 }
 
 async function doUnbind(id: number) {
@@ -318,13 +324,21 @@ async function doUnbind(id: number) {
 async function genToken() {
   try {
     const res = await createApiToken(newTokenName.value.trim() || '我的智能体', newTokenWrite.value)
-    if (res?.success) {
-      freshToken.value = res.data?.token || ''
-      mcpCheck.value = null
-      newTokenName.value = ''
-      await loadAccess()
-    }
+    if (!res?.token) throw new Error('服务端未返回令牌，请重试')
+    freshToken.value = res.token
+    mcpCheck.value = null
+    newTokenName.value = ''
+    showToast('令牌已生成，请立即复制保存（只显示这一次）')
+    await loadAccess()
+    await nextTick()
+    tokenBoxRef.value?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   } catch (e: any) { showToast(e?.message || '创建失败', 'error') }
+}
+
+/** 用户确认已保存后收起明文 */
+function dismissFreshToken() {
+  freshToken.value = ''
+  mcpCheck.value = null
 }
 
 /** 不用 AI 客户端也能验证：拿令牌调 /api/mcp/info */
@@ -332,11 +346,10 @@ async function checkMcp() {
   if (!freshToken.value) return
   mcpCheck.value = { ok: false, text: '检测中…' }
   try {
-    const res = await mcpSelfCheck(freshToken.value)
-    if (res?.success && res.data) {
-      mcpCheck.value = { ok: true, text: '连接正常：' + res.data.toolCount + ' 个工具 · ' + (res.data.allowWrite ? '可读写' : '只读') }
-    } else {
-      mcpCheck.value = { ok: false, text: res?.error || '连接失败' }
+    const data = await mcpSelfCheck(freshToken.value)
+    mcpCheck.value = {
+      ok: true,
+      text: '连接正常：' + data.toolCount + ' 个工具 · ' + (data.allowWrite ? '可读写' : '只读') + '（身份：' + ((data.user || {}).name || '') + '）'
     }
   } catch (e: any) {
     mcpCheck.value = { ok: false, text: e?.message || '连接失败' }
@@ -368,8 +381,7 @@ async function doRevoke(id: number) {
 async function loadBot() {
   if (!canManageChannel.value) return
   try {
-    const res = await getBotLogin()
-    if (res?.success) bot.value = res.data
+    bot.value = await getBotLogin()
   } catch (_) { /* 忽略 */ }
 }
 
@@ -377,9 +389,11 @@ async function startBot() {
   botBusy.value = true
   try {
     const res = await startBotLogin()
-    if (res?.success) {
-      bot.value = Object.assign({}, bot.value, res.data)
+    if (res?.qrDataUrl) {
+      bot.value = Object.assign({}, bot.value, res)
       startBotPolling()
+    } else {
+      showToast('二维码生成失败，请重试', 'error')
     }
   } catch (e: any) {
     showToast(e?.message || '生成二维码失败', 'error')
@@ -394,8 +408,8 @@ function startBotPolling() {
   botTimer = setInterval(async () => {
     try {
       const res = await pollBotLogin()
-      const st = res?.data?.status
-      bot.value = Object.assign({}, bot.value, res.data)
+      const st = res?.status
+      bot.value = Object.assign({}, bot.value, res)
       if (st === 'confirmed') {
         stopBotPolling()
         showToast('微信已连接')
@@ -528,14 +542,22 @@ function stopBotPolling() {
             <div class="acc-hint">
               绑定后可直接在微信私聊里办事（请假、报销、提建议）。目前仅支持私聊。
             </div>
-            <div v-if="!bindCode" class="acc-row">
-              <button class="btn-primary" @click="genBindCode">生成绑定码</button>
+            <div ref="bindCodeRef" class="bind-box">
+              <div v-if="!bindCode" class="acc-row">
+                <button class="btn-primary" @click="genBindCode">生成绑定码</button>
+              </div>
+              <template v-else>
+                <div class="acc-row">
+                  <span class="code">{{ bindCode }}</span>
+                  <span class="acc-hint">剩余 {{ Math.floor(bindCodeLeft / 60) }}:{{ String(bindCodeLeft % 60).padStart(2, '0') }}</span>
+                </div>
+                <div class="acc-hint">在微信里给助手发：<b>/绑定 {{ bindCode }}</b></div>
+                <div class="acc-row">
+                  <button class="btn-ghost" @click="copyText('/绑定 ' + bindCode)">复制口令</button>
+                  <button class="btn-ghost" @click="genBindCode">重新生成</button>
+                </div>
+              </template>
             </div>
-            <div v-else class="acc-row">
-              <span class="code">{{ bindCode }}</span>
-              <span class="acc-hint">剩余 {{ Math.floor(bindCodeLeft / 60) }}:{{ String(bindCodeLeft % 60).padStart(2, '0') }}</span>
-            </div>
-            <div v-if="bindCode" class="acc-hint">在微信里给助手发：<b>/绑定 {{ bindCode }}</b></div>
             <div v-if="bindings.length" class="acc-list">
               <div v-for="b in bindings" :key="b.id" class="acc-item">
                 <span>{{ b.channel === 'weixin' ? '微信' : b.channel }} · {{ b.display_name || b.external_id }}</span>
@@ -546,6 +568,9 @@ function stopBotPolling() {
 
           <div class="acc-block">
             <div class="acc-title">MCP 令牌（让你自己的 AI 助手接进来）</div>
+            <div class="acc-hint">
+              <span class="help-link" @click="router.push('/pages/help/index')">📖 不会配置？看用户手册「MCP：让你自己的 AI 助手接入」</span>
+            </div>
             <div class="acc-hint">
               令牌 = <b>你在本系统的身份副本</b>：把它交给你自己的 AI 客户端（Claude Desktop / Cursor / DSH / 任何支持 MCP 的 agent），
               对方就能替你查请假、考勤、账单，甚至提交请假（需你二次确认）。<br />
@@ -561,8 +586,11 @@ function stopBotPolling() {
               <span>允许写操作（请假、报销、建议等；每次仍需你在会话里确认后才会落库）</span>
             </label>
 
-            <div v-if="freshToken" class="token-box">
-              <div class="acc-hint"><b>你的令牌（只显示这一次）</b></div>
+            <div v-if="freshToken" ref="tokenBoxRef" class="token-box">
+              <div class="token-head">
+                <span class="acc-hint"><b>你的令牌（只显示这一次）</b></span>
+                <button class="btn-ghost" @click="dismissFreshToken">我已保存，收起</button>
+              </div>
               <div class="acc-row token-fresh">
                 <code>{{ freshToken }}</code>
                 <button class="btn-ghost" @click="copyToken">复制</button>
@@ -717,7 +745,9 @@ function stopBotPolling() {
 .token-fresh code { flex: 1; font-size: 11px; word-break: break-all; color: var(--color-text-2); }
 .acc-check { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--color-text-3); line-height: 1.5; margin-bottom: 10px; }
 .acc-check input { margin-top: 2px; }
-.token-box { border: 1px dashed var(--color-border); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
+.token-box { border: 1px dashed var(--color-accent); border-radius: 10px; padding: 10px; margin-bottom: 10px; background: var(--color-accent-bg); }
+.token-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.bind-box:empty { display: none; }
 .code-block { position: relative; margin-bottom: 8px; }
 .code-block pre {
   margin: 0; padding: 10px; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-all;
@@ -728,6 +758,7 @@ function stopBotPolling() {
 .acc-hint.bad { color: var(--color-danger, #e5484d); }
 .tag { display: inline-block; padding: 0 5px; border-radius: 6px; background: var(--color-surface-hover); color: var(--color-text-3); }
 .tag.write { background: var(--color-accent-bg); color: var(--color-accent); }
+.help-link { color: var(--color-accent); cursor: pointer; }
 .acc-list { margin-top: 4px; }
 .acc-item {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;

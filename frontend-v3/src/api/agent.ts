@@ -80,22 +80,25 @@ export interface AgentApiToken {
   created_at: string
 }
 
-export function listApiTokens(): Promise<{ success: boolean; tokens: AgentApiToken[] }> {
-  return get('/api/agent/tokens')
+export interface CreatedApiToken {
+  token: string
+  prefix: string
+  allowWrite: boolean
 }
 
-export function createApiToken(name: string, allowWrite = false): Promise<{ success: boolean; data: { token: string; prefix: string; allowWrite: boolean }; message?: string }> {
-  return post('/api/agent/tokens', { name, allowWrite })
+/** 生成 MCP 令牌（明文仅此一次返回） */
+export async function createApiToken(name: string, allowWrite = false): Promise<CreatedApiToken> {
+  const res = await post<{ data: CreatedApiToken }>('/api/agent/tokens', { name, allowWrite })
+  return res.data
 }
 
-/** 用令牌自检 MCP 通道（工具数 / 是否可写），不需要 AI 客户端即可验证 */
-export async function mcpSelfCheck(token: string): Promise<{ success: boolean; data?: { user?: { name?: string }; toolCount?: number; allowWrite?: boolean }; error?: string }> {
-  const res = await fetch(apiUrl('/api/mcp/info'), { headers: { Authorization: 'Bearer ' + token } })
-  return res.json().catch(() => ({ success: false, error: '解析响应失败' }))
+export async function listApiTokens(): Promise<AgentApiToken[]> {
+  const res = await get<{ tokens: AgentApiToken[] }>('/api/agent/tokens')
+  return res.tokens || []
 }
 
-export function revokeApiToken(id: number): Promise<{ success: boolean; message?: string }> {
-  return del('/api/agent/tokens/' + id)
+export async function revokeApiToken(id: number): Promise<void> {
+  await del('/api/agent/tokens/' + id)
 }
 
 export interface WechatBinding {
@@ -107,16 +110,24 @@ export interface WechatBinding {
   created_at: string
 }
 
-export function issueBindCode(): Promise<{ success: boolean; code: string; expiresInSec: number }> {
-  return post('/api/agent/channel/bind-code', {})
+export interface BindCode {
+  code: string
+  expiresInSec: number
 }
 
-export function listBindings(): Promise<{ success: boolean; bindings: WechatBinding[] }> {
-  return get('/api/agent/channel/bindings')
+/** 生成微信绑定码（15 分钟一次性） */
+export async function issueBindCode(): Promise<BindCode> {
+  const res = await post<{ data: BindCode }>('/api/agent/channel/bind-code', {})
+  return res.data
 }
 
-export function unbindWechat(id: number): Promise<{ success: boolean; message?: string }> {
-  return del('/api/agent/channel/bindings/' + id)
+export async function listBindings(): Promise<WechatBinding[]> {
+  const res = await get<{ bindings: WechatBinding[] }>('/api/agent/channel/bindings')
+  return res.bindings || []
+}
+
+export async function unbindWechat(id: number): Promise<void> {
+  await del('/api/agent/channel/bindings/' + id)
 }
 
 export interface WechatBotStatus {
@@ -130,14 +141,38 @@ export interface WechatBotStatus {
   expiresInSec?: number
 }
 
-export function getBotLogin(): Promise<{ success: boolean; data: WechatBotStatus }> {
-  return get('/api/agent/channel/bot-login')
+/** 机器人身份连接状态（含 worker 是否在跑） */
+export async function getBotLogin(): Promise<WechatBotStatus> {
+  const res = await get<{ data: WechatBotStatus }>('/api/agent/channel/bot-login')
+  return res.data
 }
 
-export function startBotLogin(): Promise<{ success: boolean; data: WechatBotStatus }> {
-  return post('/api/agent/channel/bot-login/start', {})
+/** 生成扫码二维码 */
+export async function startBotLogin(): Promise<WechatBotStatus> {
+  const res = await post<{ data: WechatBotStatus }>('/api/agent/channel/bot-login/start', {})
+  return res.data
 }
 
-export function pollBotLogin(): Promise<{ success: boolean; data: WechatBotStatus }> {
-  return get('/api/agent/channel/bot-login/status')
+/** 轮询扫码状态 */
+export async function pollBotLogin(): Promise<WechatBotStatus> {
+  const res = await get<{ data: WechatBotStatus }>('/api/agent/channel/bot-login/status')
+  return res.data
+}
+
+export interface McpSelfCheck {
+  user?: { id: number; name: string; role: number }
+  allowWrite: boolean
+  toolCount: number
+  endpoint: string
+  tools: string[]
+}
+
+/** 用令牌自检 MCP 通道（工具数 / 是否可写），不需要 AI 客户端即可验证 */
+export async function mcpSelfCheck(token: string): Promise<McpSelfCheck> {
+  const res = await fetch(apiUrl('/api/mcp/info'), { headers: { Authorization: 'Bearer ' + token } })
+  const body = await res.json().catch(() => null)
+  if (!res.ok || !body || body.success === false) {
+    throw new Error((body && body.error) || '连接失败（HTTP ' + res.status + '）')
+  }
+  return body.data as McpSelfCheck
 }
