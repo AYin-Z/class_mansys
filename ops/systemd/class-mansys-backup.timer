@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily class_mansys backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,7 @@
+[Unit]
+Description=class_mansys MySQL logical backup
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/ayin/Current_Works/class_mansys/backend
+ExecStart=/usr/bin/env bash /home/ayin/Current_Works/class_mansys/backend/scripts/backup.sh
