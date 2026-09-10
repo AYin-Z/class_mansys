@@ -7,7 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-APK_DIR="$PROJECT_DIR/backend/apk"
+APK_DIR="${APK_OUT_DIR:-/home/ayin/class-mansys-artifacts/apk}"
 VERSION_FILE="$PROJECT_DIR/backend/data/app-version.json"
 
 VERSION_NAME="${1:-}"

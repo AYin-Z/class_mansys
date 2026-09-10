@@ -31,6 +31,9 @@ dist
 # Archives
 *.zip
 
+# 用户上传文件（含请假证明/相册/资源，含真实个人数据，禁止入库）
+backend/uploads/
+
 # Legacy files
 _legacy/
 
@@ -51,6 +54,8 @@ __pycache__/
 # Build output
 dist/
 build/
+.vitest/
+coverage/
 
 # HBuilderX / uni-app
 unpackage/
@@ -71,11 +76,10 @@ dev-app.err.log
 cert/
 certs/
 
-# APK 构建产物
+# APK 构建产物（发布产物放仓库外，由 backend/.env 的 APK_DIR 指向）
 android/app/build/outputs/
 *.apk
-# 但保留已发布的 APK（backend/apk/ 下的发布版）
-!backend/apk/*.apk
+backend/apk/
 android/build/
 android/.gradle/
 android/local.properties

@@ -126,19 +126,20 @@ jobs:
           echo "AAB_NAME=$(basename ${AAB})" >> $GITHUB_OUTPUT
           echo "APK_NAME=$(basename ${APK})" >> $GITHUB_OUTPUT
 
-      - name: 📦 复制 APK 到 backend/apk/
+      - name: 📦 复制 APK 到发布目录（仓库外）
         run: |
-          mkdir -p backend/apk
+          APK_OUT_DIR="${APK_OUT_DIR:-/home/ayin/class-mansys-artifacts/apk}"
+          mkdir -p "$APK_OUT_DIR"
           APK_NAME="class-mansys-v${{ steps.version.outputs.VERSION_NAME }}-release.apk"
           if [ -n "${{ steps.artifacts.outputs.APK_PATH }}" ]; then
-            cp "${{ steps.artifacts.outputs.APK_PATH }}" "backend/apk/${APK_NAME}"
-            echo "Copied: backend/apk/${APK_NAME}"
-            ls -lh "backend/apk/${APK_NAME}"
+            cp "${{ steps.artifacts.outputs.APK_PATH }}" "$APK_OUT_DIR/${APK_NAME}"
+            echo "Copied: $APK_OUT_DIR/${APK_NAME}"
+            ls -lh "$APK_OUT_DIR/${APK_NAME}"
           fi
 
       - name: 📝 更新 app-version.json
         run: |
-          APK_PATH="backend/apk/class-mansys-v${{ steps.version.outputs.VERSION_NAME }}-release.apk"
+          APK_PATH="${APK_OUT_DIR:-/home/ayin/class-mansys-artifacts/apk}/class-mansys-v${{ steps.version.outputs.VERSION_NAME }}-release.apk"
           APK_SIZE=$(stat -c%s "$APK_PATH" 2>/dev/null || echo 0)
           # 从 tag 注释或最近的 git log 获取 changelog
           CHANGELOG="Release ${{ steps.version.outputs.VERSION_NAME }}"
@@ -154,8 +155,6 @@ jobs:
         run: |
           git config user.name "CI Bot"
           git config user.email "ci@clamansys.app"
-          APK_NAME="class-mansys-v${{ steps.version.outputs.VERSION_NAME }}-release.apk"
-          git add "backend/apk/${APK_NAME}"
           git add backend/data/app-version.json
           git commit -m "chore: release v${{ steps.version.outputs.VERSION_NAME }} (code ${{ steps.version-code.outputs.VERSION_CODE }})" || echo "无变更"
           git push origin main

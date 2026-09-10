@@ -97,18 +97,19 @@ jobs:
           echo "=== AAB files ==="
           find frontend-v3/android/app/build/outputs/bundle -name "*.aab" -type f 2>/dev/null || echo "(none)"
 
-      - name: 📦 复制 APK 到 backend/apk/
+      - name: 📦 复制 APK 到发布目录（仓库外）
         run: |
-          mkdir -p backend/apk
+          APK_OUT_DIR="${APK_OUT_DIR:-/home/ayin/class-mansys-artifacts/apk}"
+          mkdir -p "$APK_OUT_DIR"
           # 找到 prodRelease APK
           APK_SRC=$(find frontend-v3/android/app/build/outputs/apk -name "*prod*release*.apk" -type f | head -1)
           if [ -z "$APK_SRC" ]; then
             APK_SRC=$(find frontend-v3/android/app/build/outputs/apk -name "*release*.apk" -type f | head -1)
           fi
           if [ -n "$APK_SRC" ]; then
-            cp "$APK_SRC" "backend/apk/${{ steps.version.outputs.APK_FILENAME }}"
-            echo "Copied: $APK_SRC → backend/apk/${{ steps.version.outputs.APK_FILENAME }}"
-            ls -lh "backend/apk/${{ steps.version.outputs.APK_FILENAME }}"
+            cp "$APK_SRC" "$APK_OUT_DIR/${{ steps.version.outputs.APK_FILENAME }}"
+            echo "Copied: $APK_SRC → $APK_OUT_DIR/${{ steps.version.outputs.APK_FILENAME }}"
+            ls -lh "$APK_OUT_DIR/${{ steps.version.outputs.APK_FILENAME }}"
           else
             echo "⚠️ 未找到 APK 产物"
             find frontend-v3/android/app/build/outputs -type f | head -30
@@ -118,7 +119,7 @@ jobs:
       - name: 📋 获取 APK 大小
         id: apk-info
         run: |
-          APK_PATH="backend/apk/${{ steps.version.outputs.APK_FILENAME }}"
+          APK_PATH="${APK_OUT_DIR:-/home/ayin/class-mansys-artifacts/apk}/${{ steps.version.outputs.APK_FILENAME }}"
           APK_SIZE=$(stat -c%s "$APK_PATH")
           echo "SIZE=${APK_SIZE}" >> $GITHUB_OUTPUT
 
@@ -137,7 +138,6 @@ jobs:
         run: |
           git config user.name "CI Bot"
           git config user.email "ci@clamansys.app"
-          git add backend/apk/${{ steps.version.outputs.APK_FILENAME }}
           git add backend/data/app-version.json
           git commit -m "chore: auto-build APK v${{ steps.version.outputs.VERSION_NAME }} (code ${{ steps.version.outputs.VERSION_CODE }})" || echo "无变更需要提交"
           git push origin main
