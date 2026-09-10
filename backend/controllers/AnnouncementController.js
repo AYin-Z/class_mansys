@@ -1,6 +1,8 @@
 const path = require('path');
 const Announcement = require('../models/Announcement');
 const Resource = require('../models/Resource');
+const { resolveScope, filterByClassScope, canAccessClassRecord } = require('../shared/scope');
+const { stampClassId } = require('../shared/classStamp');
 
 class AnnouncementController {
   /* ---------- 公告 ---------- */
@@ -11,7 +13,9 @@ class AnnouncementController {
       if (!title || !content) {
         return res.status(400).json({ success: false, error: '标题和内容必填' });
       }
+      const scope = await resolveScope(req.user);
       const id = await Announcement.create({ title, content, creator_id: req.user.id });
+      await stampClassId('announcements', id, scope.writeClassId);
       res.json({ success: true, id, message: '公告发布成功' });
     } catch (e) {
       console.error('公告发布失败:', e);
@@ -21,7 +25,8 @@ class AnnouncementController {
 
   static async listAnnouncements(req, res) {
     try {
-      const announcements = await Announcement.getAll();
+      const scope = await resolveScope(req.user);
+      const announcements = filterByClassScope(await Announcement.getAll(), scope);
       res.json({ success: true, announcements });
     } catch (e) {
       res.status(500).json({ success: false, error: '获取公告失败' });
@@ -32,6 +37,10 @@ class AnnouncementController {
     try {
       const item = await Announcement.findById(req.params.id);
       if (!item) return res.status(404).json({ success: false, error: '公告不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessClassRecord(item, scope)) {
+        return res.status(403).json({ success: false, error: '无权查看该公告' });
+      }
       res.json({ success: true, announcement: item });
     } catch (e) {
       res.status(500).json({ success: false, error: '获取公告详情失败' });
@@ -40,6 +49,12 @@ class AnnouncementController {
 
   static async deleteAnnouncement(req, res) {
     try {
+      const existing = await Announcement.findById(req.params.id);
+      if (!existing) return res.status(404).json({ success: false, error: '公告不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessClassRecord(existing, scope)) {
+        return res.status(403).json({ success: false, error: '无权删除该公告' });
+      }
       const ok = await Announcement.delete(req.params.id);
       if (!ok) return res.status(404).json({ success: false, error: '公告不存在' });
       res.json({ success: true });
@@ -56,10 +71,12 @@ class AnnouncementController {
       if (!name || !url) {
         return res.status(400).json({ success: false, error: '资源名称和URL必填' });
       }
+      const scope = await resolveScope(req.user);
       const id = await Resource.create({
         name, type: type || 'other', url, size, category, description,
         uploader_id: req.user.id
       });
+      await stampClassId('resources', id, scope.writeClassId);
       res.json({ success: true, id, message: '资源上传成功' });
     } catch (e) {
       console.error('资源上传失败:', e);
@@ -70,7 +87,8 @@ class AnnouncementController {
   static async listResources(req, res) {
     try {
       const { category } = req.query;
-      const resources = await Resource.getAll(category);
+      const scope = await resolveScope(req.user);
+      const resources = filterByClassScope(await Resource.getAll(category), scope);
       res.json({ success: true, resources });
     } catch (e) {
       res.status(500).json({ success: false, error: '获取资源失败' });
@@ -87,6 +105,7 @@ class AnnouncementController {
       const url = `/uploads/resources/${file.filename}`;
 
       // 同时创建资源记录
+      const uploadScope = await resolveScope(req.user);
       const resourceId = await Resource.create({
         name: req.body.name || file.originalname,
         type: req.body.type || ext,
@@ -96,6 +115,7 @@ class AnnouncementController {
         category: req.body.category || '其他',
         description: req.body.description || '',
       });
+      await stampClassId('resources', resourceId, uploadScope.writeClassId);
 
       res.json({
         success: true,
@@ -113,6 +133,12 @@ class AnnouncementController {
 
   static async deleteResource(req, res) {
     try {
+      const existing = await Resource.findById(req.params.id);
+      if (!existing) return res.status(404).json({ success: false, error: '资源不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessClassRecord(existing, scope)) {
+        return res.status(403).json({ success: false, error: '无权删除该资源' });
+      }
       const ok = await Resource.delete(req.params.id);
       if (!ok) return res.status(404).json({ success: false, error: '资源不存在' });
       res.json({ success: true });

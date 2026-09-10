@@ -61,6 +61,49 @@ class Leave {
     return rows[0];
   }
 
+  /** 按区队列表查询（管理员视图，含申请人信息） */
+  static async getAllByClasses(classIds) {
+    if (!Array.isArray(classIds) || classIds.length === 0) return [];
+    const ph = classIds.map(() => '?').join(',');
+    const query = [
+      'SELECT l.*, u.name AS applicant_name, u.student_id AS applicant_student_id, u.class_id,',
+      '  ap.name AS approver_name',
+      'FROM leaves l',
+      'JOIN users u ON l.user_id = u.id',
+      'LEFT JOIN users ap ON l.approver_id = ap.id',
+      'WHERE u.class_id IN (' + ph + ')',
+      'ORDER BY l.created_at DESC'
+    ].join(' ');
+    const [rows] = await db.query(query, classIds);
+    return rows;
+  }
+
+  /** 按中队查询（管理员视图，含申请人信息） */
+  static async getAllByCompany(companyId) {
+    const query = [
+      'SELECT l.*, u.name AS applicant_name, u.student_id AS applicant_student_id, u.class_id,',
+      '  ap.name AS approver_name',
+      'FROM leaves l',
+      'JOIN users u ON l.user_id = u.id',
+      'JOIN classes c ON u.class_id = c.id',
+      'LEFT JOIN users ap ON l.approver_id = ap.id',
+      'WHERE c.company_id = ?',
+      'ORDER BY l.created_at DESC'
+    ].join(' ');
+    const [rows] = await db.query(query, [companyId]);
+    return rows;
+  }
+
+  /** 取某条请假所属的区队/用户，用于作用域校验 */
+  static async getScopeInfo(id) {
+    const query = [
+      'SELECT l.id, l.user_id, u.class_id',
+      'FROM leaves l JOIN users u ON l.user_id = u.id',
+      'WHERE l.id = ?'
+    ].join(' ');
+    const [rows] = await db.query(query, [id]);
+    return rows[0] || null;
+  }
   static async updateStatus(id, status, approver_id, approval_notes) {
     const [result] = await db.query(
       'UPDATE leaves SET status = ?, approver_id = ?, approval_time = NOW(), approval_notes = ? WHERE id = ?',

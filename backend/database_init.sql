@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(20) NOT NULL,
   class_id VARCHAR(20) NOT NULL,
   role INT NOT NULL DEFAULT 0,
+  member_type VARCHAR(16) NOT NULL DEFAULT 'student' COMMENT '在编身份：student(含班干部)/staff/system',
   phone VARCHAR(20) NOT NULL,
   email VARCHAR(50) NOT NULL,
   password_hash VARCHAR(255) DEFAULT NULL,
@@ -49,6 +50,7 @@ CREATE TABLE IF NOT EXISTS leaves (
 -- 通知表
 CREATE TABLE IF NOT EXISTS notices (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   title VARCHAR(100) NOT NULL,
   content TEXT NOT NULL,
   type VARCHAR(20) NOT NULL,
@@ -76,6 +78,7 @@ CREATE TABLE IF NOT EXISTS notice_reads (
 -- 公告表
 CREATE TABLE IF NOT EXISTS announcements (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   title VARCHAR(100) NOT NULL,
   content TEXT NOT NULL,
   creator_id INT NOT NULL,
@@ -87,6 +90,7 @@ CREATE TABLE IF NOT EXISTS announcements (
 -- 资源表
 CREATE TABLE IF NOT EXISTS resources (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   name VARCHAR(100) NOT NULL,
   type VARCHAR(20) NOT NULL,
   url VARCHAR(255) NOT NULL,
@@ -102,6 +106,7 @@ CREATE TABLE IF NOT EXISTS resources (
 -- 相册表
 CREATE TABLE IF NOT EXISTS albums (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   name VARCHAR(100) NOT NULL,
   description TEXT,
   creator_id INT NOT NULL,
@@ -131,6 +136,7 @@ CREATE TABLE IF NOT EXISTS photos (
 -- 留言表
 CREATE TABLE IF NOT EXISTS messages (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   content TEXT NOT NULL,
   user_id INT NOT NULL,
   target_id INT NOT NULL,
@@ -145,6 +151,7 @@ CREATE TABLE IF NOT EXISTS messages (
 -- 班费表
 CREATE TABLE IF NOT EXISTS expenses (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   user_id INT NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
   type VARCHAR(20) NOT NULL,
@@ -153,6 +160,11 @@ CREATE TABLE IF NOT EXISTS expenses (
   approver_id INT,
   approval_time DATETIME,
   approval_notes TEXT,
+  approval_step TINYINT DEFAULT 0 COMMENT '当前审批步骤: 0=未提交 1=待区队长 2=待辅导员 3=待投票',
+  tier VARCHAR(10) DEFAULT 'small' COMMENT '金额档: small(≤100) / medium(100-500) / large(>500)',
+  proof_url VARCHAR(500) COMMENT '凭证图片URL',
+  details JSON COMMENT '明细项JSON数组',
+  semester VARCHAR(20) COMMENT '所属学期',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id),
@@ -162,6 +174,7 @@ CREATE TABLE IF NOT EXISTS expenses (
 -- 心理干预申请表
 CREATE TABLE IF NOT EXISTS psychological_applications (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   user_id INT NOT NULL,
   content TEXT NOT NULL,
   status INT NOT NULL DEFAULT 0,
@@ -176,6 +189,7 @@ CREATE TABLE IF NOT EXISTS psychological_applications (
 -- 擂台表
 CREATE TABLE IF NOT EXISTS challenges (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   name VARCHAR(100) NOT NULL,
   type VARCHAR(20) NOT NULL,
   description TEXT NOT NULL,
@@ -217,6 +231,7 @@ CREATE TABLE IF NOT EXISTS challenge_records (
 -- 投票表
 CREATE TABLE IF NOT EXISTS votes (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   title VARCHAR(100) NOT NULL,
   description TEXT,
   type VARCHAR(20) NOT NULL,
@@ -256,6 +271,7 @@ CREATE TABLE IF NOT EXISTS vote_records (
 -- 作业表
 CREATE TABLE IF NOT EXISTS homeworks (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   title VARCHAR(100) NOT NULL,
   description TEXT NOT NULL,
   creator_id INT NOT NULL,
@@ -290,6 +306,7 @@ CREATE TABLE IF NOT EXISTS suggestions (
   status INT NOT NULL DEFAULT 0,
   handler_id INT,
   handler_notes TEXT,
+  view_token VARCHAR(64) DEFAULT NULL COMMENT '匿名提交凭据，仅用于反查自己的提交',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (handler_id) REFERENCES users(id)
@@ -298,6 +315,7 @@ CREATE TABLE IF NOT EXISTS suggestions (
 -- 抽奖活动表
 CREATE TABLE IF NOT EXISTS lotteries (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   name VARCHAR(100) NOT NULL,
   description TEXT,
   rules TEXT NOT NULL,
@@ -326,6 +344,7 @@ CREATE TABLE IF NOT EXISTS lottery_participants (
 -- 积分表
 CREATE TABLE IF NOT EXISTS points (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   user_id INT NOT NULL,
   score INT NOT NULL,
   reason TEXT NOT NULL,
@@ -335,12 +354,24 @@ CREATE TABLE IF NOT EXISTS points (
   FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
--- 班级表
+-- 中队表（公司/大队级）
+CREATE TABLE IF NOT EXISTS companies (
+  id VARCHAR(20) PRIMARY KEY,
+  name VARCHAR(50) NOT NULL,
+  code VARCHAR(20) DEFAULT NULL,
+  description VARCHAR(200) DEFAULT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 班级表（区队）
 CREATE TABLE IF NOT EXISTS classes (
   id VARCHAR(20) PRIMARY KEY,
   name VARCHAR(50) NOT NULL,
+  company_id VARCHAR(20) DEFAULT NULL COMMENT '所属中队',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_classes_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
 );
 
 -- 操作记录表（用于管理员查看成员最近系统内操作）
@@ -360,6 +391,20 @@ CREATE TABLE IF NOT EXISTS operation_logs (
   INDEX idx_op_created (created_at)
 );
 
+-- 请假类型配置表（管理员可在后台动态修改各请假类型的时间窗口、理由选项等）
+CREATE TABLE IF NOT EXISTS leave_config (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  type_name VARCHAR(20) NOT NULL COMMENT '请假类型名称',
+  start_time TIME DEFAULT NULL COMMENT '固定时段起始，自由时段为 NULL',
+  end_time TIME DEFAULT NULL COMMENT '固定时段结束，自由时段为 NULL',
+  is_fixed BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'true=固定时段 false=自由时段',
+  reasons JSON NOT NULL COMMENT '可选理由列表',
+  enabled BOOLEAN NOT NULL DEFAULT TRUE COMMENT '是否启用',
+  sort_order INT NOT NULL DEFAULT 0 COMMENT '排序权重',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 插入默认班级数据
 INSERT IGNORE INTO classes (id, name) VALUES
 ('class001', '一区队'),
@@ -372,6 +417,17 @@ INSERT IGNORE INTO classes (id, name) VALUES
 -- 插入默认管理员用户
 INSERT IGNORE INTO users (openid, nickName, avatarUrl, gender, student_id, name, class_id, role, phone, email) VALUES
 ('admin_openid', '管理员', 'https://example.com/avatar.jpg', 1, 'admin001', '管理员', 'class001', 2, '13800138000', 'admin@example.com');
+
+-- 插入请假类型配置默认数据
+INSERT IGNORE INTO leave_config (type_name, start_time, end_time, is_fixed, reasons, sort_order) VALUES
+('早操',   '06:00', '07:00', TRUE,  '["调休","出督","病假","事假","公假","其他"]', 1),
+('早集合', '07:00', '08:10', TRUE,  '["调休","出督","病假","事假","公假","其他"]', 2),
+('午集合', '13:00', '14:00', TRUE,  '["调休","出督","病假","事假","公假","其他"]', 3),
+('收假集合','18:00','19:00', TRUE,  '["调休","出督","病假","事假","公假","其他"]', 4),
+('晚自习', '18:30', '20:30', TRUE,  '["调休","出督","病假","事假","公假","其他"]', 5),
+('中队会', NULL,    NULL,    FALSE, '["病假","事假","公假","其他"]', 6),
+('全休',   NULL,    NULL,    FALSE, '["病假","事假","公假","其他"]', 7),
+('其他',   NULL,    NULL,    FALSE, '["病假","事假","公假","其他"]', 8);
 
 -- 插入默认测试数据
 INSERT IGNORE INTO notices (title, content, type, creator_id) VALUES
@@ -413,6 +469,7 @@ INSERT IGNORE INTO points (user_id, score, reason, created_by) VALUES
 
 -- 创建索引
 CREATE INDEX idx_users_student_id ON users(student_id);
+CREATE INDEX idx_classes_company_id ON classes(company_id);
 CREATE INDEX idx_users_class_id ON users(class_id);
 CREATE INDEX idx_leaves_user_id ON leaves(user_id);
 CREATE INDEX idx_notices_created_at ON notices(created_at);
@@ -421,6 +478,21 @@ CREATE INDEX idx_expenses_type ON expenses(type);
 CREATE INDEX idx_homeworks_deadline ON homeworks(deadline);
 CREATE INDEX idx_votes_end_time ON votes(end_time);
 CREATE INDEX idx_lotteries_end_time ON lotteries(end_time);
+CREATE INDEX idx_suggestion_view_token ON suggestions(view_token);
+CREATE INDEX idx_notices_class_id ON notices(class_id);
+CREATE INDEX idx_announcements_class_id ON announcements(class_id);
+CREATE INDEX idx_albums_class_id ON albums(class_id);
+CREATE INDEX idx_homeworks_class_id ON homeworks(class_id);
+CREATE INDEX idx_votes_class_id ON votes(class_id);
+CREATE INDEX idx_lotteries_class_id ON lotteries(class_id);
+CREATE INDEX idx_messages_class_id ON messages(class_id);
+CREATE INDEX idx_resources_class_id ON resources(class_id);
+CREATE INDEX idx_points_class_id ON points(class_id);
+CREATE INDEX idx_psychological_applications_class_id ON psychological_applications(class_id);
+CREATE INDEX idx_expenses_class_id ON expenses(class_id);
+CREATE INDEX idx_fee_collections_class_id ON fee_collections(class_id);
+CREATE INDEX idx_fee_publications_class_id ON fee_publications(class_id);
+CREATE INDEX idx_challenges_class_id ON challenges(class_id);
 
 -- 创建视图
 CREATE OR REPLACE VIEW user_stats AS
@@ -446,17 +518,10 @@ SELECT
   SUM(CASE WHEN type = '支出' AND status = 1 THEN amount ELSE 0 END) as balance
 FROM expenses;
 
--- 增强 expenses 表：支持三级审批流
-ALTER TABLE expenses
-  ADD COLUMN approval_step TINYINT DEFAULT 0 COMMENT '当前审批步骤: 0=未提交 1=待区队长 2=待辅导员 3=待投票',
-  ADD COLUMN tier VARCHAR(10) DEFAULT 'small' COMMENT '金额档: small(≤100) / medium(100-500) / large(>500)',
-  ADD COLUMN proof_url VARCHAR(500) COMMENT '凭证图片URL',
-  ADD COLUMN details JSON COMMENT '明细项JSON数组',
-  ADD COLUMN semester VARCHAR(20) COMMENT '所属学期';
-
 -- 班费收缴批次表
 CREATE TABLE IF NOT EXISTS fee_collections (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   title VARCHAR(100) NOT NULL,
   amount_per_person DECIMAL(10,2) NOT NULL,
   total_expected DECIMAL(10,2) DEFAULT 0,
@@ -514,6 +579,7 @@ CREATE TABLE IF NOT EXISTS expense_approval_votes (
 -- 月度公示表
 CREATE TABLE IF NOT EXISTS fee_publications (
   id INT PRIMARY KEY AUTO_INCREMENT,
+  class_id VARCHAR(20) DEFAULT NULL COMMENT '所属区队，NULL=全局/中队级',
   title VARCHAR(100) NOT NULL,
   period VARCHAR(7) NOT NULL COMMENT '月份 YYYY-MM',
   total_income DECIMAL(10,2) DEFAULT 0,

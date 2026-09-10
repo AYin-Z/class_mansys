@@ -55,8 +55,17 @@ class OperationLog {
   /**
    * 全系统最近操作（可选按班级过滤，需要 join users）
    */
-  static async recent({ classId, limit = 100 } = {}) {
+  static async recent({ classId, classIds, limit = 100 } = {}) {
     const cap = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 500);
+    if (Array.isArray(classIds)) {
+      if (classIds.length === 0) return [];
+      const ph = classIds.map(() => '?').join(',');
+      const [rows] = await db.query(
+        'SELECT l.*, u.name AS user_name, u.student_id, u.class_id FROM operation_logs l LEFT JOIN users u ON u.id = l.user_id WHERE u.class_id IN (' + ph + ') ORDER BY l.created_at DESC LIMIT ?',
+        classIds.concat([cap])
+      );
+      return rows;
+    }
     if (classId) {
       const [rows] = await db.query(
         `SELECT l.*, u.name AS user_name, u.student_id, u.class_id

@@ -1,69 +1,25 @@
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
 const User = require('../models/User');
 const axios = require('axios');
 const { ROLES } = require('../shared/constants');
+const authService = require('../services/authService');
 
-// 内存验证码存储（开发/小规模使用；生产环境应换 Redis）
-const VERIFICATION_CODES = new Map();
-const CODE_EXPIRE_MS = 5 * 60 * 1000; // 5 分钟
-const SEND_CODE_LIMITS = new Map();
-const SEND_CODE_WINDOW_MS = 60 * 1000;
-const SEND_CODE_MAX_PER_WINDOW = 3;
-
-const PHONE_RE = /^1[3-9]\d{9}$/;
-const EMAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-
-function generateCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function storeCode(phoneOrEmail, code) {
-  VERIFICATION_CODES.set(phoneOrEmail, { code, expiresAt: Date.now() + CODE_EXPIRE_MS });
-}
-
-function verifyCode(phoneOrEmail, inputCode) {
-  const entry = VERIFICATION_CODES.get(phoneOrEmail);
-  if (!entry) return false;
-  if (Date.now() > entry.expiresAt) {
-    VERIFICATION_CODES.delete(phoneOrEmail);
-    return false;
-  }
-  return entry.code === inputCode;
-}
-
-function normalizeTarget({ phone, email }) {
-  const normalizedPhone = String(phone || '').trim();
-  const normalizedEmail = String(email || '').trim().toLowerCase();
-  if (normalizedPhone) {
-    if (!PHONE_RE.test(normalizedPhone)) return { error: '手机号码格式不正确' };
-    return { target: normalizedPhone, type: 'phone' };
-  }
-  if (normalizedEmail) {
-    if (!EMAIL_RE.test(normalizedEmail)) return { error: '邮箱格式不正确' };
-    return { target: normalizedEmail, type: 'email' };
-  }
-  return { error: '手机号或邮箱不能为空' };
-}
-
-function canSendCode(target) {
-  const now = Date.now();
-  const current = SEND_CODE_LIMITS.get(target);
-  if (!current || now > current.resetAt) {
-    SEND_CODE_LIMITS.set(target, { count: 1, resetAt: now + SEND_CODE_WINDOW_MS });
-    return true;
-  }
-  if (current.count >= SEND_CODE_MAX_PER_WINDOW) return false;
-  current.count += 1;
-  return true;
-}
-
-function fallbackStudentId(prefix, value) {
-  const digest = crypto.createHash('sha1').update(String(value)).digest('hex').slice(0, 12);
-  return `${prefix}_${digest}`;
-}
-
+// P2：验证码/令牌/密码等基础设施已下沉到 services/authService.js
+const {
+  PHONE_RE,
+  EMAIL_RE,
+  otpConfig,
+  generateCode,
+  storeCode,
+  verifyCode,
+  clearCode,
+  canSendCode,
+  normalizeTarget,
+  fallbackStudentId,
+  signToken,
+  verifyToken,
+  hashPassword,
+  verifyPassword
+} = authService;
 class AuthController {
   static async login(req, res) {
     const { code, userInfo } = req.body;
@@ -79,7 +35,7 @@ class AuthController {
         }
       });
 
-      const { openid, session_key } = response.data;
+      const { openid } = response.data;
 
       // 检查微信API是否返回错误
       if (response.data.errcode) {
@@ -116,7 +72,7 @@ class AuthController {
       }
 
       // 生成JWT令牌
-      const token = AuthController._signToken(user);
+      const token = signToken(user);
 
       res.json({
         success: true,
@@ -187,7 +143,7 @@ class AuthController {
         }
       }
 
-      const token = AuthController._signToken(user);
+      const token = signToken(user);
 
       res.json({
         success: true,
@@ -277,7 +233,7 @@ class AuthController {
       });
       const user = await User.findById(userId);
 
-      const token = AuthController._signToken(user);
+      const token = signToken(user);
 
       res.json({
         success: true,
@@ -311,13 +267,13 @@ class AuthController {
     const { refreshToken } = req.body;
 
     try {
-      const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+      const decoded = verifyToken(refreshToken);
       const user = await User.findById(decoded.id);
       if (!user) {
         return res.status(401).json({ success: false, error: '用户不存在' });
       }
 
-      const newToken = AuthController._signToken(user);
+      const newToken = signToken(user);
       res.json({ success: true, token: newToken });
     } catch (error) {
       res.status(401).json({ success: false, error: '无效的刷新令牌' });
@@ -386,12 +342,12 @@ class AuthController {
         return res.status(401).json({ success: false, error: '该账号未设置密码，请使用其他方式登录或设置密码' });
       }
 
-      const valid = await bcrypt.compare(password, user.password_hash);
+      const valid = await verifyPassword(user, password);
       if (!valid) {
         return res.status(401).json({ success: false, error: '密码错误' });
       }
 
-      const token = AuthController._signToken(user);
+      const token = signToken(user);
       res.json({ success: true, token, user: AuthController._publicUser(user) });
     } catch (error) {
       console.error('学号密码登录失败:', error);
@@ -418,12 +374,12 @@ class AuthController {
         return res.status(401).json({ success: false, error: '该账号未设置密码' });
       }
 
-      const valid = await bcrypt.compare(password, user.password_hash);
+      const valid = await verifyPassword(user, password);
       if (!valid) {
         return res.status(401).json({ success: false, error: '密码错误' });
       }
 
-      const token = AuthController._signToken(user);
+      const token = signToken(user);
       res.json({ success: true, token, user: AuthController._publicUser(user) });
     } catch (error) {
       console.error('手机号登录失败:', error);
@@ -450,12 +406,12 @@ class AuthController {
         return res.status(401).json({ success: false, error: '该账号未设置密码' });
       }
 
-      const valid = await bcrypt.compare(password, user.password_hash);
+      const valid = await verifyPassword(user, password);
       if (!valid) {
         return res.status(401).json({ success: false, error: '密码错误' });
       }
 
-      const token = AuthController._signToken(user);
+      const token = signToken(user);
       res.json({ success: true, token, user: AuthController._publicUser(user) });
     } catch (error) {
       console.error('邮箱登录失败:', error);
@@ -478,6 +434,7 @@ class AuthController {
         return res.status(429).json({ success: false, error: '验证码发送过于频繁，请稍后再试' });
       }
 
+      const { provider: OTP_PROVIDER, debugConsole: OTP_DEBUG_CONSOLE } = otpConfig();
       const code = generateCode();
       storeCode(target, code);
 
@@ -485,7 +442,41 @@ class AuthController {
         console.log(`[DEV] 验证码 [${code}] 已发送至 ${target}`);
         return res.json({ success: true, code, message: '验证码已发送' });
       }
-      // 生产环境必须接入短信/邮件服务商；接口不再向客户端回显验证码。
+      // 邮箱验证码：通过已配置的 SMTP 真实发送（不再向客户端回显）
+      if (normalized.type === 'email') {
+        const mailer = require('../services/mailer');
+        if (!mailer.isConfigured()) {
+          if (OTP_DEBUG_CONSOLE) {
+            console.log(`[PROD-DEBUG] 验证码 [${code}] 目标 ${target}`);
+            return res.json({ success: true, message: '验证码已发送（DEBUG 模式，仅打印到服务端日志）' });
+          }
+          return res.status(503).json({ success: false, error: '邮件服务未配置，无法发送验证码' });
+        }
+        try {
+          await mailer.sendMail({
+            to: target,
+            subject: '[区队管理系统] 登录验证码',
+            text: '你的验证码是 ' + code + '，5 分钟内有效。如非本人操作请忽略本邮件。',
+            html: '<p>你的验证码是 <b style="font-size:18px">' + code + '</b>，5 分钟内有效。</p><p style="color:#888">如非本人操作请忽略本邮件。</p>'
+          });
+          return res.json({ success: true, message: '验证码已发送至邮箱' });
+        } catch (e) {
+          console.error('验证码邮件发送失败:', e.message);
+          return res.status(502).json({ success: false, error: '验证码发送失败，请稍后再试' });
+        }
+      }
+
+      // 手机验证码：需要短信服务商（未接入时明确失败，避免"假装成功"）
+      const smsConfigured = OTP_PROVIDER === 'sms' || OTP_PROVIDER === 'webhook';
+      if (!smsConfigured) {
+        if (OTP_DEBUG_CONSOLE) {
+          console.log(`[PROD-DEBUG] 验证码 [${code}] 目标 ${target}`);
+          return res.json({ success: true, message: '验证码已发送（DEBUG 模式，仅打印到服务端日志）' });
+        }
+        return res.status(503).json({ success: false, error: '短信服务未配置，无法发送验证码' });
+      }
+      // TODO: 接入短信服务商（sms/webhook）
+      console.log(`[OTP] 待接入 ${OTP_PROVIDER} 发送验证码至 ${target}`);
       res.json({ success: true, message: '验证码已发送' });
     } catch (error) {
       console.error('发送验证码失败:', error);
@@ -508,11 +499,11 @@ class AuthController {
       if (!verifyCode(phone, code)) {
         return res.status(400).json({ success: false, error: '验证码错误或已过期' });
       }
-      VERIFICATION_CODES.delete(phone);
+      clearCode(phone);
 
       let user = await User.findByPhone(phone);
       if (user) {
-        const token = AuthController._signToken(user);
+        const token = signToken(user);
         return res.json({ success: true, token, user: AuthController._publicUser(user) });
       }
 
@@ -532,7 +523,7 @@ class AuthController {
       await User.verifyPhone(userId);
       user = await User.findById(userId);
 
-      const token = AuthController._signToken(user);
+      const token = signToken(user);
       res.json({ success: true, token, user: AuthController._publicUser(user) });
     } catch (error) {
       console.error('手机号验证码登录失败:', error);
@@ -555,7 +546,7 @@ class AuthController {
       if (!verifyCode(email, code)) {
         return res.status(400).json({ success: false, error: '验证码错误或已过期' });
       }
-      VERIFICATION_CODES.delete(email);
+      clearCode(email);
 
       let user = await User.findByEmail(email);
       if (!user) {
@@ -575,7 +566,7 @@ class AuthController {
         user = await User.findById(userId);
       }
 
-      const token = AuthController._signToken(user);
+      const token = signToken(user);
       res.json({ success: true, token, user: AuthController._publicUser(user) });
     } catch (error) {
       console.error('邮箱验证码登录失败:', error);
@@ -611,11 +602,11 @@ class AuthController {
         return res.status(404).json({ success: false, error: '用户不存在' });
       }
 
-      VERIFICATION_CODES.delete(normalized.target);
-      const hash = await bcrypt.hash(password, 10);
+      clearCode(normalized.target);
+      const hash = await hashPassword(password);
       await User.updatePassword(user.id, hash);
 
-      const token = AuthController._signToken(user);
+      const token = signToken(user);
       res.json({ success: true, token, user: AuthController._publicUser(user) });
     } catch (error) {
       console.error('设置密码失败:', error);
@@ -637,11 +628,11 @@ class AuthController {
       if (!user.password_hash) {
         return res.status(400).json({ success: false, error: '该账号未设置密码' });
       }
-      const valid = await bcrypt.compare(oldPassword, user.password_hash);
+      const valid = await verifyPassword(user, oldPassword);
       if (!valid) return res.status(400).json({ success: false, error: '旧密码错误' });
-      const hash = await bcrypt.hash(newPassword, 10);
+      const hash = await hashPassword(newPassword);
       await User.updatePassword(user.id, hash);
-      const token = AuthController._signToken(user);
+      const token = signToken(user);
       res.json({ success: true, token, user: AuthController._publicUser(user), message: '密码修改成功' });
     } catch (error) {
       console.error('修改密码失败:', error);
@@ -649,12 +640,9 @@ class AuthController {
     }
   }
 
+  /** @deprecated 使用 authService.signToken；保留以兼容既有调用 */
   static _signToken(user) {
-    return jwt.sign(
-      { id: user.id, openid: user.openid, role: user.role, isAdmin: user.role > 0 },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
-    );
+    return signToken(user);
   }
 }
 

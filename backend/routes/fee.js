@@ -1,46 +1,43 @@
 const express = require('express');
 const router = express.Router();
 const FeeController = require('../controllers/FeeController');
-const { authenticateToken, authorizeAdmin } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
+const { requirePermission } = require('../shared/permissions');
+const { validateBody } = require('../shared/validate');
+const { schemas } = require('../shared/schemas');
 const { uploadResource } = require('../config/multer');
 
 // === 收缴 ===
-router.post('/collections', authenticateToken, FeeController.createCollection);
+router.post('/collections', authenticateToken, requirePermission('COLLECT_FEE'), validateBody(schemas.feeCreateCollection), FeeController.createCollection);
 router.get('/collections', authenticateToken, FeeController.listCollections);
 router.get('/collections/:id', authenticateToken, FeeController.getCollectionDetail);
-router.get('/collections/:id/records', authenticateToken, FeeController.getCollectionRecords);
+router.get('/collections/:id/records', authenticateToken, requirePermission('VIEW_ROSTER'), FeeController.getCollectionRecords);
 router.post('/collections/:id/pay', authenticateToken, FeeController.payCollection);
-router.post('/collections/:id/exempt', authenticateToken, FeeController.exemptCollection);
-router.post('/collections/:id/close', authenticateToken, FeeController.closeCollection);
+router.post('/collections/:id/exempt', authenticateToken, requirePermission('COLLECT_FEE'), FeeController.exemptCollection);
+router.post('/collections/:id/close', authenticateToken, requirePermission('COLLECT_FEE'), FeeController.closeCollection);
 
 // === 申请 (expenses) ===
-router.post('/expenses', authenticateToken, FeeController.createExpense);
+router.post('/expenses', authenticateToken, validateBody(schemas.feeCreateExpense), FeeController.createExpense);
 router.get('/expenses/my', authenticateToken, FeeController.getMyExpenses);
-router.get('/expenses', authenticateToken, FeeController.getAllExpenses);
+router.get('/expenses', authenticateToken, requirePermission('VIEW_ROSTER'), FeeController.getAllExpenses);
 router.get('/expenses/:id', authenticateToken, FeeController.getExpenseDetail);
 
 // === 审批 ===
 router.get('/approvals/pending', authenticateToken, FeeController.getPendingApprovals);
-router.post('/approvals/:id', authenticateToken, FeeController.approveExpense);
-router.post('/approvals/:id/reject', authenticateToken, FeeController.rejectExpense);
-router.post('/approvals/:id/vote', authenticateToken, FeeController.castVote);
-router.get('/approvals/:id/votes', authenticateToken, FeeController.getVoteResult);
+router.post('/approvals/:id', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.approveExpense);
+router.post('/approvals/:id/reject', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.rejectExpense);
+router.post('/approvals/:id/vote', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.castVote);
+router.get('/approvals/:id/votes', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.getVoteResult);
 
 // === 公示 ===
-router.post('/publications', authenticateToken, FeeController.createPublication);
+router.post('/publications', authenticateToken, requirePermission('BOOKKEEP_FEE'), validateBody(schemas.feeCreatePublication), FeeController.createPublication);
 router.get('/publications', authenticateToken, FeeController.listPublications);
 router.get('/publications/:id', authenticateToken, FeeController.getPublicationDetail);
 
 // === 汇总 ===
 router.get('/summary', authenticateToken, FeeController.getSummary);
 
-// === 兼容老端点（供已有前端页面使用）===
-router.post('/expense', authenticateToken, FeeController.createExpense);
-router.get('/my', authenticateToken, FeeController.getMyExpenses);
-router.get('/all', authenticateToken, FeeController.getAllExpenses);
-router.get('/balance', authenticateToken, FeeController.getBalance);
-
-// === 证明材料上传（供前端 apply.vue 使用）===
+// === 证明材料上传 ===
 router.post('/proof/upload', authenticateToken, uploadResource.single('file'), FeeController.uploadProof);
 
 module.exports = router;

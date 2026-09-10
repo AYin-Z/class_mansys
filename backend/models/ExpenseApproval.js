@@ -1,8 +1,14 @@
 const db = require('../config/database');
 
-// 投票通过所需同意票数（即班级总人数的 2/3 取整）
-// TODO: 如需动态配置可从班级人数表查询：SELECT COUNT(*) FROM users WHERE role = 0
-const VOTE_THRESHOLD = 19;
+/** 动态获取投票通过门槛（班级总人数的 2/3，向上取整，至少 1 票） */
+async function getVoteThreshold() {
+  try {
+    const [[{ cnt }]] = await db.query('SELECT COUNT(*) AS cnt FROM users');
+    return Math.max(1, Math.ceil(cnt * 2 / 3));
+  } catch {
+    return 19; // 兜底
+  }
+}
 
 class ExpenseApproval {
   // 创建审批链：根据金额自动决定步骤数
@@ -90,16 +96,17 @@ class ExpenseApproval {
         'INSERT INTO expense_approval_votes (expense_id, user_id, vote) VALUES (?, ?, ?)',
         [expenseId, userId, vote]
       );
-      // 检查投票是否达到门槛（≥VOTE_THRESHOLD 票同意）
+      // 检查投票是否达到门槛
       const [countRows] = await db.query(
         'SELECT COUNT(*) as approve_count FROM expense_approval_votes WHERE expense_id = ? AND vote = 1',
         [expenseId]
       );
-      if (countRows[0].approve_count >= VOTE_THRESHOLD) {
+      const threshold = await getVoteThreshold();
+      if (countRows[0].approve_count >= threshold) {
         await db.query('UPDATE expense_approvals SET status = 1, updated_at = NOW() WHERE expense_id = ? AND step = 3', [expenseId]);
         await db.query('UPDATE expenses SET approval_step = -1, status = 1, approval_time = NOW() WHERE id = ?', [expenseId]);
       }
-      return { success: true, approveCount: countRows[0].approve_count, thresholdMet: countRows[0].approve_count >= VOTE_THRESHOLD };
+      return { success: true, approveCount: countRows[0].approve_count, threshold, thresholdMet: countRows[0].approve_count >= threshold };
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY') {
         return { success: false, error: '您已投过票' };
@@ -135,28 +142,29 @@ class ExpenseApproval {
       'SELECT COUNT(*) as count FROM expense_approval_votes WHERE expense_id = ?',
       [expenseId]
     );
+    const threshold = await getVoteThreshold();
     return {
       approveCount: approveRows[0].count,
       rejectCount: rejectRows[0].count,
       totalVotes: totalRows[0].count,
-      thresholdMet: approveRows[0].count >= VOTE_THRESHOLD
+      threshold,
+      thresholdMet: approveRows[0].count >= threshold
     };
   }
 
   // 获取待审批列表
   static async getPendingApprovals(role) {
-    const isAdmin = role === 8; // 超级管理员能看到所有待审批
     const [rows] = await db.query(
       `SELECT e.*, u.name as applicant_name, ea.step,
         (SELECT COUNT(*) FROM expense_approval_votes WHERE expense_id = e.id AND vote = 1) as vote_approve
       FROM expenses e
       JOIN expense_approvals ea ON e.id = ea.expense_id AND ea.status = 0
       LEFT JOIN users u ON e.user_id = u.id
-      WHERE (ea.step = 1 AND (? = 1 OR ? = 8))  -- 区队长或管理员可审
-         OR (ea.step = 2 AND ? = 9)  -- 辅导员审批
-         OR (ea.step = 3)  -- 投票阶段
+      WHERE (ea.step = 1 AND ? IN (1, 8))   -- 区队长或超管
+         OR (ea.step = 2 AND ? IN (9, 8))   -- 辅导员或超管
+         OR (ea.step = 3)                   -- 投票阶段所有人可见
       ORDER BY e.created_at DESC`,
-      [role, role, role]
+      [role, role]
     );
     return rows;
   }

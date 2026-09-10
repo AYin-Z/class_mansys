@@ -1,6 +1,8 @@
 const Challenge = require('../models/Challenge');
 
 const { isAdmin } = require('../shared/constants');
+const { resolveScope, filterByClassScope, canAccessClassRecord } = require('../shared/scope');
+const { stampClassId } = require('../shared/classStamp');
 
 class ChallengeController {
   static async create(req, res) {
@@ -9,7 +11,9 @@ class ChallengeController {
       if (!name || !type || !description) {
         return res.status(400).json({ success: false, error: 'name/type/description 必填' });
       }
+      const scope = await resolveScope(req.user);
       const id = await Challenge.create({ name, type, description });
+      await stampClassId('challenges', id, scope.writeClassId);
       res.json({ success: true, id });
     } catch (e) {
       res.status(500).json({ success: false, error: '创建失败' });
@@ -18,7 +22,8 @@ class ChallengeController {
 
   static async list(req, res) {
     try {
-      const challenges = await Challenge.getAll();
+      const scope = await resolveScope(req.user);
+      const challenges = filterByClassScope(await Challenge.getAll(), scope);
       res.json({ success: true, challenges });
     } catch (e) {
       res.status(500).json({ success: false, error: '获取列表失败' });
@@ -29,6 +34,10 @@ class ChallengeController {
     try {
       const challenge = await Challenge.findById(req.params.id);
       if (!challenge) return res.status(404).json({ success: false, error: '擂台不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessClassRecord(challenge, scope)) {
+        return res.status(403).json({ success: false, error: '无权查看该擂台' });
+      }
       const records = await Challenge.getRecordsByChallenge(req.params.id);
       let applications = [];
       if (isAdmin(req.user)) {
@@ -52,6 +61,12 @@ class ChallengeController {
 
   static async apply(req, res) {
     try {
+      const challenge = await Challenge.findById(req.params.id);
+      if (!challenge) return res.status(404).json({ success: false, error: '擂台不存在' });
+      const applyScope = await resolveScope(req.user);
+      if (!canAccessClassRecord(challenge, applyScope)) {
+        return res.status(403).json({ success: false, error: '无权挑战该擂台的擂台' });
+      }
       const { notes, proof_urls } = req.body || {};
       const id = await Challenge.apply({
         challenge_id: req.params.id,
@@ -77,7 +92,6 @@ class ChallengeController {
   // 裁判：管理员审核申请并判定结果
   static async judge(req, res) {
     try {
-      if (!isAdmin(req.user)) return res.status(403).json({ success: false, error: '无权裁判' });
       const { result, notes } = req.body || {};
       if (!result || !['challenger_win', 'champion_win', 'reject'].includes(result)) {
         return res.status(400).json({ success: false, error: 'result 必须为 challenger_win / champion_win / reject' });
@@ -146,7 +160,6 @@ class ChallengeController {
 
   static async record(req, res) {
     try {
-      if (!isAdmin(req.user)) return res.status(403).json({ success: false, error: '无权登记' });
       const { challenger_id, champion_id, result, notes } = req.body || {};
       if (!challenger_id || !champion_id || !result) {
         return res.status(400).json({ success: false, error: 'challenger_id/champion_id/result 必填' });

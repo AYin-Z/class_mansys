@@ -19,6 +19,16 @@ const bcrypt = require('bcryptjs');
 const db = require('./config/database');
 
 async function seed() {
+  // 安全护栏：防止误在生产环境清空数据
+  const force = process.argv.includes('--force') || process.env.SEED_FORCE === '1';
+  if (!force) {
+    console.error('❌ 为防止误清空数据，seed.js 默认拒绝执行。请追加 --force 参数（仅限测试环境）。');
+    process.exit(1);
+  }
+  if (process.env.NODE_ENV === 'production' && !process.argv.includes('--allow-prod')) {
+    console.error('❌ 检测到 NODE_ENV=production，禁止运行 seed.js（会清空全部业务数据）。如确需执行请加 --allow-prod。');
+    process.exit(1);
+  }
   console.log('🌱 开始播种数据...\n');
 
   // ========== 清理旧数据 ==========
@@ -47,7 +57,8 @@ async function seed() {
   console.log('  ✓ 班级: 数据警务技术六区队');
 
   // ========== 用户 ==========
-  const defaultPw = await bcrypt.hash('123456', 10);
+  const defaultPassword = process.env.SEED_PASSWORD || '123456';
+  const defaultPw = await bcrypt.hash(defaultPassword, 10);
 
   // 干部映射: 学号 → role
   // 1=区队长 2=生活副区 3=学习副区 4=心理副区 5=团支书 6=组织委员 7=宣传委员
@@ -235,9 +246,22 @@ async function seed() {
   await db.query('INSERT INTO messages (content, user_id, target_type, target_id) VALUES (?, ?, ?, ?)', ['收到！', 5, 'class', 6]);
   console.log('  ✓ 留言: 2 条\n');
 
+  // ---- 回填 class_id（与迁移 010 一致，保证 seed 数据也带区队归属）----
+  const backfills = [
+    ['notices', 'creator_id'], ['announcements', 'creator_id'], ['albums', 'creator_id'],
+    ['homeworks', 'creator_id'], ['votes', 'creator_id'], ['lotteries', 'creator_id'],
+    ['messages', 'user_id'], ['resources', 'uploader_id'], ['points', 'user_id'],
+    ['psychological_applications', 'user_id'], ['expenses', 'user_id'],
+    ['fee_collections', 'created_by'], ['fee_publications', 'published_by'],
+  ];
+  for (const b of backfills) {
+    try {
+      await db.query('UPDATE `' + b[0] + '` x JOIN users u ON x.' + b[1] + ' = u.id SET x.class_id = NULLIF(NULLIF(u.class_id, \'0\'), \'\') WHERE x.class_id IS NULL');
+    } catch (e) { /* 表不存在时忽略 */ }
+  }
   console.log('🎉 种子数据播种完成！');
   console.log('   登录账号: 学号 202521760001~202521760040 + "admin001"');
-  console.log('   默认密码: 123456');
+  console.log(`   默认密码: ${process.env.SEED_PASSWORD || '123456'}（开发默认，生产请用 SEED_PASSWORD 指定强口令）`);
   console.log('   殷政(组织委员)学号: 202521760034');
 
   process.exit(0);

@@ -38,6 +38,11 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, error: '权限不足' });
     }
     
+    const allowed = ['name', 'phone', 'email', 'nickName', 'avatarUrl'];
+    const hasField = Object.keys(req.body || {}).some(k => allowed.includes(k));
+    if (!hasField) {
+      return res.status(400).json({ success: false, error: '没有可更新的字段' });
+    }
     const success = await User.update(req.params.id, req.body);
     if (success) {
       const user = await User.findPublicById(req.params.id);

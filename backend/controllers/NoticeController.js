@@ -1,4 +1,7 @@
 const Notice = require('../models/Notice');
+const { isAdmin } = require('../shared/constants');
+const { resolveScope, filterByClassScope, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
+const { stampClassId } = require('../shared/classStamp');
 
 class NoticeController {
   static async createNotice(req, res) {
@@ -8,6 +11,7 @@ class NoticeController {
         return res.status(400).json({ success: false, error: '标题和内容必填' });
       }
 
+      const scope = await resolveScope(req.user);
       const id = await Notice.create({
         title,
         content,
@@ -18,6 +22,7 @@ class NoticeController {
         attachments,
         creator_id: req.user.id
       });
+      await stampClassId('notices', id, scope.writeClassId);
 
       res.json({ success: true, data: { id }, message: '通知发布成功' });
     } catch (error) {
@@ -28,7 +33,8 @@ class NoticeController {
 
   static async getNotices(req, res) {
     try {
-      const notices = await Notice.getAll(req.user.id);
+      const scope = await resolveScope(req.user);
+      const notices = filterByClassScope(await Notice.getAll(req.user.id), scope);
       res.json({ success: true, notices });
     } catch (error) {
       console.error('获取通知列表失败:', error);
@@ -42,6 +48,10 @@ class NoticeController {
       if (!notice) {
         return res.status(404).json({ success: false, error: '通知不存在' });
       }
+      const scope = await resolveScope(req.user);
+      if (!canAccessClassRecord(notice, scope)) {
+        return res.status(403).json({ success: false, error: '无权查看该通知' });
+      }
 
       // 标记为已读（容错，失败不影响详情返回）
       try { await Notice.markAsRead(req.params.id, req.user.id); } catch (_) { /* ignore */ }
@@ -52,7 +62,6 @@ class NoticeController {
       if (notice.is_todo) {
         try {
           isCompleted = !!(await Notice.isCompletedBy(req.params.id, req.user.id));
-          const { isAdmin } = require('../shared/constants');
           if (isAdmin({ role: req.user.role })) {
             completion = await Notice.getTodoCompletionStatus(req.params.id);
           }
@@ -100,6 +109,13 @@ class NoticeController {
   /** 获取待办通知的完成名单 */
   static async getTodoCompletion(req, res) {
     try {
+      // 完成名单包含全班姓名/学号：仅本区队干部/管理员可见（权限由路由 VIEW_ROSTER 把关）
+      const notice = await Notice.findById(req.params.id);
+      if (!notice) return res.status(404).json({ success: false, error: '通知不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessOwnClassRecord(notice, scope)) {
+        return res.status(403).json({ success: false, error: '无权查看其他区队的完成名单' });
+      }
       const result = await Notice.getTodoCompletionStatus(req.params.id);
       res.json({ success: true, ...result });
     } catch (error) {
@@ -119,6 +135,15 @@ class NoticeController {
         return res.status(400).json({ success: false, error: '没有可更新的字段' });
       }
 
+      const existing = await Notice.findById(id);
+      if (!existing) {
+        return res.status(404).json({ success: false, error: '通知不存在' });
+      }
+      const scope = await resolveScope(req.user);
+      if (!canAccessClassRecord(existing, scope)) {
+        return res.status(403).json({ success: false, error: '无权修改该通知' });
+      }
+
       const affected = await Notice.update(id, fields);
       if (!affected) {
         return res.status(404).json({ success: false, error: '通知不存在' });
@@ -134,6 +159,12 @@ class NoticeController {
 
   static async deleteNotice(req, res) {
     try {
+      const existing = await Notice.findById(req.params.id);
+      if (!existing) return res.status(404).json({ success: false, error: '通知不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessClassRecord(existing, scope)) {
+        return res.status(403).json({ success: false, error: '无权删除该通知' });
+      }
       const ok = await Notice.delete(req.params.id);
       if (!ok) return res.status(404).json({ success: false, error: '通知不存在' });
       res.json({ success: true });

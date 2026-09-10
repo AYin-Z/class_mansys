@@ -6,10 +6,10 @@ const db = require('../config/database');
  * 处理者信息保留：handler_id、handler_notes。
  */
 class Suggestion {
-  static async create({ content, category }) {
+  static async create({ content, category, viewToken }) {
     const [result] = await db.query(
-      'INSERT INTO suggestions (content, category) VALUES (?, ?)',
-      [content, category || '其他']
+      'INSERT INTO suggestions (content, category, view_token) VALUES (?, ?, ?)',
+      [content, category || '其他', viewToken || null]
     );
     return result.insertId;
   }
@@ -58,6 +58,20 @@ class Suggestion {
        WHERE s.id IN (${placeholders})
        ORDER BY s.created_at DESC`,
       ids
+    );
+    return rows;
+  }
+
+  static async findByTokens(tokens) {
+    if (!Array.isArray(tokens) || tokens.length === 0) return [];
+    const placeholders = tokens.map(() => '?').join(',');
+    const [rows] = await db.query(
+      'SELECT s.*, u.name AS handler_name ' +
+      'FROM suggestions s ' +
+      'LEFT JOIN users u ON s.handler_id = u.id ' +
+      'WHERE s.view_token IN (' + placeholders + ') ' +
+      'ORDER BY s.created_at DESC',
+      tokens
     );
     return rows;
   }

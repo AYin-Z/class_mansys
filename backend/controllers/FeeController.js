@@ -2,24 +2,25 @@ const Fee = require('../models/Fee');
 const FeeCollection = require('../models/FeeCollection');
 const ExpenseApproval = require('../models/ExpenseApproval');
 const FeePublication = require('../models/FeePublication');
-const { ROLES, isAdmin, hasRole } = require('../shared/constants');
+const { ROLES, isAdmin } = require('../shared/constants');
+const { resolveScope, filterByOwnClassScope, canAccessOwnClassRecord } = require('../shared/scope');
+const { stampClassId } = require('../shared/classStamp');
 
 class FeeController {
   static _canReviewStep(user, step) {
     const role = Number(user?.role);
     if (role === ROLES.SUPER_ADMIN) return true;
     if (Number(step) === 1) return role === ROLES.CLASS_LEADER;
-    if (Number(step) === 2) return role === ROLES.COUNSELOR;
+    if (Number(step) === 2) return role === ROLES.COUNSELOR || role === ROLES.SUPER_ADMIN;
     return false;
   }
 
   // === 收缴 ===
   static async createCollection(req, res) {
     try {
-      if (req.user.role !== ROLES.LIFE_VICE && !isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '仅生活副区可发起收缴' });
-      }
+      const scope = await resolveScope(req.user);
       const id = await FeeCollection.create({ ...req.body, created_by: req.user.id });
+      await stampClassId('fee_collections', id, scope.writeClassId);
       res.json({ success: true, id, data: { id } });
     } catch (err) {
       console.error('创建收缴批次失败:', err);
@@ -29,7 +30,8 @@ class FeeController {
 
   static async listCollections(req, res) {
     try {
-      const collections = await FeeCollection.getAll();
+      const scope = await resolveScope(req.user);
+      const collections = filterByOwnClassScope(await FeeCollection.getAll(), scope);
       res.json({ success: true, collections, data: { collections } });
     } catch (err) {
       res.status(500).json({ success: false, error: '获取收缴列表失败' });
@@ -40,6 +42,10 @@ class FeeController {
     try {
       const collection = await FeeCollection.findById(req.params.id);
       if (!collection) return res.status(404).json({ success: false, error: '收缴批次不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessOwnClassRecord(collection, scope)) {
+        return res.status(403).json({ success: false, error: '无权查看该收缴批次' });
+      }
       res.json({ success: true, collection, data: { collection } });
     } catch (err) {
       res.status(500).json({ success: false, error: '获取收缴详情失败' });
@@ -48,8 +54,11 @@ class FeeController {
 
   static async getCollectionRecords(req, res) {
     try {
-      if (!isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '仅干部可查看缴纳明细' });
+      const collection = await FeeCollection.findById(req.params.id);
+      if (!collection) return res.status(404).json({ success: false, error: '收缴批次不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessOwnClassRecord(collection, scope)) {
+        return res.status(403).json({ success: false, error: '无权查看该区队的缴纳明细' });
       }
       const records = await FeeCollection.getRecords(req.params.id);
       res.json({ success: true, records, data: { records } });
@@ -70,9 +79,6 @@ class FeeController {
 
   static async exemptCollection(req, res) {
     try {
-      if (req.user.role !== ROLES.LIFE_VICE && !isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '仅生活副区可操作' });
-      }
       const { userId, remark } = req.body;
       const success = await FeeCollection.markExempt(req.params.id, userId, remark);
       res.json({ success, message: success ? '已标记免缴' : '操作失败' });
@@ -83,9 +89,6 @@ class FeeController {
 
   static async closeCollection(req, res) {
     try {
-      if (req.user.role !== ROLES.LIFE_VICE && !isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '仅生活副区可操作' });
-      }
       const success = await FeeCollection.close(req.params.id);
       res.json({ success, message: success ? '已截止收缴' : '操作失败' });
     } catch (err) {
@@ -107,10 +110,12 @@ class FeeController {
         return res.status(400).json({ success: false, error: '单笔申请不超过¥100,000' });
       }
 
+      const scope = await resolveScope(req.user);
       const id = await Fee.createExpense({
         user_id: req.user.id,
         amount: parsedAmount, type: type || '支出', purpose, proof_url, details, semester
       });
+      await stampClassId('expenses', id, scope.writeClassId);
       res.json({ success: true, id, data: { id }, message: '申请已提交，等待审批' });
     } catch (err) {
       console.error('提交申请失败:', err);
@@ -129,10 +134,8 @@ class FeeController {
 
   static async getAllExpenses(req, res) {
     try {
-      if (!isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '仅干部可查看全部记录' });
-      }
-      const expenses = await Fee.getAllExpenses();
+      const scope = await resolveScope(req.user);
+      const expenses = filterByOwnClassScope(await Fee.getAllExpenses(), scope);
       res.json({ success: true, expenses, data: { expenses } });
     } catch (err) {
       res.status(500).json({ success: false, error: '获取全部记录失败' });
@@ -145,6 +148,12 @@ class FeeController {
       if (!expense) return res.status(404).json({ success: false, error: '记录不存在' });
       if (Number(expense.user_id) !== Number(req.user.id) && !isAdmin(req.user)) {
         return res.status(403).json({ success: false, error: '无权查看该费用记录' });
+      }
+      if (Number(expense.user_id) !== Number(req.user.id)) {
+        const scope = await resolveScope(req.user);
+        if (!canAccessOwnClassRecord(expense, scope)) {
+          return res.status(403).json({ success: false, error: '无权查看该区队的费用记录' });
+        }
       }
       res.json({ success: true, expense, data: { expense } });
     } catch (err) {
@@ -165,7 +174,7 @@ class FeeController {
 
   static async approveExpense(req, res) {
     try {
-      const { notes, action } = req.body;
+      const { notes } = req.body;
       const id = req.params.id;
       const expense = await Fee.findExpenseById(id);
       if (!expense) return res.status(404).json({ success: false, error: '记录不存在' });
@@ -208,6 +217,7 @@ class FeeController {
 
   static async castVote(req, res) {
     try {
+      // 权限由路由 APPROVE_FEE_USE 把关；申请人本人不可投票（业务规则见模型层）
       const { vote } = req.body; // 1=同意, 2=反对
       const numericVote = Number(vote);
       if (![1, 2].includes(numericVote)) {
@@ -225,9 +235,6 @@ class FeeController {
 
   static async getVoteResult(req, res) {
     try {
-      if (!isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '仅干部可查看' });
-      }
       const result = await ExpenseApproval.getVoteResult(req.params.id);
       res.json({ success: true, ...result });
     } catch (err) {
@@ -238,10 +245,9 @@ class FeeController {
   // === 公示 ===
   static async createPublication(req, res) {
     try {
-      if (req.user.role !== ROLES.ORGANIZATION_COMMITTEE && !isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '仅组织委员可发布公示' });
-      }
+      const scope = await resolveScope(req.user);
       const id = await FeePublication.create({ ...req.body, published_by: req.user.id });
+      await stampClassId('fee_publications', id, scope.writeClassId);
       res.json({ success: true, id, data: { id }, message: '公示已发布' });
     } catch (err) {
       res.status(500).json({ success: false, error: '发布公示失败' });
@@ -250,7 +256,8 @@ class FeeController {
 
   static async listPublications(req, res) {
     try {
-      const publications = await FeePublication.getAll();
+      const scope = await resolveScope(req.user);
+      const publications = filterByOwnClassScope(await FeePublication.getAll(), scope);
       res.json({ success: true, publications, data: { publications } });
     } catch (err) {
       res.status(500).json({ success: false, error: '获取公示列表失败' });
@@ -261,6 +268,10 @@ class FeeController {
     try {
       const publication = await FeePublication.findById(req.params.id);
       if (!publication) return res.status(404).json({ success: false, error: '公示不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessOwnClassRecord(publication, scope)) {
+        return res.status(403).json({ success: false, error: '无权查看该公示' });
+      }
       res.json({ success: true, publication, data: { publication } });
     } catch (err) {
       res.status(500).json({ success: false, error: '获取公示详情失败' });
@@ -270,26 +281,17 @@ class FeeController {
   // === 汇总 ===
   static async getSummary(req, res) {
     try {
-      const summary = await Fee.getSummary();
+      const scope = await resolveScope(req.user);
+      const role = Number(req.user.role);
+      const classId = role >= 8 ? (req.query.class_id || null) : scope.classId;
+      const summary = await Fee.getSummary(classId);
       res.json({ success: true, summary, data: { summary } });
     } catch (err) {
       res.status(500).json({ success: false, error: '获取汇总失败' });
     }
   }
 
-  // === 老端点兼容 ===
-
-  /** 获取班费余额（旧前端使用） */
-  static async getBalance(req, res) {
-    try {
-      const summary = await Fee.getSummary();
-      res.json({ success: true, data: { balance: { balance: summary.balance, totalIncome: summary.totalIncome, totalExpense: summary.totalExpense } } });
-    } catch (err) {
-      res.status(500).json({ success: false, error: '获取余额失败' });
-    }
-  }
-
-  /** 证明材料上传（供前端申请页面使用） */
+  /** 证明材料上传 */
   static async uploadProof(req, res) {
     try {
       if (!req.file) {

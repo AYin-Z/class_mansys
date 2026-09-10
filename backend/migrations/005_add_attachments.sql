@@ -1,5 +1,15 @@
--- 为 homeworks 表和 notices 表添加 attachments 字段（JSON 格式存储附件数组）
--- 附件格式：[ { name: string, url: string, size: number, type: string } ]
+-- 005_add_attachments.sql（幂等版）
+-- 为 homeworks / notices / leaves 增加 attachments JSON 字段
+SET @schema_name := DATABASE();
 
-ALTER TABLE homeworks ADD COLUMN IF NOT EXISTS attachments JSON DEFAULT NULL AFTER deadline;
-ALTER TABLE notices ADD COLUMN IF NOT EXISTS attachments JSON DEFAULT NULL AFTER is_pinned;
+-- homeworks.attachments
+SET @sql := (SELECT IF(COUNT(*) = 0, 'ALTER TABLE homeworks ADD COLUMN attachments JSON DEFAULT NULL', 'SELECT 1') FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @schema_name AND TABLE_NAME = 'homeworks' AND COLUMN_NAME = 'attachments');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- notices.attachments
+SET @sql := (SELECT IF(COUNT(*) = 0, 'ALTER TABLE notices ADD COLUMN attachments JSON DEFAULT NULL', 'SELECT 1') FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @schema_name AND TABLE_NAME = 'notices' AND COLUMN_NAME = 'attachments');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- leaves.attachments
+SET @sql := (SELECT IF(COUNT(*) = 0, 'ALTER TABLE leaves ADD COLUMN attachments JSON DEFAULT NULL', 'SELECT 1') FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = @schema_name AND TABLE_NAME = 'leaves' AND COLUMN_NAME = 'attachments');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

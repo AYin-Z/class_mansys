@@ -62,10 +62,12 @@ class Fee {
     return result.affectedRows > 0;
   }
 
-  static async getBalance() {
-    const [incomeRows] = await db.query("SELECT SUM(amount) as total FROM expenses WHERE type = '收入' AND status = 1");
-    const [expenseRows] = await db.query("SELECT SUM(amount) as total FROM expenses WHERE type = '支出' AND status = 1");
-    const [collectionRows] = await db.query("SELECT COALESCE(SUM(collected_amount), 0) as total FROM fee_collections WHERE status >= 1");
+  static async getBalance(classId) {
+    const filter = classId ? ' AND class_id = ?' : '';
+    const baseParams = classId ? [classId] : [];
+    const [incomeRows] = await db.query('SELECT SUM(amount) as total FROM expenses WHERE type = ? AND status = 1' + filter, ['收入'].concat(baseParams));
+    const [expenseRows] = await db.query('SELECT SUM(amount) as total FROM expenses WHERE type = ? AND status = 1' + filter, ['支出'].concat(baseParams));
+    const [collectionRows] = await db.query('SELECT COALESCE(SUM(collected_amount), 0) as total FROM fee_collections WHERE status >= 1' + filter, baseParams);
     const income = incomeRows[0].total || 0;
     const expense = expenseRows[0].total || 0;
     const collected = parseFloat(collectionRows[0].total) || 0;
@@ -73,23 +75,24 @@ class Fee {
     return { balance: totalIncome - expense, totalIncome, totalExpense: expense, totalCollected: collected };
   }
 
-  // === 新增方法 ===
+  // === 新增方法 ===（classId 为空表示全局/超管视角）
 
-  static async getSummary() {
-    const balance = await this.getBalance();
+  static async getSummary(classId) {
+    const balance = await this.getBalance(classId);
+    const filter = classId ? ' WHERE class_id = ?' : '';
+    const params = classId ? [classId] : [];
     const [pendingRows] = await db.query(
-      `SELECT
-        COUNT(CASE WHEN tier = 'small' AND status = 0 THEN 1 END) as pending_small,
-        COUNT(CASE WHEN tier = 'medium' AND status = 0 THEN 1 END) as pending_medium,
-        COUNT(CASE WHEN tier = 'large' AND status = 0 THEN 1 END) as pending_large,
-        COUNT(CASE WHEN status = 1 THEN 1 END) as approved_count,
-        COUNT(*) as total_count
-      FROM expenses`
+      'SELECT ' +
+      'COUNT(CASE WHEN tier = ? AND status = 0 THEN 1 END) as pending_small, ' +
+      'COUNT(CASE WHEN tier = ? AND status = 0 THEN 1 END) as pending_medium, ' +
+      'COUNT(CASE WHEN tier = ? AND status = 0 THEN 1 END) as pending_large, ' +
+      'COUNT(CASE WHEN status = 1 THEN 1 END) as approved_count, ' +
+      'COUNT(*) as total_count FROM expenses' + filter,
+      ['small', 'medium', 'large'].concat(params)
     );
     const [collectionRows] = await db.query(
-      `SELECT COUNT(*) as total_collections,
-        COALESCE(SUM(collected_amount), 0) as total_collected
-      FROM fee_collections`
+      'SELECT COUNT(*) as total_collections, COALESCE(SUM(collected_amount), 0) as total_collected FROM fee_collections' + filter,
+      params
     );
     return {
       ...balance,
@@ -98,7 +101,6 @@ class Fee {
       totalCollected: collectionRows[0].total_collected
     };
   }
-
   static async getExpenseWithApprovals(id) {
     const expense = await this.findExpenseById(id);
     if (!expense) return null;

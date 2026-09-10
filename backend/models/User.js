@@ -7,6 +7,7 @@ const PUBLIC_USER_COLUMNS = [
   'student_id',
   'class_id',
   'role',
+  'member_type',
   'phone',
   'email',
   'avatarUrl',
@@ -73,7 +74,8 @@ class User {
   }
 
   static async update(id, userData) {
-    const allowedFields = ['name', 'phone', 'email', 'nickName', 'avatarUrl', 'class_id'];
+    // 只允许更新个人非敏感字段；role / class_id 只能由管理员专用接口修改，防止自提权
+    const allowedFields = ['name', 'phone', 'email', 'nickName', 'avatarUrl'];
     const fields = [];
     const values = [];
     Object.entries(userData).forEach(([key, value]) => {
@@ -88,6 +90,12 @@ class User {
       `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
       values
     );
+    return result.affectedRows > 0;
+  }
+
+  /** 仅管理员专用：修改用户角色（防止普通自提权） */
+  static async updateRole(id, role) {
+    const [result] = await db.query('UPDATE users SET role = ? WHERE id = ?', [role, id]);
     return result.affectedRows > 0;
   }
 

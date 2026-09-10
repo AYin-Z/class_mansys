@@ -9,11 +9,13 @@
 const bcrypt = require('bcryptjs');
 const db = require('./config/database');
 
+const COUNSELOR_PASSWORD = process.env.COUNSELOR_PASSWORD || '123456';
+// 生产环境务必通过 COUNSELOR_PASSWORD 传入强口令；仅在测试环境使用默认值
 const COUNSELOR = {
   name: '王恒老师',
   student_id: '000000000',
   role: 9,
-  password: bcrypt.hashSync('123456', 10),
+  password: bcrypt.hashSync(COUNSELOR_PASSWORD, 10),
   phone: '',
   email: 'wangheng@ppsc.edu.cn',
   nickName: '王恒',
@@ -39,7 +41,7 @@ async function seed() {
     console.log('✓ 辅导员账号创建成功 (id=' + result.insertId + ')');
     console.log('  姓名: 王恒老师');
     console.log('  学号: 000000000');
-    console.log('  初始密码: 123456');
+    console.log(`  初始密码: ${COUNSELOR_PASSWORD}（建议首次登录后修改）`);
   } catch (err) {
     console.error('✗ 创建失败:', err.message);
     process.exit(1);

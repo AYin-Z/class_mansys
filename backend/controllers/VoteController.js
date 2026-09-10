@@ -1,6 +1,8 @@
 const Vote = require('../models/Vote');
 
 const { isAdmin } = require('../shared/constants');
+const { resolveScope, filterByClassScope, canAccessClassRecord } = require('../shared/scope');
+const { stampClassId } = require('../shared/classStamp');
 
 class VoteController {
   static async createVote(req, res) {
@@ -25,6 +27,7 @@ class VoteController {
         return res.status(400).json({ success: false, error: '结束时间必须晚于开始时间' });
       }
 
+      const scope = await resolveScope(req.user);
       const id = await Vote.create({
         title,
         description,
@@ -36,6 +39,7 @@ class VoteController {
         visible_scope: visible_scope || 'all',
         vote_scope: vote_scope || 'all'
       });
+      await stampClassId('votes', id, scope.writeClassId);
       res.json({ success: true, id, message: '投票发布成功' });
     } catch (e) {
       console.error('创建投票失败:', e);
@@ -45,7 +49,8 @@ class VoteController {
 
   static async listVotes(req, res) {
     try {
-      const votes = await Vote.getAll();
+      const scope = await resolveScope(req.user);
+      const votes = filterByClassScope(await Vote.getAll(), scope);
       // Filter by visible_scope: non-admin only sees 'all'
       const filtered = isAdmin(req.user)
         ? votes
@@ -60,6 +65,10 @@ class VoteController {
     try {
       const vote = await Vote.findById(req.params.id);
       if (!vote) return res.status(404).json({ success: false, error: '投票不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessClassRecord(vote, scope)) {
+        return res.status(403).json({ success: false, error: '无权查看该投票' });
+      }
       // Visibility check
       if (vote.visible_scope === 'admin' && !isAdmin(req.user)) {
         return res.status(403).json({ success: false, error: '无权查看' });
@@ -96,6 +105,10 @@ class VoteController {
 
       const vote = await Vote.findById(voteId);
       if (!vote) return res.status(404).json({ success: false, error: '投票不存在' });
+      const castScope = await resolveScope(req.user);
+      if (!canAccessClassRecord(vote, castScope)) {
+        return res.status(403).json({ success: false, error: '无权参与该投票' });
+      }
       if (!vote.is_active) return res.status(400).json({ success: false, error: '该投票已关闭' });
 
       // Vote scope check
@@ -138,8 +151,11 @@ class VoteController {
 
   static async closeVote(req, res) {
     try {
-      if (!isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '需要管理员权限' });
+      const vote = await Vote.findById(req.params.id);
+      if (!vote) return res.status(404).json({ success: false, error: '投票不存在' });
+      const closeScope = await resolveScope(req.user);
+      if (!canAccessClassRecord(vote, closeScope)) {
+        return res.status(403).json({ success: false, error: '无权关闭该投票' });
       }
       const ok = await Vote.close(req.params.id);
       if (!ok) return res.status(404).json({ success: false, error: '投票不存在' });

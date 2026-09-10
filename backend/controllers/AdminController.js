@@ -1,6 +1,9 @@
 const db = require('../config/database');
 const User = require('../models/User');
 const OperationLog = require('../models/OperationLog');
+const LeaveConfig = require('../models/LeaveConfig');
+const { ROLES } = require('../shared/constants');
+const { resolveScope } = require('../shared/scope');
 
 /**
  * 管理员后台相关接口：成员列表 + 成员详情
@@ -22,6 +25,17 @@ class AdminController {
 
       const where = [];
       const params = [];
+      // 作用域：区队管理层只看本中队/本区队，超管/辅导员不限
+      // 名册含 PII，仅限本区队（不做中队平行）
+      const scope = await resolveScope(req.user);
+      if (Array.isArray(scope.classIds)) {
+        if (scope.classIds.length === 0) {
+          where.push('1 = 0');
+        } else {
+          where.push('u.class_id IN (' + scope.classIds.map(() => '?').join(',') + ')');
+          params.push(...scope.classIds);
+        }
+      }
       if (class_id) { where.push('u.class_id = ?'); params.push(class_id); }
       if (keyword) {
         where.push('(u.name LIKE ? OR u.student_id LIKE ? OR u.phone LIKE ?)');
@@ -89,6 +103,10 @@ class AdminController {
         [id]
       );
       if (!user) return res.status(404).json({ success: false, error: '成员不存在' });
+      const detailScope = await resolveScope(req.user);
+      if (Array.isArray(detailScope.classIds) && !detailScope.classIds.includes(String(user.class_id))) {
+        return res.status(403).json({ success: false, error: '无权查看其他区队成员' });
+      }
 
       const [leaves] = await db.query(
         `SELECT id, leave_type, start_time, end_time, reason, status,
@@ -142,11 +160,87 @@ class AdminController {
   static async recentOperations(req, res) {
     try {
       const { class_id, limit } = req.query;
-      const rows = await OperationLog.recent({ classId: class_id, limit });
+      const scope = await resolveScope(req.user);
+      const classIds = Array.isArray(scope.classIds) ? scope.classIds : null;
+      if (class_id && Array.isArray(classIds) && !classIds.includes(String(class_id))) {
+        return res.status(403).json({ success: false, error: '无权查看其他区队操作记录' });
+      }
+      const rows = await OperationLog.recent({ classId: class_id, classIds, limit });
       res.json({ success: true, operations: rows });
     } catch (e) {
       console.error('recentOperations failed:', e);
       res.status(500).json({ success: false, error: '获取操作记录失败' });
+    }
+  }
+
+  // ========== 请假类型配置（仅超管） ==========
+
+  /**
+   * GET /api/admin/leave-config
+   * 返回所有请假类型配置（含禁用）
+   */
+  static async getLeaveConfig(req, res) {
+    try {
+      const configs = await LeaveConfig.getAll();
+      res.json({ success: true, data: configs });
+    } catch (e) {
+      console.error('getLeaveConfig failed:', e);
+      res.status(500).json({ success: false, error: '获取请假配置失败' });
+    }
+  }
+
+  /**
+   * PUT /api/admin/leave-config/:id
+   * 更新单条请假类型配置（type_name, start_time, end_time, is_fixed, reasons, enabled, sort_order）
+   */
+  static async updateLeaveConfig(req, res) {
+    try {
+      const { id } = req.params;
+      const config = await LeaveConfig.findById(parseInt(id, 10));
+      if (!config) return res.status(404).json({ success: false, error: '配置项不存在' });
+
+      const affected = await LeaveConfig.update(parseInt(id, 10), req.body);
+      if (!affected) return res.status(400).json({ success: false, error: '无有效更新字段' });
+
+      res.json({ success: true, message: '配置已更新' });
+    } catch (e) {
+      console.error('updateLeaveConfig failed:', e);
+      res.status(500).json({ success: false, error: '更新请假配置失败' });
+    }
+  }
+
+  // ========== 成员角色管理（仅超管） ==========
+
+  /**
+   * PUT /api/admin/members/:id/role
+   * 修改成员角色，仅 SUPER_ADMIN(8) 可调用
+   * Body: { role: number }
+   */
+  static async updateMemberRole(req, res) {
+    try {
+      const memberId = parseInt(req.params.id, 10);
+      if (Number.isNaN(memberId)) {
+        return res.status(400).json({ success: false, error: '无效的成员 ID' });
+      }
+
+      const { role } = req.body;
+      if (typeof role !== 'number' || role < 0 || role > 9) {
+        return res.status(400).json({ success: false, error: '无效的角色编码（0-9）' });
+      }
+
+      const user = await User.findById(memberId);
+      if (!user) return res.status(404).json({ success: false, error: '成员不存在' });
+
+      // 不允许超管修改自己的角色（防止把自己降级后无法操作）
+      if (memberId === req.user.id && role !== ROLES.SUPER_ADMIN) {
+        return res.status(400).json({ success: false, error: '不能修改自己的超级管理员角色' });
+      }
+
+      await User.updateRole(memberId, role);
+      res.json({ success: true, message: '角色已更新' });
+    } catch (e) {
+      console.error('updateMemberRole failed:', e);
+      res.status(500).json({ success: false, error: '修改角色失败' });
     }
   }
 }

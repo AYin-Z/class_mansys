@@ -75,11 +75,37 @@ function hasAnyRole(user, roleIds) {
 /** 干部 ID 数组（与前端 ADMIN_ROLE_IDS 对齐） */
 const ADMIN_ROLE_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
+/** 在编身份（与 role 正交）：决定是否计入区队花名册/出勤分母 */
+const MEMBER_TYPES = Object.freeze({
+  STUDENT: 'student', // 在编学员（含班干部）
+  STAFF: 'staff',     // 辅导员/外部人员
+  SYSTEM: 'system',   // 系统账号
+});
+
+/** 是否计入区队在编花名册（出勤分母） */
+function isRosterMember(user) {
+  if (!user) return false;
+  const mt = user.member_type || MEMBER_TYPES.STUDENT;
+  return mt === MEMBER_TYPES.STUDENT;
+}
+
+/** 可平行查看「中队/全公司」情况的管理角色（各区队管理层平行权限） */
+const COMPANY_VIEW_ROLE_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+
+/** 是否具备查看中队（跨区队）情况的权限 */
+function hasCompanyView(user) {
+  return user != null && COMPANY_VIEW_ROLE_IDS.includes(Number(user.role));
+}
+
 module.exports = {
   ROLES,
+  MEMBER_TYPES,
+  isRosterMember,
   ADMIN_ROLES_SET,
   ADMIN_ROLE_IDS,
+  COMPANY_VIEW_ROLE_IDS,
   isAdmin,
   hasRole,
   hasAnyRole,
+  hasCompanyView,
 };

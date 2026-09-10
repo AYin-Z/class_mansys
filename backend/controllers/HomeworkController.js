@@ -1,19 +1,22 @@
 const Homework = require('../models/Homework');
 
 const { isAdmin } = require('../shared/constants');
+const { resolveScope, filterByClassScope, canAccessClassRecord } = require('../shared/scope');
+const { stampClassId } = require('../shared/classStamp');
 
 class HomeworkController {
   static async create(req, res) {
     try {
-      if (!isAdmin(req.user)) return res.status(403).json({ success: false, error: '无权发布作业' });
       const { title, description, deadline, attachments } = req.body || {};
       if (!title || !description || !deadline) {
         return res.status(400).json({ success: false, error: 'title/description/deadline 必填' });
       }
+      const scope = await resolveScope(req.user);
       const id = await Homework.create({
         title, description, deadline, attachments,
         creator_id: req.user.id
       });
+      await stampClassId('homeworks', id, scope.writeClassId);
       res.json({ success: true, id });
     } catch (e) {
       console.error('发布作业失败:', e);
@@ -23,7 +26,8 @@ class HomeworkController {
 
   static async list(req, res) {
     try {
-      const homeworks = await Homework.getAll();
+      const scope = await resolveScope(req.user);
+      const homeworks = filterByClassScope(await Homework.getAll(), scope);
       res.json({ success: true, homeworks });
     } catch (e) {
       res.status(500).json({ success: false, error: '获取作业列表失败' });
@@ -34,6 +38,10 @@ class HomeworkController {
     try {
       const homework = await Homework.findById(req.params.id);
       if (!homework) return res.status(404).json({ success: false, error: '作业不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessClassRecord(homework, scope)) {
+        return res.status(403).json({ success: false, error: '无权查看该作业' });
+      }
       const mySubmission = await Homework.getMySubmission(req.params.id, req.user.id);
       let submissions = [];
       if (isAdmin(req.user)) {
@@ -51,6 +59,12 @@ class HomeworkController {
       if (!file_url || !file_name) {
         return res.status(400).json({ success: false, error: 'file_url/file_name 必填' });
       }
+      const hw = await Homework.findById(req.params.id);
+      if (!hw) return res.status(404).json({ success: false, error: '作业不存在' });
+      const submitScope = await resolveScope(req.user);
+      if (!canAccessClassRecord(hw, submitScope)) {
+        return res.status(403).json({ success: false, error: '无权提交该作业' });
+      }
       const id = await Homework.submit({
         homework_id: req.params.id,
         user_id: req.user.id,
@@ -65,7 +79,6 @@ class HomeworkController {
 
   static async grade(req, res) {
     try {
-      if (!isAdmin(req.user)) return res.status(403).json({ success: false, error: '无权批改' });
       const { score, feedback } = req.body || {};
       const ok = await Homework.grade(req.params.submissionId, { score: Number(score) || 0, feedback });
       if (!ok) return res.status(404).json({ success: false, error: '提交记录不存在' });
@@ -77,7 +90,12 @@ class HomeworkController {
 
   static async remove(req, res) {
     try {
-      if (!isAdmin(req.user)) return res.status(403).json({ success: false, error: '无权删除' });
+      const existing = await Homework.findById(req.params.id);
+      if (!existing) return res.status(404).json({ success: false, error: '作业不存在' });
+      const scope = await resolveScope(req.user);
+      if (!canAccessClassRecord(existing, scope)) {
+        return res.status(403).json({ success: false, error: '无权删除该作业' });
+      }
       const ok = await Homework.delete(req.params.id);
       if (!ok) return res.status(404).json({ success: false, error: '作业不存在' });
       res.json({ success: true });

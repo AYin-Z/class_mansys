@@ -1,126 +1,50 @@
-const Leave = require('../models/Leave');
-const { isAdmin } = require('../shared/constants');
+const LeaveService = require('../services/leaveService');
+const { asyncHandler, ok } = require('../shared/http');
 
+/**
+ * 请假 HTTP 适配层（P2：业务规则已下沉到 services/leaveService.js）
+ */
 class LeaveController {
-  static async applyLeave(req, res) {
-    try {
-      const id = await Leave.create({
-        user_id: req.user.id,
-        ...req.body
-      });
-      
-      res.json({ success: true, data: { id }, message: '请假申请提交成功' });
-    } catch (error) {
-      console.error('请假申请失败:', error);
-      res.status(500).json({ success: false, error: '请假申请失败' });
-    }
-  }
+  static applyLeave = asyncHandler(async (req, res) => {
+    const { id } = await LeaveService.apply(req.user, req.body || {});
+    return ok(res, { id }, { message: '请假申请提交成功' });
+  });
 
-  static async getMyLeaves(req, res) {
-    try {
-      // 自动销假：过期未销假的标记为已取消
-      await Leave.autoCancelExpired();
-      const leaves = await Leave.findByUserId(req.user.id);
-      res.json({ success: true, leaves });
-    } catch (error) {
-      res.status(500).json({ success: false, error: '获取请假记录失败' });
-    }
-  }
+  static getMyLeaves = asyncHandler(async (req, res) => {
+    const leaves = await LeaveService.listMine(req.user);
+    return ok(res, undefined, { leaves });
+  });
 
-  static async getAllLeaves(req, res) {
-    try {
-      await Leave.autoCancelExpired();
-      const leaves = await Leave.getAllWithApplicants();
-      res.json({ success: true, leaves });
-    } catch (error) {
-      res.status(500).json({ success: false, error: '获取请假记录失败' });
-    }
-  }
+  static getAllLeaves = asyncHandler(async (req, res) => {
+    const leaves = await LeaveService.listAll(req.user);
+    return ok(res, undefined, { leaves });
+  });
 
-  static async getLeaveById(req, res) {
-    try {
-      const id = parseInt(req.params.id, 10);
-      if (Number.isNaN(id)) {
-        return res.status(400).json({ success: false, error: '无效的请假 ID' });
-      }
-      const leave = await Leave.findByIdWithApplicant(id);
-      if (!leave) {
-        return res.status(404).json({ success: false, error: '请假记录不存在' });
-      }
-      const isOwner = Number(leave.user_id) === Number(req.user.id);
-      if (!isOwner && !isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '无权查看该请假记录' });
-      }
-      res.json({ success: true, leave });
-    } catch (error) {
-      console.error('获取请假详情失败:', error);
-      res.status(500).json({ success: false, error: '获取请假详情失败' });
-    }
-  }
+  static getLeaveById = asyncHandler(async (req, res) => {
+    const leave = await LeaveService.detail(req.user, req.params.id);
+    return ok(res, undefined, { leave });
+  });
 
-  static async approveLeave(req, res) {
-    try {
-      const { id, status, approval_notes } = req.body;
-      
-      const success = await Leave.updateStatus(
-        id,
-        status,
-        req.user.id,
-        approval_notes
-      );
-      
-      if (success) {
-        res.json({ success: true, message: '审批成功' });
-      } else {
-        res.status(404).json({ success: false, error: '请假记录不存在' });
-      }
-    } catch (error) {
-      res.status(500).json({ success: false, error: '审批失败' });
-    }
-  }
+  static approveLeave = asyncHandler(async (req, res) => {
+    const { id, status, approval_notes } = req.body || {};
+    await LeaveService.approve(req.user, { id, status, approval_notes });
+    return ok(res, undefined, { message: '审批成功' });
+  });
 
-  static async uploadProof(req, res) {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ success: false, error: '请选择图片' });
-      }
-      const url = `/uploads/leaves/${req.file.filename}`;
-      res.json({
-        success: true,
-        url,
-        filename: req.file.originalname,
-        size: req.file.size,
-      });
-    } catch (e) {
-      console.error('证明材料上传失败:', e);
-      res.status(500).json({ success: false, error: '证明材料上传失败' });
-    }
-  }
+  static cancelLeave = asyncHandler(async (req, res) => {
+    await LeaveService.cancel(req.user, req.params.id);
+    return ok(res, undefined, { message: '销假成功' });
+  });
 
-  static async cancelLeave(req, res) {
-    try {
-      const { id } = req.params;
-      const leave = await Leave.findById(id);
-      
-      if (!leave) {
-        return res.status(404).json({ success: false, error: '请假记录不存在' });
-      }
-      
-      // 只能取消自己的请假
-      if (Number(leave.user_id) !== Number(req.user.id)) {
-        return res.status(403).json({ success: false, error: '权限不足' });
-      }
-      
-      const success = await Leave.cancel(id, new Date());
-      if (success) {
-        res.json({ success: true, message: '销假成功' });
-      } else {
-        res.status(404).json({ success: false, error: '请假记录不存在' });
-      }
-    } catch (error) {
-      res.status(500).json({ success: false, error: '销假失败' });
-    }
-  }
+  static getLeaveTypes = asyncHandler(async (req, res) => {
+    const configs = await LeaveService.listTypes();
+    return ok(res, configs);
+  });
+
+  static uploadProof = asyncHandler(async (req, res) => {
+    const payload = LeaveService.proofUrl(req.file);
+    return ok(res, undefined, payload);
+  });
 }
 
 module.exports = LeaveController;
