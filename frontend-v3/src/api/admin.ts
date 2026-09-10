@@ -1,4 +1,5 @@
-import { get } from '../utils/request'
+import { get, put } from '../utils/request'
+import type { LeaveTypeConfig } from './leave-config'
 
 export interface AdminMember {
   id: number
@@ -8,6 +9,7 @@ export interface AdminMember {
   class_id: string
   class_name?: string
   role: number
+  member_type?: string
   phone?: string
   email?: string
   avatarUrl?: string
@@ -85,4 +87,19 @@ export function getRecentOperations(params: { class_id?: string; limit?: number 
   operations: Array<OperationItem & { user_id: number; user_name?: string; student_id?: string; class_id?: string }>
 }> {
   return get('/api/admin/operations', params)
+}
+
+/** 修改成员角色（仅超管） */
+export function updateMemberRole(memberId: number, role: number): Promise<{ success: boolean; message: string }> {
+  return put(`/api/admin/members/${memberId}/role`, { role })
+}
+
+/** 获取请假类型配置（仅超管，含禁用项） */
+export function getAdminLeaveConfig(): Promise<{ success: boolean; data: LeaveTypeConfig[] }> {
+  return get('/api/admin/leave-config')
+}
+
+/** 更新请假类型配置（仅超管） */
+export function updateLeaveConfig(id: number, fields: Partial<LeaveTypeConfig>): Promise<{ success: boolean; message: string }> {
+  return put(`/api/admin/leave-config/${id}`, fields)
 }

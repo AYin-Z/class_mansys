@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mediaUrl, openMedia } from '@/utils/media'
 import { ref, onMounted, computed } from 'vue'
 import { getAllLeaves, approveLeave, cancelLeave } from '@/api/leave'
 import type { LeaveItem } from '@/api/leave'
@@ -192,7 +193,7 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
           <div v-if="getAttachments(item).length > 0" class="proof-section">
             <div class="expanded-label">证明材料</div>
             <div class="proof-imgs">
-              <img v-for="(url, i) in getAttachments(item)" :key="i" :src="url" class="proof-img" @click.stop="viewProof(url)" />
+              <img v-for="(url, i) in getAttachments(item)" :key="i" :src="mediaUrl(url)" class="proof-img" @click.stop="viewProof(url)" />
             </div>
           </div>
           <div v-if="item.approval_notes" class="approval-notes">
@@ -225,7 +226,7 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
     <!-- 图片查看器 -->
     <div v-if="proofViewUrl" class="viewer-overlay" @click="proofViewUrl = null">
       <div class="viewer-close" @click="proofViewUrl = null">✕</div>
-      <img :src="proofViewUrl" class="viewer-img" @click.stop />
+      <img :src="mediaUrl(proofViewUrl)" class="viewer-img" @click.stop />
     </div>
   </div>
 </template>

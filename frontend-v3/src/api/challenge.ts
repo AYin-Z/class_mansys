@@ -64,8 +64,8 @@ export function getChallengeDetail(id: number): Promise<{
   return get(`/api/challenge/${id}`)
 }
 
-export function applyChallenge(id: number): Promise<{ success: boolean; id: number; message: string }> {
-  return post(`/api/challenge/${id}/apply`)
+export function applyChallenge(id: number, data?: { notes?: string; proof_urls?: string[] }): Promise<{ success: boolean; id: number; message: string }> {
+  return post(`/api/challenge/${id}/apply`, data)
 }
 
 export function getMyChallengeApplications(): Promise<{ success: boolean; applications: ChallengeApplication[] }> {

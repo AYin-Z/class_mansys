@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mediaUrl, openMedia } from '@/utils/media'
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -146,7 +147,7 @@ function formatDate(t: string) {
         <div class="proof-area">
           <div class="proof-list">
             <div v-for="(url, i) in proofUrls" :key="i" class="proof-item">
-              <img :src="url" class="proof-thumb" />
+              <img :src="mediaUrl(url)" class="proof-thumb" />
               <button class="proof-del" @click="removeProof(i)">✕</button>
             </div>
             <!-- 上传中占位 -->
@@ -181,7 +182,7 @@ function formatDate(t: string) {
           <div v-if="app.notes" class="app-notes">📝 {{ app.notes }}</div>
           <!-- 证明图片 -->
           <div v-if="parseProofs(app).length > 0" class="app-proofs">
-            <img v-for="(url, i) in parseProofs(app)" :key="i" :src="url" class="app-proof-img" @click="window.open(url)" />
+            <img v-for="(url, i) in parseProofs(app)" :key="i" :src="mediaUrl(url)" class="app-proof-img" @click="openMedia(url)" />
           </div>
           <div v-if="app.status === 0" class="judge-row">
             <button class="btn-win" :disabled="judging !== null" @click="handleJudge(app.id, 'challenger_win')">挑战成功</button>

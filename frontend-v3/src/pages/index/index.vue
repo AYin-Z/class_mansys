@@ -66,7 +66,7 @@ function goTo(path: string) {
         <span class="pinned-icon">📌</span>
         <div class="pinned-scroll">
           <span
-            v-for="(item, i) in pinnedNotices"
+            v-for="item in pinnedNotices"
             :key="'n' + item.id"
             class="pinned-item"
             @click="goToNotice(item.id)"
@@ -74,7 +74,7 @@ function goTo(path: string) {
             <span class="pinned-tag">通知</span>{{ item.title }}
           </span>
           <span
-            v-for="(item, i) in pinnedAnnouncements"
+            v-for="item in pinnedAnnouncements"
             :key="'a' + item.id"
             class="pinned-item"
             @click="goToAnnouncement(item.id)"

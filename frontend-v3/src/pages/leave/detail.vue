@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mediaUrl, openMedia } from '@/utils/media'
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { getLeaveById, cancelLeave } from '@/api/leave'
@@ -82,7 +83,7 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
       <div v-if="attachments.length > 0" class="section">
         <h3>证明材料</h3>
         <div class="attach-grid">
-          <img v-for="(url, i) in attachments" :key="i" :src="url" class="attach-img" @click="viewImage(url)" />
+          <img v-for="(url, i) in attachments" :key="i" :src="mediaUrl(url)" class="attach-img" @click="viewImage(url)" />
         </div>
       </div>
 
@@ -97,7 +98,7 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
       <!-- Image viewer -->
       <div v-if="viewing" class="viewer-overlay" @click="closeView">
         <div class="viewer-close" @click="closeView">✕</div>
-        <img :src="viewing" class="viewer-img" @click.stop />
+        <img :src="mediaUrl(viewing)" class="viewer-img" @click.stop />
       </div>
     </div>
   </div>

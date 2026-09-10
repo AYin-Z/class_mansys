@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mediaUrl, openMedia } from '@/utils/media'
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { getAlbumDetail } from '@/api/album'
@@ -24,7 +25,7 @@ function openViewer(photo: PhotoItem) {
 function downloadPhoto() {
   if (!viewerPhoto.value?.url) return
   const a = document.createElement('a')
-  a.href = viewerPhoto.value.url
+  a.href = mediaUrl(viewerPhoto.value.url)
   a.download = viewerPhoto.value.url.split('/').pop() || 'photo.jpg'
   a.click()
 }
@@ -124,7 +125,7 @@ function formatDate(t: string): string {
         <div class="header-cover">
           <img
             v-if="album.cover_url"
-            :src="album.cover_url"
+            :src="mediaUrl(album.cover_url)"
             :alt="album.name"
             class="header-img"
           />
@@ -173,7 +174,7 @@ function formatDate(t: string): string {
         >
           <img
             v-if="item.url"
-            :src="item.url"
+            :src="mediaUrl(item.url)"
             :alt="item.description || album.name"
             class="photo-img"
           />
@@ -193,7 +194,7 @@ function formatDate(t: string): string {
       <div class="viewer-close" @click="viewerVisible = false">✕</div>
       <img
         v-if="viewerPhoto?.url"
-        :src="viewerPhoto.url"
+        :src="mediaUrl(viewerPhoto.url)"
         class="viewer-img"
         @click.stop
       />

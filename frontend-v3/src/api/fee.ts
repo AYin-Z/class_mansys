@@ -210,15 +210,3 @@ export function getPublicationDetail(id: number): Promise<{ success: boolean; pu
 export function getSummary(): Promise<{ success: boolean; summary: FeeSummary }> {
   return get('/api/fee/summary')
 }
-
-// ===== 老兼容（由 fee/index.vue 等旧页面使用）=====
-
-/** 提交班费记录（旧端点） */
-export function createExpenseLegacy(params: { type: string; amount: number; purpose: string }): Promise<{ success: boolean; data: { id: number }; message: string }> {
-  return post('/api/fee/expense', params)
-}
-
-/** 获取班费余额（旧端点） */
-export function getBalance(): Promise<{ success: boolean; balance: { balance: number; totalIncome: number; totalExpense: number } }> {
-  return get('/api/fee/balance')
-}

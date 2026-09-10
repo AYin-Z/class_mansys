@@ -87,7 +87,10 @@ export const PERMISSIONS = {
   APPROVE_PHOTO: ADMIN_ROLE_IDS,
 
   // 资源
-  UPLOAD_RESOURCE: ADMIN_ROLE_IDS
+  UPLOAD_RESOURCE: ADMIN_ROLE_IDS,
+
+  // 中队（跨区队）平行查看：各区队管理层均可查看本中队情况
+  VIEW_COMPANY: ADMIN_ROLE_IDS
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;

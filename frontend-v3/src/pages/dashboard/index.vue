@@ -2,17 +2,26 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import NavBar from '@/components/ui/NavBar.vue'
+import PendingRow from './components/PendingRow.vue'
+import LeaveMatrix from './components/LeaveMatrix.vue'
+import CompanyOverview from './components/CompanyOverview.vue'
+import MgmtGrid from './components/MgmtGrid.vue'
+import MySummary from './components/MySummary.vue'
+import QuickGrid from './components/QuickGrid.vue'
 import { useUserStore } from '@/stores/user'
 import { getSummary, getPendingApprovals } from '@/api/fee'
 import { getUnreadCount, getTodoCount } from '@/api/notice'
 import { getAllSuggestions } from '@/api/suggestion'
 import { getAllLeaves } from '@/api/leave'
+import { getLeaveTypes, type LeaveTypeConfig } from '@/api/leave-config'
+import { getCompanyOverview, type CompanyClassStat } from '@/api/company'
 
 import type { LeaveItem } from '@/api/leave'
 
 const router = useRouter()
 const userStore = useUserStore()
 const isAdmin = userStore.isAdmin
+const isSuperAdmin = userStore.role === 8
 const feeSummary = ref<any>(null)
 const unreadNoticeCount = ref(0)
 const pendingFeeCount = ref(0)
@@ -22,6 +31,17 @@ const allLeaves = ref<LeaveItem[]>([])
 const todoCount = ref(0)
 const myLeaveCount = ref(0)
 const loading = ref(true)
+const leaveConfigs = ref<LeaveTypeConfig[]>([])
+
+// ── 中队概览（各区队管理层平行可见）──
+const canViewCompany = computed(() => userStore.hasPermission('VIEW_COMPANY'))
+const companySummary = ref<{ total: number; on_leave: number; present: number; currently_leave: number; not_returned: number } | null>(null)
+const companyClasses = ref<CompanyClassStat[]>([])
+const companyDate = (() => {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+})()
 
 // 当前用户的请假统计
 const myActiveLeaves = computed(() => {
@@ -40,6 +60,29 @@ const myActiveLeaves = computed(() => {
     parseLocal(l.end_time || '') >= now
   )
 })
+
+// ── 待处理 / 我的概况渲染数据（下沉到 PendingRow 组件）──
+interface PendingItem {
+  count: string | number
+  label: string
+  path: string
+}
+const adminPendingItems = computed<PendingItem[]>(() => [
+  { count: unreadNoticeCount.value, label: '📢 通知待办', path: '/pages/notice/admin' },
+  { count: pendingFeeCount.value, label: '💰 班费审批', path: '/pages/fee/approvals' },
+  { count: pendingLeaveCount.value, label: '🏥 请假审批', path: '/pages/leave/approvals' },
+  { count: pendingSuggestionCount.value, label: '💡 建议待开', path: '/pages/suggestion/inbox' }
+])
+const mySummaryItems = computed<PendingItem[]>(() => [
+  { count: unreadNoticeCount.value, label: '📢 未读通知', path: '/pages/notice/index' },
+  { count: todoCount.value, label: '📋 待完成任务', path: '/pages/notice/index' },
+  { count: myActiveLeaves.value.length, label: '🏥 生效中请假', path: '/pages/leave/index' },
+  {
+    count: feeSummary.value ? `¥${Number(feeSummary.value.balance).toFixed(0)}` : '--',
+    label: '💰 班费余额',
+    path: '/pages/fee/index'
+  }
+])
 
 // ── 请假矩阵计算 ──
 interface MatrixCell {
@@ -66,24 +109,30 @@ const leaveMatrix = computed(() => {
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return false
     return start <= now && end >= now
   })
-  // 固定时段请假类型：只在对应时间段内生效
-  const FIXED_WINDOWS: Record<string, [number, number]> = {
-    '早操': [6 * 60, 7 * 60],
-    '早集合': [7 * 60, 8 * 60 + 10],
-    '午集合': [13 * 60, 14 * 60],
-    '收假集合': [18 * 60, 19 * 60],
-    '晚自习': [18 * 60 + 30, 20 * 60 + 30],
-  }
+  // 固定时段请假类型：从 API 配置动态计算
+  const FIXED_WINDOWS = computed(() => {
+    const map: Record<string, [number, number]> = {}
+    for (const c of leaveConfigs.value) {
+      if (c.is_fixed && c.start_time && c.end_time) {
+        const toMin = (t: string) => {
+          const [h, m] = t.split(':').map(Number)
+          return h * 60 + (m || 0)
+        }
+        map[c.type_name] = [toMin(c.start_time), toMin(c.end_time)]
+      }
+    }
+    return map
+  })
 
   function isInFixedWindow(leave: any): boolean {
-    const window = FIXED_WINDOWS[leave.leave_type]
+    const window = FIXED_WINDOWS.value[leave.leave_type]
     if (!window) return true // 非固定类型直接通过
     const nowMin = now.getHours() * 60 + now.getMinutes()
     return nowMin >= window[0] && nowMin < window[1]
   }
 
   // 按 leave_type 分组，同一人同原因合并
-  const groups: Record<string, Map<number, { name: string; student_id: string; start: string; end: string; startRaw: string; endRaw: string; reason: string }>> = {}
+  const groups: Record<string, Map<string, { name: string; student_id: string; start: string; end: string; startRaw: string; endRaw: string; reason: string }>> = {}
   const typeReasonCounts: Record<string, Record<string, number>> = {}
   for (const l of active) {
     if (!isInFixedWindow(l)) continue
@@ -138,13 +187,15 @@ function formatLeaveDate(t: string) {
 
 onMounted(async () => {
   try {
-    const [summaryRes, approvalRes, noticeRes, suggestionRes, leaveRes, todoRes] = await Promise.all([
+    const [summaryRes, approvalRes, noticeRes, suggestionRes, leaveRes, todoRes, configRes, companyRes] = await Promise.all([
       getSummary().catch(() => null),
       getPendingApprovals().catch(() => null),
       getUnreadCount().catch(() => null),
       getAllSuggestions({ status: 0 }).catch(() => null),
       getAllLeaves().catch(() => null),
       getTodoCount().catch(() => null),
+      getLeaveTypes().catch(() => null),
+      canViewCompany.value ? getCompanyOverview(companyDate).catch(() => null) : Promise.resolve(null),
     ])
     if (summaryRes?.success) feeSummary.value = summaryRes.data?.summary || summaryRes.summary
     if (approvalRes?.success) pendingFeeCount.value = approvalRes.approvals?.length || 0
@@ -155,6 +206,11 @@ onMounted(async () => {
       pendingLeaveCount.value = allLeaves.value.filter(l => l.status === 0 && !l.is_cancelled).length
     }
     if (todoRes?.success) todoCount.value = todoRes.count
+    if (configRes?.data) leaveConfigs.value = configRes.data
+    if (companyRes && (companyRes as any).success) {
+      companySummary.value = (companyRes as any).summary || null
+      companyClasses.value = (companyRes as any).classes || []
+    }
   } catch (_) {}
   finally { loading.value = false }
 })
@@ -212,120 +268,50 @@ const mgmtGroups = computed<{ name: string; items: MgmtItem[] }[]>(() => [
     <template v-else>
       <!-- ≡≡ 管理员仪表盘 ≡≡ -->
       <template v-if="isAdmin">
+        <!-- 超管入口 -->
+        <div v-if="isSuperAdmin" class="super-admin-banner" @click="router.push('/admin/panel')">
+          <span class="banner-icon">🛡️</span>
+          <span class="banner-text">超级管理员后台</span>
+          <span class="banner-arrow">›</span>
+        </div>
+
         <!-- 待处理 -->
         <div class="section-title">待处理</div>
-        <div class="pending-row">
-          <div class="pending-item" @click="router.push('/pages/notice/admin')">
-            <span class="count">{{ unreadNoticeCount }}</span>
-            <span class="label">📢 通知待办</span>
-          </div>
-          <div class="pending-item" @click="router.push('/pages/fee/approvals')">
-            <span class="count">{{ pendingFeeCount }}</span>
-            <span class="label">💰 班费审批</span>
-          </div>
-          <div class="pending-item" @click="router.push('/pages/leave/approvals')">
-            <span class="count">{{ pendingLeaveCount }}</span>
-            <span class="label">🏥 请假审批</span>
-          </div>
-          <div class="pending-item" @click="router.push('/pages/suggestion/inbox')">
-            <span class="count">{{ pendingSuggestionCount }}</span>
-            <span class="label">💡 建议待开</span>
-          </div>
-        </div>
+        <PendingRow :items="adminPendingItems" />
+
+        <!-- 中队概览（各区队管理层平行可见） -->
+        <CompanyOverview v-if="canViewCompany && companySummary" :summary="companySummary" :classes="companyClasses" />
 
         <!-- 实时请假矩阵 -->
-        <div class="section-title">
-          请假矩阵
-          <span v-if="activeLeaveTotal > 0" class="matrix-badge">{{ activeLeaveTotal }} 人离队</span>
-          <span v-else class="matrix-badge empty">全员在队</span>
-          <span class="matrix-link" @click="router.push('/pages/leave/approvals')">全部请假情况 ›</span>
-        </div>
-        <div v-if="activeLeaveTotal === 0" class="matrix-empty">🎉 当前没有请假外出人员，全员在队</div>
-        <div v-else class="matrix-card">
-          <div v-for="type in leaveTypes" :key="type" class="matrix-row">
-            <div class="matrix-type">{{ type }}<span class="type-count">{{ leaveMatrix[type].cells.length }}</span><span class="type-reasons">{{ leaveMatrix[type].reasons.join(" ") }}</span></div>
-            <div class="matrix-cells">
-              <div v-for="cell in leaveMatrix[type].cells" :key="cell.student_id + cell.start" class="matrix-cell">
-                <span class="cell-name">{{ cell.name }} <span class="cell-sid">{{ cell.student_id }}</span></span>
-                <span class="cell-time">{{ cell.start }} ~ {{ cell.end }}</span>
-                <span class="cell-reason">{{ cell.reason }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <LeaveMatrix
+          :matrix="leaveMatrix"
+          :leave-types="leaveTypes"
+          :active-leave-total="activeLeaveTotal"
+          title="请假矩阵"
+          link-text="全部请假情况 ›"
+          link-path="/pages/leave/approvals"
+        />
 
         <!-- 管理功能 -->
-        <div class="section-title">管理功能</div>
-        <div class="mgmt-section">
-          <div v-for="group in mgmtGroups" :key="group.name" class="mgmt-group">
-            <div class="mgmt-group-title">{{ group.name }}</div>
-            <div class="mgmt-grid">
-              <div v-for="item in group.items" :key="item.label" class="mgmt-card" @click="router.push(item.path)">
-                <div class="mgmt-icon">{{ item.icon }}</div>
-                <div class="mgmt-info">
-                  <div class="mgmt-label">{{ item.label }}</div>
-                  <div class="mgmt-desc">{{ item.desc }}</div>
-                </div>
-                <div class="mgmt-arrow">›</div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <MgmtGrid :groups="mgmtGroups" />
       </template>
 
       <!-- ≡≡ 学员仪表盘 ≡≡ -->
       <template v-else>
-        <div class="section-title">我的概况</div>
-        <div class="pending-row">
-          <div class="pending-item" @click="router.push('/pages/notice/index')">
-            <span class="count">{{ unreadNoticeCount }}</span>
-            <span class="label">📢 未读通知</span>
-          </div>
-          <div class="pending-item" @click="router.push('/pages/notice/index')">
-            <span class="count">{{ todoCount }}</span>
-            <span class="label">📋 待完成任务</span>
-          </div>
-          <div class="pending-item" @click="router.push('/pages/leave/index')">
-            <span class="count">{{ myActiveLeaves.length }}</span>
-            <span class="label">🏥 生效中请假</span>
-          </div>
-          <div class="pending-item" @click="router.push('/pages/fee/index')">
-            <span class="count">¥{{ feeSummary ? Number(feeSummary.balance).toFixed(0) : '--' }}</span>
-            <span class="label">💰 班费余额</span>
-          </div>
-        </div>
+        <MySummary :items="mySummaryItems" />
 
         <!-- 全班请假情况 -->
-        <div class="section-title">
-          全班请假
-          <span v-if="activeLeaveTotal > 0" class="matrix-badge">{{ activeLeaveTotal }} 人离队</span>
-          <span v-else class="matrix-badge empty">全员在队</span>
-          <span class="matrix-link" @click="router.push('/pages/leave/index')">我的请假 ›</span>
-        </div>
-        <div v-if="activeLeaveTotal === 0" class="matrix-empty">🎉 当前没有请假外出人员，全员在队</div>
-        <div v-else class="matrix-card">
-          <div v-for="type in leaveTypes" :key="type" class="matrix-row">
-            <div class="matrix-type">{{ type }}<span class="type-count">{{ leaveMatrix[type].cells.length }}</span><span class="type-reasons">{{ leaveMatrix[type].reasons.join(" ") }}</span></div>
-            <div class="matrix-cells">
-              <div v-for="cell in leaveMatrix[type].cells" :key="cell.student_id + cell.start" class="matrix-cell">
-                <span class="cell-name">{{ cell.name }} <span class="cell-sid">{{ cell.student_id }}</span></span>
-                <span class="cell-time">{{ cell.start }} ~ {{ cell.end }}</span>
-                <span class="cell-reason">{{ cell.reason }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <LeaveMatrix
+          :matrix="leaveMatrix"
+          :leave-types="leaveTypes"
+          :active-leave-total="activeLeaveTotal"
+          title="全班请假"
+          link-text="我的请假 ›"
+          link-path="/pages/leave/index"
+        />
 
         <!-- 快捷入口 -->
-        <div class="section-title">常用功能</div>
-        <div class="quick-grid">
-          <div class="quick-item" @click="router.push('/pages/leave/apply')">🏥 请假</div>
-          <div class="quick-item" @click="router.push('/pages/fee/expense-apply')">🧾 报销</div>
-          <div class="quick-item" @click="router.push('/pages/homework/index')">📝 作业</div>
-          <div class="quick-item" @click="router.push('/pages/album/index')">🖼️ 相册</div>
-          <div class="quick-item" @click="router.push('/pages/vote/index')">🗳️ 投票</div>
-          <div class="quick-item" @click="router.push('/pages/features/index')">📱 更多</div>
-        </div>
+        <QuickGrid />
       </template>
 
       <!-- ≡≡ 公有：班费概况 ≡≡ -->
@@ -350,43 +336,17 @@ const mgmtGroups = computed<{ name: string; items: MgmtItem[] }[]>(() => [
 <style scoped>
 .dashboard-page { padding-bottom: 80px; }
 .loading-state { text-align: center; padding: 48px 16px; font-size: 14px; color: var(--color-text-3); }
+.super-admin-banner {
+  display: flex; align-items: center; gap: 8px;
+  margin: 12px; padding: 12px 16px;
+  background: linear-gradient(135deg, #1a3a5c 0%, #0f2440 100%);
+  border-radius: 10px; color: #fff; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(26,58,92,0.3);
+}
+.banner-icon { font-size: 20px; }
+.banner-text { flex: 1; font-size: 15px; font-weight: 600; }
+.banner-arrow { font-size: 20px; opacity: 0.7; }
 .section-title { font-size: 14px; font-weight: 600; color: var(--color-text); padding: 16px 16px 10px; }
-.pending-row {
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
-  padding: 0 12px; margin-bottom: 4px;
-}
-@media (min-width: 480px) { .pending-row { grid-template-columns: repeat(4, 1fr); } }
-.pending-item {
-  background: var(--color-surface); box-shadow: var(--shadow-card);
-  border-radius: var(--radius-md); padding: 16px 6px; text-align: center;
-  cursor: pointer;
-}
-.pending-item .count { font-size: 24px; font-weight: 700; color: var(--color-accent); display: block; }
-.pending-item .label { font-size: 11px; color: var(--color-text-2); margin-top: 4px; display: block; }
-
-/* 管理功能（二级菜单） */
-.mgmt-section { padding: 0 12px; }
-.mgmt-group { margin-bottom: 8px; }
-.mgmt-group-title {
-  font-size: 11px; font-weight: 600; color: var(--color-text-3);
-  text-transform: uppercase; letter-spacing: 0.5px;
-  padding: 4px 4px 6px;
-}
-.mgmt-grid { display: grid; grid-template-columns: 1fr; gap: 6px; }
-@media (min-width: 768px) { .mgmt-grid { grid-template-columns: 1fr 1fr; } }
-.mgmt-card {
-  display: flex; align-items: center; gap: 12px;
-  background: var(--color-surface); box-shadow: var(--shadow-card);
-  border-radius: var(--radius-md); padding: 14px 16px;
-  cursor: pointer; transition: background 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-.mgmt-card:active { background: var(--color-surface-hover); }
-.mgmt-icon { font-size: 22px; flex-shrink: 0; width: 36px; text-align: center; }
-.mgmt-info { flex: 1; min-width: 0; }
-.mgmt-label { font-size: 14px; font-weight: 600; color: var(--color-text); }
-.mgmt-desc { font-size: 11px; color: var(--color-text-3); margin-top: 2px; }
-.mgmt-arrow { font-size: 18px; color: var(--color-text-3); flex-shrink: 0; }
 
 /* data card */
 .data-card {
@@ -398,84 +358,4 @@ const mgmtGroups = computed<{ name: string; items: MgmtItem[] }[]>(() => [
 .data-row .label { color: var(--color-text-2); }
 .data-row .value { font-weight: 600; color: var(--color-text); }
 .data-row .value.accent { color: var(--color-accent); font-size: 16px; }
-
-/* ── 请假矩阵 ── */
-.matrix-badge {
-  font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 10px;
-  background: var(--color-warning-bg); color: var(--color-warning);
-  margin-left: 8px; vertical-align: middle;
-}
-.matrix-badge.empty { background: #dcfce7; color: #16a34a; }
-
-.matrix-link {
-  font-size: 12px; color: var(--color-accent); cursor: pointer;
-  margin-left: auto; font-weight: 400; white-space: nowrap;
-}
-
-.matrix-empty {
-  text-align: center; padding: 16px; margin: 0 12px;
-  background: var(--color-surface); border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card); font-size: 14px; color: var(--color-text-3);
-}
-
-.matrix-card {
-  margin: 0 12px; background: var(--color-surface);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-card);
-  overflow: hidden;
-}
-
-.matrix-row {
-  display: flex; border-bottom: 1px solid var(--color-border);
-}
-.matrix-row:last-child { border-bottom: none; }
-
-.matrix-type {
-  width: 72px; flex-shrink: 0;
-  padding: 12px 10px; font-size: 13px; font-weight: 700;
-  color: var(--color-accent); background: var(--color-accent-bg);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  text-align: center; word-break: keep-all; gap: 4px;
-}
-.type-count {
-  font-size: 16px; font-weight: 800; color: var(--color-accent);
-  line-height: 1;
-}
-.type-reasons {
-  font-size: 9px; color: var(--color-text-3); line-height: 1.3;
-  text-align: center; word-break: keep-all; margin-top: 2px;
-}
-
-.matrix-cells {
-  flex: 1; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 6px;
-}
-
-.matrix-cell {
-  background: var(--color-bg); border-radius: var(--radius-sm);
-  padding: 6px 10px; display: flex; flex-direction: column; gap: 2px;
-  border-left: 2px solid var(--color-warning);
-}
-
-.cell-name {
-  font-size: 13px; font-weight: 600; color: var(--color-text);
-}
-.cell-sid {
-  font-size: 10px; font-weight: 400; color: var(--color-text-3); margin-left: 2px;
-}
-.cell-time {
-  font-size: 11px; color: var(--color-text-3); white-space: nowrap;
-}
-.cell-reason {
-  font-size: 10px; color: var(--color-warning); font-weight: 500;
-}
-
-/* 学员快捷入口 */
-.quick-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-  padding: 0 12px;
-}
-.quick-item {
-  background: var(--color-surface); box-shadow: var(--shadow-card);
-  border-radius: var(--radius-md); padding: 14px 8px; text-align: center;
-  font-size: 13px; font-weight: 500; color: var(--color-text); cursor: pointer;
-}
 </style>

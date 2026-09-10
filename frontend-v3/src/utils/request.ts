@@ -49,6 +49,10 @@ function _removeStorage(key: string) {
   try { localStorage.removeItem(key) } catch {}
 }
 
+export function apiUrl(path: string): string {
+  return (BASE_URL || '') + path
+}
+
 export function getToken(): string {
   return _getStorage(TOKEN_KEY)
 }
@@ -65,7 +69,7 @@ export function hasBackendToken(): boolean {
   return !!getToken()
 }
 
-function appendQueryParams(url: string, data: any): string {
+export function appendQueryParams(url: string, data: any): string {
   if (!data || typeof data !== 'object') return url
 
   const params = new URLSearchParams()

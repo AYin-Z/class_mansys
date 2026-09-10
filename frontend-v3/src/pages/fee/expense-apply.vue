@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { mediaUrl, openMedia } from '@/utils/media'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createExpense } from '@/api/fee'
+import { uploadFile } from '@/utils/request'
 import NavBar from '@/components/ui/NavBar.vue'
 import { showToast } from '@/utils/ui'
 
@@ -10,6 +12,27 @@ const amount = ref(0)
 const purpose = ref('')
 const proofUrl = ref('')
 const loading = ref(false)
+const uploading = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+const previewUrl = ref('')
+
+function triggerUpload() { fileInput.value?.click() }
+async function handleFileChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+  if (file.size > 10 * 1024 * 1024) { showToast('文件不超过10MB', 'error'); target.value = ''; return }
+  uploading.value = true
+  try {
+    const res = await uploadFile('/api/fee/proof/upload', file)
+    if (res.success && res.url) {
+      proofUrl.value = res.url
+      previewUrl.value = res.url
+      showToast('上传成功')
+    }
+  } catch (e: any) { showToast(e?.message || '上传失败', 'error') }
+  finally { uploading.value = false; target.value = '' }
+}
 
 async function handleSubmit() {
   if (!amount.value || amount.value <= 0) {
@@ -53,8 +76,15 @@ async function handleSubmit() {
         <textarea v-model="purpose" placeholder="请详细说明报销用途" rows="4" class="textarea" maxlength="500" />
       </div>
       <div class="form-group">
-        <label>凭证链接（选填）</label>
-        <input v-model="proofUrl" placeholder="图片或发票链接" class="input" />
+        <label>凭证上传（选填）</label>
+        <div v-if="previewUrl" class="preview-wrap">
+          <img :src="mediaUrl(previewUrl)" class="preview-img" />
+          <button class="preview-clear" @click="previewUrl = ''; proofUrl = ''">✕</button>
+        </div>
+        <button class="upload-btn" :disabled="uploading" @click="triggerUpload">
+          {{ uploading ? '上传中...' : previewUrl ? '重新上传' : '+ 上传凭证图片' }}
+        </button>
+        <input ref="fileInput" type="file" accept="image/*" class="file-hidden" @change="handleFileChange" />
       </div>
       <button class="submit-btn" :disabled="loading" @click="handleSubmit">
         {{ loading ? '提交中...' : '提交申请' }}
@@ -79,4 +109,10 @@ async function handleSubmit() {
   background: var(--color-accent); color: #fff; font-size: 16px; font-weight: 600; cursor: pointer;
 }
 .submit-btn:disabled { opacity: 0.5; }
+.preview-wrap { position: relative; margin-bottom: 8px; }
+.preview-img { width: 100%; max-height: 200px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--color-border); }
+.preview-clear { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border: none; border-radius: 50%; background: rgba(0,0,0,0.5); color: #fff; font-size: 14px; cursor: pointer; }
+.upload-btn { width: 100%; padding: 10px; border: 1px dashed var(--color-border); border-radius: var(--radius-sm); background: transparent; color: var(--color-accent); font-size: 13px; cursor: pointer; }
+.upload-btn:disabled { opacity: 0.5; }
+.file-hidden { display: none; }
 </style>

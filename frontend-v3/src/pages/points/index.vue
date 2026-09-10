@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mediaUrl, openMedia } from '@/utils/media'
 import { ref, onMounted } from 'vue'
 import { getMyPoints, getPointsRanking } from '@/api/points'
 import type { PointRecord, RankingItem } from '@/api/points'
@@ -117,7 +118,7 @@ function formatDate(dateStr: string): string {
             <div class="rank-avatar">
               <img
                 v-if="item.avatarUrl"
-                :src="item.avatarUrl"
+                :src="mediaUrl(item.avatarUrl)"
                 alt="avatar"
                 class="avatar-img"
               />

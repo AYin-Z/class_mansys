@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mediaUrl, openMedia } from '@/utils/media'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAlbums } from '@/api/album'
@@ -45,7 +46,7 @@ function formatDate(t: string): string {
         <div class="album-cover">
           <img
             v-if="item.cover_url"
-            :src="item.cover_url"
+            :src="mediaUrl(item.cover_url)"
             :alt="item.name"
             class="cover-img"
           />

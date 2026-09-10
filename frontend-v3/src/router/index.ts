@@ -1,6 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { isAdmin as isAdminRole } from '@/types/roles'
+import { isAdmin as isAdminRole, USER_ROLES } from '@/types/roles'
 
 // Lazy-loaded components — top-level const to help Rollup static analysis
 const Features = () => import('@/pages/features/index.vue')
@@ -20,6 +20,8 @@ const NoticeAdmin = () => import('@/pages/notice/admin.vue')
 
 // Dashboard
 const Dashboard = () => import('@/pages/dashboard/index.vue')
+const CompanyIndex = () => import('@/pages/company/index.vue')
+const AgentPage = () => import('@/pages/agent/index.vue')
 
 // Leave
 const LeaveList = () => import('@/pages/leave/index.vue')
@@ -36,6 +38,7 @@ const FeeIndex = () => import('@/pages/fee/index.vue')
 const FeeExpenseApply = () => import('@/pages/fee/expense-apply.vue')
 const FeeExpenseDetail = () => import('@/pages/fee/expense-detail.vue')
 const FeeApprovals = () => import('@/pages/fee/approvals.vue')
+const FeePublicationDetail = () => import('@/pages/fee/publication-detail.vue')
 
 // Profile
 const Profile = () => import('@/pages/profile/index.vue')
@@ -73,6 +76,10 @@ const LotteryDetail = () => import('../pages/lottery/detail.vue')
 // Points
 const PointsIndex = () => import('../pages/points/index.vue')
 
+// Super Admin
+const AdminLogin = () => import('@/pages/admin/login.vue')
+const AdminPanel = () => import('@/pages/admin/panel.vue')
+
 // Admin
 const AdminMembers = () => import('@/pages/admin/members.vue')
 const AdminMemberDetail = () => import('@/pages/admin/member-detail.vue')
@@ -101,7 +108,9 @@ const routes: RouteRecordRaw[] = [
   { path: '/pages/notice/admin', name: 'notice-admin', component: NoticeAdmin, meta: { requiresAdmin: true } },
 
   // ===== 仪表盘 =====
-  { path: '/pages/dashboard/index', name: 'dashboard-index', component: Dashboard },
+  { path: '/pages/dashboard/index', name: 'dashboard-index', component: Dashboard, meta: { requiresAdmin: true } },
+  { path: '/pages/company/index', name: 'company-index', component: CompanyIndex, meta: { requiresAdmin: true } },
+  { path: '/pages/agent/index', name: 'agent-index', component: AgentPage },
 
   // ===== 请假 =====
   { path: '/pages/leave/index', name: 'leave-index', component: LeaveList },
@@ -118,6 +127,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/pages/fee/expense-apply', name: 'fee-expense-apply', component: FeeExpenseApply },
   { path: '/pages/fee/expense-detail', name: 'fee-expense-detail', component: FeeExpenseDetail },
   { path: '/pages/fee/approvals', name: 'fee-approvals', component: FeeApprovals },
+  { path: '/pages/fee/publication-detail', name: 'fee-publication-detail', component: FeePublicationDetail },
 
   // ===== 个人中心 =====
   { path: '/pages/profile/index', name: 'profile-index', component: Profile },
@@ -164,6 +174,10 @@ const routes: RouteRecordRaw[] = [
   { path: '/pages/vote/manage', name: 'vote-manage', component: VoteManage, meta: { requiresAdmin: true } },
   { path: '/pages/challenge/manage', name: 'challenge-manage', component: ChallengeManage, meta: { requiresAdmin: true } },
   { path: '/pages/lottery/manage', name: 'lottery-manage', component: LotteryManage, meta: { requiresAdmin: true } },
+
+  // ===== 超管后台（独立入口） =====
+  { path: '/admin/login', name: 'admin-login', component: AdminLogin, meta: { public: true } },
+  { path: '/admin/panel', name: 'admin-panel', component: AdminPanel },
 ]
 
 const router = createRouter({
@@ -172,7 +186,7 @@ const router = createRouter({
 })
 
 // ========== 路由守卫 ==========
-const PUBLIC_ROUTES = ['/pages/login/password-login', '/pages/login/phone-login', '/pages/login/email-login']
+const PUBLIC_ROUTES = ['/pages/login/password-login', '/pages/login/phone-login', '/pages/login/email-login', '/admin/login']
 const DEFAULT_LOGIN = '/pages/login/password-login'
 const DEFAULT_AUTHENTICATED = '/pages/index/index'
 
@@ -188,9 +202,22 @@ function readStoredRole(): number | null {
 }
 
 router.beforeEach(async (to) => {
+  // 公开路由：登录页 & 超管登录页放行
   for (const prefix of PUBLIC_ROUTES) {
     if (to.path.startsWith(prefix)) return true
   }
+
+  // 超管后台：必须 role=8
+  if (to.path.startsWith('/admin/')) {
+    const token = localStorage.getItem('backend_token')
+    if (!token) return { path: '/admin/login' }
+    const role = readStoredRole()
+    if (role !== USER_ROLES.SUPER_ADMIN) {
+      return { path: '/admin/login' }
+    }
+    return true
+  }
+
   const token = localStorage.getItem('backend_token')
   if (!token) return { path: DEFAULT_LOGIN, query: { redirect: to.fullPath } }
   const profileRaw = localStorage.getItem('user_profile')

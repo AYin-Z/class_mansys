@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { mediaUrl, openMedia } from '@/utils/media'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAnnouncements, getResources } from '@/api/announcement'
@@ -120,7 +121,7 @@ function goToDetail(id: number) {
             <span>{{ formatSize(item.size) }}</span>
           </div>
         </div>
-        <a v-if="item.url" :href="item.url" target="_blank" class="res-dl" @click.stop>下载</a>
+        <a v-if="item.url" :href="mediaUrl(item.url)" target="_blank" class="res-dl" @click.stop>下载</a>
       </div>
     </template>
   </div>

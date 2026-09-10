@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { mediaUrl, openMedia } from '@/utils/media'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { applyLeave } from '@/api/leave'
+import { getLeaveTypes, type LeaveTypeConfig } from '@/api/leave-config'
 import { uploadFile } from '@/utils/request'
 import NavBar from '@/components/ui/NavBar.vue'
 import { showToast } from '@/utils/ui'
@@ -15,45 +17,66 @@ const endDate = ref('')
 const startTime = ref('')
 const endTime = ref('')
 const loading = ref(false)
+const configLoading = ref(true)
+const configError = ref(false)
 
-// 请假种类 → 时间规则
-const TYPE_RULES: Record<string, { label: string; start: string; end: string; fixed: boolean }> = {
-  '早操':   { label: '早操',   start: '06:00', end: '07:00', fixed: true },
-  '早集合': { label: '早集合', start: '07:00', end: '08:10', fixed: true },
-  '午集合': { label: '午集合', start: '13:00', end: '14:00', fixed: true },
-  '收假集合': { label: '收假集合', start: '18:00', end: '19:00', fixed: true },
-  '晚自习': { label: '晚自习', start: '18:30', end: '20:30', fixed: true },
-  '中队会': { label: '中队会', start: '',     end: '',     fixed: false },
-  '全休':   { label: '全休',   start: '',     end: '',     fixed: false },
-  '其他':   { label: '其他',   start: '',     end: '',     fixed: false },
+// 从 API 获取的请假类型配置
+const leaveConfigs = ref<LeaveTypeConfig[]>([])
+
+// 类型图标（API 不提供，本地维护兜底）
+const TYPE_ICONS: Record<string, string> = {
+  '早操': '🏃', '早集合': '🧍', '午集合': '☀️', '收假集合': '🏠',
+  '晚自习': '🌙', '中队会': '📋', '全休': '🛏️', '其他': '📌',
 }
 
-const LEAVE_TYPES = [
-  { key: '早操', icon: '🏃' },
-  { key: '早集合', icon: '🧍' },
-  { key: '午集合', icon: '☀️' },
-  { key: '收假集合', icon: '🏠' },
-  { key: '晚自习', icon: '🌙' },
-  { key: '中队会', icon: '📋' },
-  { key: '全休', icon: '🛏️' },
-  { key: '其他', icon: '📌' },
-]
-
-// 每种请假种类的可选原因
-const TYPE_REASONS: Record<string, { key: string; icon: string }[]> = {
-  '早操':   [{ key: '调休', icon: '🔄' }, { key: '出督', icon: '🎖️' }, { key: '病假', icon: '🤒' }, { key: '事假', icon: '📋' }, { key: '公假', icon: '🏛️' }, { key: '其他', icon: '📌' }],
-  '早集合': [{ key: '出督', icon: '🎖️' }, { key: '公区', icon: '🧹' }, { key: '病假', icon: '🤒' }, { key: '事假', icon: '📋' }, { key: '公假', icon: '🏛️' }, { key: '其他', icon: '📌' }],
-  '午集合': [{ key: '出督', icon: '🎖️' }, { key: '公区', icon: '🧹' }, { key: '病假', icon: '🤒' }, { key: '事假', icon: '📋' }, { key: '公假', icon: '🏛️' }, { key: '其他', icon: '📌' }],
-  '收假集合': [{ key: '公区', icon: '🧹' }, { key: '病假', icon: '🤒' }, { key: '事假', icon: '📋' }, { key: '公假', icon: '🏛️' }, { key: '其他', icon: '📌' }],
-  '晚自习': [{ key: '病假', icon: '🤒' }, { key: '事假', icon: '📋' }, { key: '公假', icon: '🏛️' }, { key: '其他', icon: '📌' }],
-  '中队会': [{ key: '病假', icon: '🤒' }, { key: '事假', icon: '📋' }, { key: '公假', icon: '🏛️' }, { key: '其他', icon: '📌' }],
-  '全休':   [{ key: '病假', icon: '🤒' }, { key: '事假', icon: '📋' }, { key: '公假', icon: '🏛️' }, { key: '其他', icon: '📌' }],
-  '其他':   [{ key: '其他', icon: '📌' }],
+// 原因图标（本地维护）
+const REASON_ICONS: Record<string, string> = {
+  '调休': '🔄', '出督': '🎖️', '公区': '🧹', '病假': '🤒', '事假': '📋', '公假': '🏛️', '其他': '📌',
 }
 
-const availableReasons = computed(() => TYPE_REASONS[leaveType.value] || [])
-const isFixed = computed(() => TYPE_RULES[leaveType.value]?.fixed ?? false)
-const rule = computed(() => TYPE_RULES[leaveType.value] || null)
+onMounted(async () => {
+  try {
+    const res = await getLeaveTypes()
+    leaveConfigs.value = res?.data || []
+  } catch {
+    configError.value = true
+  } finally {
+    configLoading.value = false
+  }
+})
+
+// 从 API 配置推导的可选类型列表
+const LEAVE_TYPES = computed(() =>
+  leaveConfigs.value.map(c => ({ key: c.type_name, icon: TYPE_ICONS[c.type_name] || '📌' }))
+)
+
+// 从 API 配置推导的时间规则
+const TYPE_RULES = computed(() => {
+  const map: Record<string, { label: string; start: string; end: string; fixed: boolean }> = {}
+  for (const c of leaveConfigs.value) {
+    map[c.type_name] = {
+      label: c.type_name,
+      start: c.start_time ? c.start_time.substring(0, 5) : '',
+      end: c.end_time ? c.end_time.substring(0, 5) : '',
+      fixed: !!c.is_fixed,
+    }
+  }
+  return map
+})
+
+// 从 API 配置推导的原因列表
+const TYPE_REASONS = computed(() => {
+  const map: Record<string, { key: string; icon: string }[]> = {}
+  for (const c of leaveConfigs.value) {
+    const reasons = Array.isArray(c.reasons) ? c.reasons : []
+    map[c.type_name] = reasons.map(r => ({ key: r, icon: REASON_ICONS[r] || '📌' }))
+  }
+  return map
+})
+
+const availableReasons = computed(() => TYPE_REASONS.value[leaveType.value] || [])
+const isFixed = computed(() => TYPE_RULES.value[leaveType.value]?.fixed ?? false)
+const rule = computed(() => TYPE_RULES.value[leaveType.value] || null)
 
 // 证明材料
 const proofs = ref<string[]>([])
@@ -116,7 +139,7 @@ async function handleSubmit() {
     } else {
       showToast(res.message || '提交失败', 'error')
     }
-  } catch (_) { showToast('提交失败', '请稍后重试', 'error') }
+  } catch (_) { showToast('提交失败，请稍后重试', 'error') }
   finally { loading.value = false }
 }
 
@@ -151,7 +174,9 @@ function removeProof(idx: number) { proofs.value.splice(idx, 1) }
       <!-- 请假种类 -->
       <div class="form-group">
         <label>请假种类</label>
-        <div class="grid-5">
+        <div v-if="configLoading" class="hint">加载请假类型中...</div>
+        <div v-else-if="configError" class="hint free">加载请假类型失败，请刷新重试</div>
+        <div v-else class="grid-5">
           <span v-for="t in LEAVE_TYPES" :key="t.key"
             :class="['option', { active: leaveType === t.key }]"
             @click="selectType(t.key)">
@@ -222,7 +247,7 @@ function removeProof(idx: number) { proofs.value.splice(idx, 1) }
         <label>证明材料（选填）</label>
         <div v-if="proofs.length > 0" class="proof-list">
           <div v-for="(url, i) in proofs" :key="i" class="proof-item">
-            <img :src="url" class="proof-thumb" />
+            <img :src="mediaUrl(url)" class="proof-thumb" />
             <button class="proof-del" @click="removeProof(i)">✕</button>
           </div>
         </div>

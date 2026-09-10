@@ -4,9 +4,11 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
 const TABS = [
-  { key: 'home', label: '首页', icon: '🏠', path: '/pages/index/index' },
-  { key: 'dashboard', label: '仪表盘', icon: '📊', path: '/pages/dashboard/index' },
-  { key: 'profile', label: '我的', icon: '👤', path: '/pages/profile/index' },
+  { key: 'home', label: '首页', icon: '🏠', path: '/pages/index/index', adminOnly: false },
+  { key: 'dashboard', label: '仪表盘', icon: '📊', path: '/pages/dashboard/index', adminOnly: true },
+  { key: 'company', label: '中队', icon: '🏢', path: '/pages/company/index', perm: 'VIEW_COMPANY' },
+  { key: 'agent', label: '助手', icon: '🤖', path: '/pages/agent/index' },
+  { key: 'profile', label: '我的', icon: '👤', path: '/pages/profile/index', adminOnly: false },
 ]
 
 const props = defineProps<{
@@ -18,8 +20,11 @@ const route = useRoute()
 const userStore = useUserStore()
 
 const visibleTabs = computed(() => {
-  if (userStore.isAdmin) return TABS
-  return TABS.filter(t => !t.adminOnly)
+  return TABS.filter(t => {
+    if (t.perm) return userStore.hasPermission(t.perm as any)
+    if (t.adminOnly) return userStore.isAdmin
+    return true
+  })
 })
 
 function goTo(tab: typeof TABS[0]) {
