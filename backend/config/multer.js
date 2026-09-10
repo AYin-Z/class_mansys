@@ -65,6 +65,24 @@ exports.uploadResource = multer({
   limits: { fileSize: 100 * 1024 * 1024 } // 100MB
 });
 
+// 对话附件存储（办事助手：图片/文件）
+const agentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '..', 'uploads', 'agent'));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const name = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+    cb(null, name);
+  }
+});
+
+exports.uploadAgentFile = multer({
+  storage: agentStorage,
+  fileFilter: fileFilter(ALLOWED_PHOTO_EXTS, ALLOWED_PHOTO_MIMES),
+  limits: { fileSize: 20 * 1024 * 1024 }
+});
+
 // 请假证明材料存储
 const leaveStorage = multer.diskStorage({
   destination: (req, file, cb) => {

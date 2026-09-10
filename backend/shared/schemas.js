@@ -111,8 +111,15 @@ const schemas = {
 
   // ---------- 对话式 Agent ----------
   agentChat: passthrough({
-    message: z.string().min(1, '消息不能为空'),
-    conversationId: idLike.optional()
+    // 允许"只发附件不写字"，因此 message 可为空字符串，但两者不能同时为空（由控制器兜底）
+    message: z.string().max(4000).default(''),
+    conversationId: idLike.optional(),
+    attachments: z.array(z.object({
+      url: z.string().min(1).max(500),
+      name: z.string().max(120).optional(),
+      mime: z.string().max(80).optional(),
+      size: z.number().optional()
+    })).max(6).optional()
   }),
   agentConfirm: passthrough({ actionId: idLike }),
   apiTokenCreate: passthrough({ name: z.string().trim().min(1, '请填写令牌备注').max(50) }),

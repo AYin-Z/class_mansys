@@ -114,6 +114,16 @@ SELF_BASE_URL=            # 留空自动用 http://127.0.0.1:$PORT
 - 主动提醒扩展到「待审批 / 作业截止」（按人推送）。
 - 微信渠道增强：图片/语音消息、群聊（受 iLink 限制，暂不可行）。
 
+### 9.x 富媒体与附件（助手页）
+
+- **上传**：`POST /api/agent/upload`（multipart，图片，≤20MB，落 `uploads/agent/`）→ 返回 `url`；
+- **随消息提交**：`POST /api/agent/chat` 支持 `attachments: [{url,name,mime,size}]`（最多 6 个），允许「只发图不写字」；
+- **落库形式**：用户消息内容会把附件拼成 Markdown（图片 `![](/uploads/...)`、文件 `[](/uploads/...)`），
+  因此模型能直接拿到 URL 交给业务工具（请假证明、相册图片），历史消息也能直接渲染缩略图（`services/agent/attachments.js`）；
+- **回复渲染**：前端 `utils/markdown.ts`（marked + 白名单清洗 `sanitizeHtml`）渲染标题/列表/加粗/表格/代码块，
+  并把 Markdown 里的链接与裸露 URL 交给 `mediaUrl()` 自动补 `?token=`，图片 URL 自动升级为 `<img>`——所以**助手也能"发图片"**；
+- **安全**：仅允许 `/uploads/` 与 `http(s)` 前缀（拒绝 `javascript:` 等），XSS 由标签/属性白名单拦住。
+
 ## 10. 微信渠道（个人微信）
 
 已实现直连 **iLink Bot API**（Hermes 同款协议），无需第三方网关：

@@ -3,8 +3,11 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const { validateBody } = require('../shared/validate');
 const { schemas } = require('../shared/schemas');
-const { asyncHandler, ok } = require('../shared/http');
+const { asyncHandler, ok, BadRequestError } = require('../shared/http');
+const { uploadAgentFile } = require('../config/multer');
 const AgentService = require('../services/agent/agentService');
+const { MAX_ATTACHMENTS } = require('../services/agent/attachments');
+const path = require('path');
 
 function bearer(req) {
   const h = req.headers.authorization || '';
@@ -24,12 +27,24 @@ router.get('/conversations/:id/messages', authenticateToken, asyncHandler(async 
   return ok(res, undefined, { messages });
 }));
 
+// 对话附件上传（图片；返回可直接放进消息的 url）
+router.post('/upload', authenticateToken, uploadAgentFile.single('file'), asyncHandler(async (req, res) => {
+  if (!req.file) throw new BadRequestError('未收到文件或文件类型不支持');
+  return ok(res, {
+    url: '/uploads/agent/' + path.basename(req.file.path),
+    name: req.file.originalname || path.basename(req.file.path),
+    mime: req.file.mimetype,
+    size: req.file.size,
+    maxAttachments: MAX_ATTACHMENTS
+  });
+}));
+
 // 对话（读操作立即执行；写操作返回待确认动作）
 router.post('/chat', authenticateToken, validateBody(schemas.agentChat), asyncHandler(async (req, res) => {
   const result = await AgentService.chat(
     req.user,
     bearer(req),
-    { conversationId: req.body.conversationId, message: req.body.message },
+    { conversationId: req.body.conversationId, message: req.body.message, attachments: req.body.attachments },
     req.app
   );
   return res.json({ success: true, ...result });
@@ -47,7 +62,7 @@ router.post('/chat/stream', authenticateToken, validateBody(schemas.agentChat), 
     const result = await AgentService.chatStream(
       req.user,
       bearer(req),
-      { conversationId: req.body.conversationId, message: req.body.message },
+      { conversationId: req.body.conversationId, message: req.body.message, attachments: req.body.attachments },
       req.app,
       send
     );

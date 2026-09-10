@@ -291,6 +291,46 @@ const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
     check('拿到新建令牌的 id', false, 'token not found in list');
   }
 
+  section('助手附件与富媒体');
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  const upForm = new FormData();
+  upForm.append('file', new Blob([PNG], { type: 'image/png' }), 'e2e.png');
+  const upRes = await fetch(BASE + '/api/agent/upload', { method: 'POST', headers: { Authorization: 'Bearer ' + student6Token }, body: upForm });
+  const upData = await upRes.json().catch(function () { return {}; });
+  check('上传对话图片', upRes.status === 200 && String((upData.data || {}).url || '').startsWith('/uploads/agent/'), JSON.stringify(upData).slice(0, 120));
+  const upUrl = (upData.data || {}).url || '';
+
+  const badForm = new FormData();
+  badForm.append('file', new Blob([Buffer.from('hello')], { type: 'text/plain' }), 'e2e.txt');
+  const badRes = await fetch(BASE + '/api/agent/upload', { method: 'POST', headers: { Authorization: 'Bearer ' + student6Token }, body: badForm });
+  check('非图片附件被拒', badRes.status >= 400, 'status=' + badRes.status);
+
+  const anonUp = await fetch(BASE + '/api/agent/upload', { method: 'POST', body: new FormData() });
+  check('未登录不能上传', anonUp.status === 401, 'status=' + anonUp.status);
+
+  const withAtt = await req('POST', '/api/agent/chat', {
+    token: student6Token,
+    body: { message: '', attachments: [{ url: upUrl, name: 'e2e.png', mime: 'image/png', size: PNG.length }] }
+  });
+  check('只发附件也能对话', withAtt.status === 200 && !!withAtt.data.reply, JSON.stringify(withAtt.data).slice(0, 120));
+
+  const emptyMsg = await req('POST', '/api/agent/chat', { token: student6Token, body: { message: '' } });
+  check('空消息且无附件被拒', emptyMsg.status === 400, 'status=' + emptyMsg.status);
+
+  const tooMany = await req('POST', '/api/agent/chat', {
+    token: student6Token,
+    body: { message: 'x', attachments: Array.from({ length: 7 }, function (_, i) { return { url: '/uploads/agent/' + i + '.png' }; }) }
+  });
+  check('附件数量超限被拒', tooMany.status === 400, 'status=' + tooMany.status);
+
+  if (withAtt.data && withAtt.data.conversationId) {
+    const msgs = await req('GET', '/api/agent/conversations/' + withAtt.data.conversationId + '/messages', { token: student6Token });
+    const content = JSON.stringify((msgs.data || {}).messages || []);
+    check('附件写入会话（图片以 Markdown 形式保存）', content.indexOf('![e2e.png](' + upUrl + ')') > -1, content.slice(0, 160));
+  } else {
+    check('附件写入会话（图片以 Markdown 形式保存）', false, 'no conversationId');
+  }
+
   console.log('\n================ 验收结果 ================');
   console.log('PASS: ' + pass + '   FAIL: ' + fail);
   if (failures.length) { console.log('失败项：'); failures.forEach(function (f) { console.log('  - ' + f); }); }

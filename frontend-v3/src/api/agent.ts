@@ -1,4 +1,4 @@
-import { get, post, del } from '../utils/request'
+import { get, post, del, uploadFile } from '../utils/request'
 
 export interface AgentMessage {
   id?: number
@@ -12,6 +12,14 @@ export interface AgentPendingAction {
   tool: string
   label: string
   preview: string
+}
+
+export interface AgentAttachment {
+  url: string
+  name?: string
+  mime?: string
+  size?: number
+  isImage?: boolean
 }
 
 export interface AgentChatResult {
@@ -41,8 +49,13 @@ export function getAgentTools(): Promise<AgentToolsResult> {
   return get('/api/agent/tools')
 }
 
-export function agentChat(message: string, conversationId?: number): Promise<AgentChatResult> {
-  return post('/api/agent/chat', { message, conversationId })
+export function agentChat(message: string, conversationId?: number, attachments?: AgentAttachment[]): Promise<AgentChatResult> {
+  return post('/api/agent/chat', { message, conversationId, attachments })
+}
+
+/** 上传对话附件（图片），返回可直接放进消息的 url */
+export function uploadAgentAttachment(file: File): Promise<{ success: boolean; url: string; name: string; mime: string; size: number }> {
+  return uploadFile('/api/agent/upload', file)
 }
 
 export function agentConfirm(actionId: number): Promise<{ success: boolean; reply: string; successFlag?: boolean }> {

@@ -3,6 +3,7 @@ const llm = require('./llm');
 const { buildTools, toOpenAiTools } = require('./toolCatalog');
 const { preview, execute } = require('./toolRunner');
 const { buildSystemPrompt } = require('./persona');
+const { normalize: normalizeAttachments, withAttachmentText } = require('./attachments');
 const { env } = require('../../config/env');
 const logger = require('../../config/logger');
 const { BadRequestError, ForbiddenError, NotFoundError, HttpError } = require('../../shared/http');
@@ -24,7 +25,10 @@ class AgentService {
     };
   }
 
-  static async chat(user, token, { conversationId, message }, app) {
+  static async chat(user, token, { conversationId, message, attachments }, app) {
+    const atts = normalizeAttachments(attachments);
+    if (!String(message || '').trim() && !atts.length) throw new BadRequestError('消息不能为空');
+    const userContent = withAttachmentText(message, atts);
     const used = await AgentRepo.countUserMessagesLast24h(user.id);
     if (used >= env.AGENT_DAILY_QUOTA) {
       throw new HttpError(429, '今日对话次数已达上限，请明天再试', 'AGENT_QUOTA_EXCEEDED');
@@ -36,9 +40,9 @@ class AgentService {
       const conv = await AgentRepo.getConversation(convId, user.id);
       if (!conv) throw new ForbiddenError('会话不存在或不属于你');
     } else {
-      convId = await AgentRepo.createConversation(user.id, String(message).slice(0, 40));
+      convId = await AgentRepo.createConversation(user.id, String(message || atts[0].name || '图片').slice(0, 40));
     }
-    await AgentRepo.addMessage(convId, 'user', message);
+    await AgentRepo.addMessage(convId, 'user', userContent);
     await AgentRepo.touchConversation(convId);
 
     const history = await AgentRepo.listMessages(convId, 30);
@@ -160,7 +164,10 @@ class AgentService {
    * 流式对话：读操作立即执行并把过程/结果通过 send 事件推送；写操作推送 pending 事件。
    * send(event) 由路由层实现（SSE）。
    */
-  static async chatStream(user, token, { conversationId, message }, app, send) {
+  static async chatStream(user, token, { conversationId, message, attachments }, app, send) {
+    const atts = normalizeAttachments(attachments);
+    if (!String(message || '').trim() && !atts.length) throw new BadRequestError('消息不能为空');
+    const userContent = withAttachmentText(message, atts);
     const used = await AgentRepo.countUserMessagesLast24h(user.id);
     if (used >= env.AGENT_DAILY_QUOTA) throw new HttpError(429, '今日对话次数已达上限，请明天再试', 'AGENT_QUOTA_EXCEEDED');
 
@@ -170,9 +177,9 @@ class AgentService {
       const conv = await AgentRepo.getConversation(convId, user.id);
       if (!conv) throw new ForbiddenError('会话不存在或不属于你');
     } else {
-      convId = await AgentRepo.createConversation(user.id, String(message).slice(0, 40));
+      convId = await AgentRepo.createConversation(user.id, String(message || atts[0].name || '图片').slice(0, 40));
     }
-    await AgentRepo.addMessage(convId, 'user', message);
+    await AgentRepo.addMessage(convId, 'user', userContent);
     await AgentRepo.touchConversation(convId);
 
     const history = await AgentRepo.listMessages(convId, 30);
