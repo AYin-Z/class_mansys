@@ -53,7 +53,13 @@ class ChannelService {
 
     const bindMatch = trimmed.match(/^[/／](?:绑定|bind)\s+([A-Za-z0-9]{4,16})$/);
     if (bindMatch) {
-      const userId = await ChannelService.bind(channel, externalId, bindMatch[1], displayName);
+      let userId;
+      try {
+        userId = await ChannelService.bind(channel, externalId, bindMatch[1], displayName);
+      } catch (e) {
+        logger.warn({ err: e.message, channel, externalId }, 'channel bind failed');
+        return { reply: '绑定失败：' + e.message + '\n请在 App 的「办事助手 → 微信助手 & MCP 接入」中重新生成绑定码。' };
+      }
       const u = await User.findById(userId);
       return {
         reply:

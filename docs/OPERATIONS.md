@@ -112,6 +112,13 @@ cd backend && node tests/setup-test-db.js class_manage_sys_test && \
   DB_NAME=class_manage_sys_test PORT=3102 NODE_ENV=test AGENT_LLM_MODE=mock nohup node app.js > /tmp/e2e-srv.log 2>&1 & \
   E2E_BASE=http://127.0.0.1:3102 node tests/e2e-acceptance.js
 
+# 渠道链路冒烟（11 项，不依赖微信）：绑定码 -> /绑定 -> Agent 读写确认 -> /解绑
+DB_NAME=class_manage_sys_test NODE_ENV=test AGENT_LLM_MODE=mock SELF_BASE_URL=http://127.0.0.1:3102 \
+  node tests/channel-smoke.js
+
+# MCP 冒烟（真实令牌 + stdio 客户端，对生产只读调用）
+CM_TOKEN=cm_xxx node tests/mcp-smoke.mjs
+
 # 说明：setup-test-db.js 会克隆生产库结构 + 复制参照数据（leave_config），
 # 因此测试库的请假类型/时段校验与生产一致（早操为 07:00-08:00）。
 # 测试库名必须匹配 _test，fixtures.js 拒绝在非测试库上运行（防误清生产数据）。

@@ -33,7 +33,7 @@ module.exports = [
     }
   },
   {
-    files: ['tests/**/*.js', 'scripts/**/*.js', 'vitest.config.mjs'],
+    files: ['tests/**/*.js', 'tests/**/*.mjs', 'scripts/**/*.js', 'vitest.config.mjs'],
     languageOptions: { sourceType: 'module', ecmaVersion: 2023, globals: { ...globals.node } }
   }
 ];
