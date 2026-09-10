@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import NavBar from '@/components/ui/NavBar.vue'
 import { showToast } from '@/utils/ui'
 import { apiUrl, getToken } from '@/utils/request'
@@ -13,12 +13,17 @@ import {
   listApiTokens,
   createApiToken,
   revokeApiToken,
+  getBotLogin,
+  startBotLogin,
+  pollBotLogin,
   type AgentMessage,
   type AgentPendingAction,
   type AgentToolModule,
   type AgentApiToken,
   type WechatBinding,
+  type WechatBotStatus,
 } from '@/api/agent'
+import { useUserStore } from '@/stores/user'
 
 const messages = ref<AgentMessage[]>([])
 const input = ref('')
@@ -29,7 +34,13 @@ const modules = ref<AgentToolModule[]>([])
 const showTools = ref(false)
 const scroller = ref<HTMLElement | null>(null)
 const listening = ref(false)
-const showAccess = ref(false)
+const userStore = useUserStore()
+const canManageChannel = computed(() => userStore.hasPermission('MANAGE_CHANNEL'))
+const bot = ref<WechatBotStatus | null>(null)
+const botBusy = ref(false)
+const botPolling = ref(false)
+let botTimer: any = null
+const showAccess = ref(true)
 const bindCode = ref('')
 const bindCodeLeft = ref(0)
 const bindings = ref<WechatBinding[]>([])
@@ -99,6 +110,56 @@ async function doRevoke(id: number) {
     await loadAccess()
   } catch (e: any) { showToast(e?.message || '吊销失败', 'error') }
 }
+
+/** —— 微信机器人身份：站内扫码连接（仅超管） —— */
+async function loadBot() {
+  if (!canManageChannel.value) return
+  try {
+    const res = await getBotLogin()
+    if (res?.success) bot.value = res.data
+  } catch (_) { /* 忽略 */ }
+}
+
+async function startBot() {
+  botBusy.value = true
+  try {
+    const res = await startBotLogin()
+    if (res?.success) {
+      bot.value = Object.assign({}, bot.value, res.data)
+      startBotPolling()
+    }
+  } catch (e: any) {
+    showToast(e?.message || '生成二维码失败', 'error')
+  } finally {
+    botBusy.value = false
+  }
+}
+
+function startBotPolling() {
+  stopBotPolling()
+  botPolling.value = true
+  botTimer = setInterval(async () => {
+    try {
+      const res = await pollBotLogin()
+      const st = res?.data?.status
+      bot.value = Object.assign({}, bot.value, res.data)
+      if (st === 'confirmed') {
+        stopBotPolling()
+        showToast('微信已连接')
+      } else if (st === 'expired' || st === 'none') {
+        stopBotPolling()
+        if (st === 'expired') showToast('二维码已过期，请重新生成', 'error')
+      }
+    } catch (_) { /* 网络抖动继续轮询 */ }
+  }, 2500)
+}
+
+function stopBotPolling() {
+  botPolling.value = false
+  if (botTimer) { clearInterval(botTimer); botTimer = null }
+}
+
+onUnmounted(() => { stopBotPolling(); if (bindTimer) clearInterval(bindTimer) })
 const streamSupported = typeof window !== 'undefined' && !!(window as any).fetch
 
 const SUGGESTIONS = ['我的请假记录', '我要请假', '怎么请假？', '今天中队出勤怎么样', '给个建议：']
@@ -108,6 +169,7 @@ onMounted(async () => {
     const res = await getAgentTools()
     if (res?.success) modules.value = res.data?.modules || []
   } catch (_) { /* 无权限时仍可对话 */ }
+  await Promise.all([loadBot(), loadAccess()])
   messages.value.push({
     role: 'assistant',
     content: '你好，我是区队办事助手。可以直接说要办的事（例如「我要请假」「报销班费」「提个建议」），也可以问我某个功能怎么用（例如「怎么请假？」）。写操作我会先跟你确认再执行。',
@@ -283,9 +345,33 @@ function startVoice() {
     </div>
 
     <div class="tools-toggle" @click="toggleAccess">
-      {{ showAccess ? '收起微信 / MCP 接入' : '微信助手 & MCP 接入' }}
+      {{ showAccess ? '收起「微信助手 / MCP 接入」' : '微信助手 / MCP 接入（扫码连接、账号绑定、令牌）' }}
     </div>
     <div v-if="showAccess" class="tools access">
+      <div v-if="canManageChannel" class="acc-block">
+        <div class="acc-title">连接微信机器人（管理员）</div>
+        <div v-if="bot && bot.connected" class="acc-hint">
+          已连接：{{ bot.accountId }} · 服务状态：{{ bot.worker || 'unknown' }}
+          <template v-if="bot.worker && bot.worker !== 'active'">（未在运行：请确认已安装 `class-mansys-ilink` 服务单元）</template>
+        </div>
+        <div v-else class="acc-hint">
+          这一步只需要做一次：扫码后，系统就拥有了一个「微信里的助手」身份，同学私聊它即可办事。
+        </div>
+        <div v-if="bot && bot.qrDataUrl && bot.status !== 'confirmed'" class="qr-box">
+          <img :src="bot.qrDataUrl" alt="微信扫码" />
+          <div class="acc-hint">
+            <template v-if="bot.status === 'scaned'">已扫码，请在手机上点击确认…</template>
+            <template v-else>请用微信扫码（约 5 分钟内有效）</template>
+          </div>
+        </div>
+        <div class="acc-row">
+          <button class="btn-primary" :disabled="botBusy || botPolling" @click="startBot">
+            {{ bot && bot.connected ? '重新扫码（更换机器人身份）' : (botPolling ? '等待扫码…' : '生成二维码并连接') }}
+          </button>
+          <button v-if="botPolling" class="btn-ghost" @click="stopBotPolling">停止</button>
+        </div>
+      </div>
+
       <div class="acc-block">
         <div class="acc-title">微信助手（个人微信）</div>
         <div class="acc-hint">
@@ -387,6 +473,8 @@ function startVoice() {
 }
 .code { font-size: 22px; font-weight: 700; letter-spacing: 3px; color: var(--color-accent); }
 .token-fresh code { flex: 1; font-size: 11px; word-break: break-all; color: var(--color-text-2); }
+.qr-box { text-align: center; margin: 6px 0 10px; }
+.qr-box img { width: 220px; height: 220px; background: #fff; border-radius: 12px; padding: 6px; }
 .acc-list { margin-top: 4px; }
 .acc-item {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;

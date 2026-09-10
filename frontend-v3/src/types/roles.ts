@@ -90,7 +90,10 @@ export const PERMISSIONS = {
   UPLOAD_RESOURCE: ADMIN_ROLE_IDS,
 
   // 中队（跨区队）平行查看：各区队管理层均可查看本中队情况
-  VIEW_COMPANY: ADMIN_ROLE_IDS
+  VIEW_COMPANY: ADMIN_ROLE_IDS,
+
+  // 微信机器人身份（系统级，仅超管）：扫码登录 / 连接状态
+  MANAGE_CHANNEL: [USER_ROLES.SUPER_ADMIN]
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;

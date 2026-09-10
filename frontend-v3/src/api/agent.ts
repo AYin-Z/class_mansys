@@ -98,3 +98,26 @@ export function listBindings(): Promise<{ success: boolean; bindings: WechatBind
 export function unbindWechat(id: number): Promise<{ success: boolean; message?: string }> {
   return del('/api/agent/channel/bindings/' + id)
 }
+
+export interface WechatBotStatus {
+  connected: boolean
+  accountId: string | null
+  baseUrl: string | null
+  credentialsFile?: string
+  worker?: string
+  status?: 'wait' | 'scaned' | 'expired' | 'confirmed' | 'none'
+  qrDataUrl?: string
+  expiresInSec?: number
+}
+
+export function getBotLogin(): Promise<{ success: boolean; data: WechatBotStatus }> {
+  return get('/api/agent/channel/bot-login')
+}
+
+export function startBotLogin(): Promise<{ success: boolean; data: WechatBotStatus }> {
+  return post('/api/agent/channel/bot-login/start', {})
+}
+
+export function pollBotLogin(): Promise<{ success: boolean; data: WechatBotStatus }> {
+  return get('/api/agent/channel/bot-login/status')
+}

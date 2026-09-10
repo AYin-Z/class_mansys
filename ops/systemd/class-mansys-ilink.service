@@ -6,8 +6,9 @@ After=network-online.target class-mansys.service
 Type=simple
 WorkingDirectory=/home/ayin/Current_Works/class_mansys/backend
 ExecStart=/usr/bin/node /home/ayin/Current_Works/class_mansys/backend/scripts/ilink-worker.js
-Restart=always
-RestartSec=5
+# 未登录微信时脚本以 exit 0 结束（不重启，避免无凭证时空转）；异常退出才重试
+Restart=on-failure
+RestartSec=10
 StandardOutput=journal
 StandardError=journal
 

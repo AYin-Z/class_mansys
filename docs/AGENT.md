@@ -118,7 +118,8 @@ SELF_BASE_URL=            # 留空自动用 http://127.0.0.1:$PORT
 
 已实现直连 **iLink Bot API**（Hermes 同款协议），无需第三方网关：
 
-- 站内「办事助手 → 微信助手 & MCP 接入」生成 6 位绑定码（15 分钟一次性），微信私聊发 `/绑定 <码>`；
+- **超管扫码**：站内「办事助手 → 微信助手 / MCP 接入 → 连接微信机器人」生成二维码（`POST /api/agent/channel/bot-login/start`）→ 微信扫码确认 → 凭证落盘 + 自动拉起 worker（权限 `MANAGE_CHANNEL`，仅超管）；
+- 同学侧：同一个面板生成 6 位绑定码（15 分钟一次性），微信私聊发 `/绑定 <码>`；
 - `scripts/ilink-login.js` 扫码登录 → 凭证写入 `~/.class-mansys/weixin.json`（600）；
 - `scripts/ilink-worker.js` 长轮询（systemd 用户单元 `class-mansys-ilink.service`，模板见 `ops/systemd/`）；
 - 消息经 `ChannelService` → 同一 `AgentService`：权限/作用域/二次确认/审计完全一致；写操作回「确认」执行；

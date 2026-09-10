@@ -33,6 +33,17 @@
 
 ## 3. 部署步骤
 
+### 3.1 推荐：在 App 内扫码（超管，无需登录服务器）
+
+打开「办事助手 → 微信助手 / MCP 接入 → 连接微信机器人」，点「生成二维码并连接」，用微信扫码并在手机上确认。
+
+- 二维码由 `POST /api/agent/channel/bot-login/start` 生成（服务端 `qrcode` 库渲染成 data URL，5 分钟有效）；
+- 页面每 2.5 秒轮询 `GET /api/agent/channel/bot-login/status`：`wait → scaned → confirmed`；
+- 确认后凭证写入 `WEIXIN_CREDENTIALS_FILE`（默认 `~/.class-mansys/weixin.json`，600），并自动 `systemctl --user restart class-mansys-ilink` 拉起 worker；
+- 权限：`MANAGE_CHANNEL`（仅超管 role=8），非超管调用返回 403。
+
+### 3.2 等价：命令行扫码（首次装机器/排障用）
+
 ```bash
 # 1) 扫码登录，拿到 account_id / token（保存到 ~/.class-mansys/weixin.json，权限 600）
 cd backend && node scripts/ilink-login.js
@@ -40,7 +51,7 @@ cd backend && node scripts/ilink-login.js
 # 2) 起 worker（前台验证）
 node scripts/ilink-worker.js
 
-# 3) 常驻（用户级 systemd）
+# 3) 常驻（用户级 systemd；未登录微信时脚本 exit 0，不会空转重启）
 cp ops/systemd/class-mansys-ilink.service ~/.config/systemd/user/
 systemctl --user daemon-reload && systemctl --user enable --now class-mansys-ilink
 journalctl --user -u class-mansys-ilink -f
