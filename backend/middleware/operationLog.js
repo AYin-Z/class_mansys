@@ -25,15 +25,38 @@ function inferAction(method, urlPath) {
   return `${verb}:${tail}`;
 }
 
-function safeBodyDigest(body) {
+/**
+ * 敏感模块：正文内容一律不进审计日志
+ *
+ * 事故背景：审计日志曾把心理申请、匿名建议、留言的正文原样写进
+ * operation_logs.detail.body.content，而 /api/admin/operations（VIEW_ROSTER=角色1..9）
+ * 又会原样返回 detail —— 等于任何区队干部都能反查匿名内容。
+ */
+const SENSITIVE_PATH_RE = /^\/api\/(psychological|suggestion|message|auth)(\/|$)/;
+/** 只保留这些"非正文"字段，其余一律丢弃 */
+const SAFE_FIELDS = ['amount', 'type', 'status', 'leave_type', 'start_time', 'end_time', 'reason_code', 'score', 'category', 'is_todo'];
+
+function safeBodyDigest(body, path) {
   if (!body || typeof body !== 'object') return null;
-  // 拷一份并清洗密码/敏感字段
+  if (SENSITIVE_PATH_RE.test(String(path || ''))) {
+    // 敏感模块：只记字段名与长度，不记内容
+    const keys = Object.keys(body);
+    return { redacted: true, fields: keys.map((k) => k + ':' + String(body[k] === undefined ? '' : String(body[k]).length)) };
+  }
   const redact = ['password', 'pwd', 'superAdminPassword', 'token', 'refreshToken', 'secret'];
   const out = {};
   for (const [k, v] of Object.entries(body)) {
     if (redact.includes(k)) out[k] = '***';
     else if (typeof v === 'string' && v.length > 200) out[k] = v.slice(0, 200) + '…';
+    else if (v && typeof v === 'object') out[k] = '[object]';
     else out[k] = v;
+  }
+  // 附加白名单外的长文本字段（如 content/notes/details）做截断保护
+  for (const k of Object.keys(out)) {
+    if (typeof out[k] === 'string' && out[k].length > 200) out[k] = out[k].slice(0, 200) + '…';
+  }
+  if (!SAFE_FIELDS.some((f) => f in out) && Object.keys(out).length > 12) {
+    return { redacted: true, fields: Object.keys(out).slice(0, 12) };
   }
   return out;
 }
@@ -70,7 +93,7 @@ function operationLogger(req, res, next) {
         detail: {
           success,
           error: payload?.error,
-          body: safeBodyDigest(req.body),
+          body: safeBodyDigest(req.body, req.originalUrl || req.url),
           params: req.params && Object.keys(req.params).length ? req.params : undefined
         }
       });

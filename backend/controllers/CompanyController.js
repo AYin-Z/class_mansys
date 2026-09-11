@@ -1,5 +1,17 @@
 const db = require('../config/database');
 const Company = require('../models/Company');
+
+/**
+ * 取"今天"的本地日期（东八区）
+ *
+ * 不能用 new Date().toISOString().slice(0,10)：那是 UTC，
+ * 北京时间 00:00-08:00 会把"今天"算成昨天（早操/早集合时段必现）。
+ */
+function todayLocal() {
+  const now = new Date();
+  const cn = new Date(now.getTime() + (8 * 60 + now.getTimezoneOffset()) * 60 * 1000);
+  return cn.toISOString().slice(0, 10);
+}
 const { resolveScope } = require('../shared/scope');
 
 /**
@@ -18,7 +30,7 @@ class CompanyController {
         return res.status(403).json({ success: false, error: '仅区队管理层可查看中队概览' });
       }
 
-      const date = (req.query.date || '').trim() || new Date().toISOString().slice(0, 10);
+      const date = (req.query.date || '').trim() || todayLocal();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return res.status(400).json({ success: false, error: 'date 格式应为 YYYY-MM-DD' });
       }
@@ -144,7 +156,7 @@ class CompanyController {
       if (!scope.canViewCompany) {
         return res.status(403).json({ success: false, error: '仅区队管理层可查看中队请假明细' });
       }
-      const date = (req.query.date || '').trim() || new Date().toISOString().slice(0, 10);
+      const date = (req.query.date || '').trim() || todayLocal();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         return res.status(400).json({ success: false, error: 'date 格式应为 YYYY-MM-DD' });
       }

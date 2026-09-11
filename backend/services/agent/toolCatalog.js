@@ -198,24 +198,6 @@ function isWriteCall(tool, args) {
   return !!tool.write;
 }
 
-/**
- * 是否需要二次确认（写操作）
- *
- * 关键：**模块工具**的 action 是真实端点（"POST /api/points" 这种），
- * 早期只判断 curated 的 tool.write，导致模型改用模块工具即可绕过确认卡片直接写库。
- * 现在统一按"解析后的 HTTP 方法"判定：非 GET 一律需要确认。
- */
-function isWriteCall(tool, args) {
-  if (!tool) return false;
-  if (tool.kind === 'module') {
-    const action = String((args && args.action) || '');
-    const idx = action.indexOf(' ');
-    const method = idx > 0 ? action.slice(0, idx) : '';
-    return !!method && method.toUpperCase() !== 'GET';
-  }
-  if (tool.kind === 'local') return false;
-  return !!tool.write;
-}
 
 /** 转成 OpenAI function-calling 工具格式 */
 function toOpenAiTools(catalog) {

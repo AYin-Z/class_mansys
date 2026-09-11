@@ -137,7 +137,11 @@ class AdminController {
         [id]
       );
 
-      const operations = await OperationLog.recentByUser(id, 20);
+      // detail 可能含请求体片段；仅超管可见
+      const rawOperations = await OperationLog.recentByUser(id, 20);
+      const operations = Number(req.user.role) === 8
+        ? rawOperations
+        : rawOperations.map((r) => Object.assign({}, r, { detail: undefined }));
 
       const [[stats]] = await db.query(
         `SELECT
@@ -175,7 +179,10 @@ class AdminController {
         return res.status(403).json({ success: false, error: '无权查看其他区队操作记录' });
       }
       const rows = await OperationLog.recent({ classId: class_id, classIds, limit });
-      res.json({ success: true, operations: rows });
+      // detail 里可能含请求体片段；仅超管可见，其余角色只看"谁在什么时候做了什么"
+      const isSuper = Number(req.user.role) === 8;
+      const safeRows = isSuper ? rows : rows.map((r) => Object.assign({}, r, { detail: undefined }));
+      res.json({ success: true, operations: safeRows });
     } catch (e) {
       console.error('recentOperations failed:', e);
       res.status(500).json({ success: false, error: '获取操作记录失败' });
