@@ -40,11 +40,13 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Setup JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '21'
+      # 本机已装 OpenJDK 21，直接用本地 JDK：
+      # 原先用 actions/setup-java@v4 需要从 codeload.github.com 下载 action 包，
+      # 该机器到 GitHub 的网络经常超时（2026-06-27 与 2026-09-11 两次构建均因此失败）。
+      - name: Use local JDK 21
+        run: |
+          echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> "$GITHUB_ENV"
+          /usr/lib/jvm/java-21-openjdk-amd64/bin/java -version
 
       - name: ✅ 生成版本号
         id: version
