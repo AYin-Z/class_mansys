@@ -95,6 +95,13 @@ const LotteryManage = () => import('@/pages/lottery/manage.vue')
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/pages/index/index' },
+  /**
+   * 兜底路由（2026-09-11 事故后加）：
+   * 之前 tab/页面跳到一个不存在的路径时，Vue Router 匹配不到任何组件，
+   * 表现是「内容区一片空白、TabBar 还在、控制台无报错」，极难排查。
+   * 现在统一重定向回首页，并在下方守卫里把这条路径上报到诊断通道。
+   */
+  { path: '/:pathMatch(.*)*', name: 'not-found', redirect: '/pages/index/index' },
   { path: '/pages/features/index', name: 'features-index', component: Features },
 
   // ===== 登录 =====
@@ -220,6 +227,16 @@ function readStoredPermissions(): Record<string, boolean> | null {
 }
 
 router.beforeEach(async (to) => {
+  // 命中兜底路由说明代码里存在错误路径（历史事故：tab 写成 /pages/index）
+  if (to.name === 'not-found') {
+    try {
+      // 动态引入避免 router ↔ diagnostics 循环依赖
+      void import('@/utils/diagnostics').then(({ reportClient }) =>
+        reportClient({ kind: 'route-error', message: `未知路由：${to.fullPath}` })
+      )
+    } catch { /* ignore */ }
+    return true
+  }
   // 公开路由：登录页 & 超管登录页放行
   for (const prefix of PUBLIC_ROUTES) {
     if (to.path.startsWith(prefix)) return true

@@ -16,26 +16,7 @@ import { useUserStore } from '@/stores/user'
 import { useBadgeStore } from '@/stores/badge'
 import AppIcon from './AppIcon.vue'
 
-interface TabItem {
-  key: string
-  label: string
-  icon: string
-  path: string
-  /** 需要该权限才显示（服务端权限矩阵优先） */
-  perm?: string
-  /** 仅管理员可见 */
-  adminOnly?: boolean
-  /** 是否显示待办/未读角标 */
-  badge?: boolean
-}
-
-const TABS: TabItem[] = [
-  { key: 'home', label: '首页', icon: 'home', path: '/pages/index', badge: true },
-  { key: 'dashboard', label: '待办', icon: 'dashboard', path: '/pages/dashboard', badge: true },
-  { key: 'company', label: '中队', icon: 'building', path: '/pages/company', perm: 'VIEW_COMPANY' },
-  { key: 'agent', label: '助手', icon: 'sparkles', path: '/pages/agent' },
-  { key: 'profile', label: '我的', icon: 'user', path: '/pages/profile' },
-]
+import { TABS, type TabItem } from '@/router/tabs'
 
 const router = useRouter()
 const route = useRoute()
