@@ -186,27 +186,35 @@ jobs:
             "$APK_FILENAME"
 
       - name: 🚀 提交更新到仓库
-        # 构建期间 main 可能被别的 push 推进（今天就是这样失败的：
-        # CI Bot 的 push 被拒 non-fast-forward，导致版本文件与重启步骤全部跳过）。
-        # 这里先 rebase 到最新 main 再推，并重试 3 次。
+        # 并发/重试要注意两点（今天各踩到一次）：
+        #  1. 构建期间 main 可能被别的 push 推进 → 直接 push 会 non-fast-forward；
+        #  2. 用 rebase 对齐远端会与上一次构建提交的 app-version.json 冲突。
+        # 因此这里改成：保存生成结果 → fetch + reset 到远端 → 重新落地文件 → 提交 → 推送（失败重试）。
         run: |
           git config user.name "CI Bot"
           git config user.email "ci@clamansys.app"
-          git add backend/data/app-version.json
-          git commit -m "chore: auto-build APK v${{ steps.version.outputs.VERSION_NAME }} (code ${{ steps.version.outputs.VERSION_CODE }})" || echo "无变更需要提交"
+          VERSION_NAME="${{ steps.version.outputs.VERSION_NAME }}"
+          VERSION_CODE="${{ steps.version.outputs.VERSION_CODE }}"
+          cp backend/data/app-version.json /tmp/ci-app-version.json
 
-          for i in 1 2 3; do
+          for i in 1 2 3 4 5; do
             git fetch origin main
-            # 只动 backend/data/app-version.json，rebase 不会冲突
-            git rebase origin/main || { echo "::warning::rebase 失败，尝试中止后继续"; git rebase --abort || true; }
+            git reset --hard origin/main
+            cp /tmp/ci-app-version.json backend/data/app-version.json
+            git add backend/data/app-version.json
+            if git diff --cached --quiet; then
+              echo "版本文件与远端一致，无需提交"
+              exit 0
+            fi
+            git commit -q -m "chore: auto-build APK v${VERSION_NAME} (code ${VERSION_CODE})"
             if git push origin main; then
               echo "已推送版本文件（第 $i 次尝试）"
               exit 0
             fi
-            echo "::warning::第 $i 次推送被拒（远端已前进），5 秒后重试"
+            echo "::warning::第 $i 次推送被拒（远端又前进了），5 秒后重试"
             sleep 5
           done
-          echo "::error::连续 3 次推送失败，请检查 main 是否有保护规则或冲突"
+          echo "::error::连续 5 次推送失败，请检查 main 是否有保护规则或冲突"
           exit 1
 
       - name: 🔄 同步代码到生产目录
