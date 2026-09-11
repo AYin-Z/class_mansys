@@ -1,6 +1,6 @@
 const AgentRepo = require('./repo');
 const llm = require('./llm');
-const { buildTools, toOpenAiTools } = require('./toolCatalog');
+const { buildTools, toOpenAiTools, isWriteCall } = require('./toolCatalog');
 const { preview, execute } = require('./toolRunner');
 const { buildSystemPrompt } = require('./persona');
 const { normalize: normalizeAttachments, withAttachmentText } = require('./attachments');
@@ -86,7 +86,8 @@ class AgentService {
         }
 
         // 写操作 → 生成待确认动作，交给用户确认
-        if (tool.write) {
+        // （模块工具的 action 是真实端点，非 GET 也必须走确认，否则可绕过确认直接写库）
+        if (isWriteCall(tool, args)) {
           const actionId = await AgentRepo.createAction({
             conversationId: convId,
             userId: user.id,
@@ -216,7 +217,7 @@ class AgentService {
           messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: '未知工具 ' + name }) });
           continue;
         }
-        if (tool.write) {
+        if (isWriteCall(tool, args)) {
           const actionId = await AgentRepo.createAction({
             conversationId: convId, userId: user.id, tool: tool.name, method: tool.method, path: tool.path,
             params: args, preview: preview(tool, args), ttlMs: env.AGENT_ACTION_TTL_MS

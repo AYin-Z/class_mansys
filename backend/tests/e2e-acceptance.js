@@ -56,6 +56,24 @@ const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
   check('学员 PUT role=8 未生效', after.role === 0, 'role=' + after.role);
   check('学员 class_id 未被篡改', String(after.class_id) === String(me6.class_id), 'class_id=' + after.class_id);
 
+  section('P0-1 用户资料接口越权（账号接管链）');
+  const allUsers = await req('GET', '/api/users', { token: adminToken });
+  const anyUser = (allUsers.data.users || [])[0] || {};
+  check('用户列表不含手机号/邮箱', !('phone' in anyUser) && !('email' in anyUser), JSON.stringify(anyUser).slice(0, 120));
+  const studentList = await req('GET', '/api/users', { token: student6Token });
+  check('学员不能拉取用户列表', studentList.status === 403, 'status=' + studentList.status);
+  const selfEdit = await req('PUT', '/api/users/' + me6.id, { token: student6Token, body: { phone: '13900000009' } });
+  check('本人可改自己联系方式', selfEdit.status === 200, 'status=' + selfEdit.status);
+  const otherEdit = await req('PUT', '/api/users/' + me7.id, { token: student6Token, body: { phone: '13900000010' } });
+  check('学员不能改他人资料', otherEdit.status === 403, 'status=' + otherEdit.status);
+  const adminUser = (allUsers.data.users || []).find(function (u) { return u.role === 8; });
+  const cadreEditAdmin = await req('PUT', '/api/users/' + (adminUser ? adminUser.id : 0), { token: leader6Token, body: { email: 'attacker@example.com' } });
+  check('干部不能改他人邮箱（防验证码接管）', cadreEditAdmin.status === 403, 'status=' + cadreEditAdmin.status);
+  const adminEditOtherEmail = await req('PUT', '/api/users/' + me6.id, { token: adminToken, body: { email: 'attacker2@example.com' } });
+  check('超管也不能改他人邮箱', adminEditOtherEmail.status === 400, 'status=' + adminEditOtherEmail.status);
+  const cadreDeleteOther = await req('DELETE', '/api/users/' + me7.id, { token: leader6Token });
+  check('干部不能删除他人账号', cadreDeleteOther.status === 403, 'status=' + cadreDeleteOther.status);
+
   section('P0-3 越权写操作');
   const a1 = await req('POST', '/api/announcement/create', { token: student6Token, body: { title: 'x', content: 'y' } });
   check('学员发公告被拒', a1.status === 403, 'status=' + a1.status);

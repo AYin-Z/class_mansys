@@ -2,6 +2,11 @@ const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { buildTools } = require('../agent/toolCatalog');
 const { buildMcpTools } = require('../mcp/mcpTools');
 const { execute } = require('../agent/toolRunner');
+const { isWriteCall } = require('../agent/toolCatalog');
+const AgentRepo = require('../agent/repo');
+const AgentService = require('../agent/agentService');
+const { env } = require('../../config/env');
+const { preview } = require('../agent/toolRunner');
 
 /**
  * 组装 MCP Server（stdio 与 HTTP 共用）
@@ -36,6 +41,30 @@ function buildMcpServer({ app, user, jwt, allowWrite }) {
       { title: t.name, description: t.description, inputSchema: t.shape },
       async (args) => {
         try {
+          // 写操作不直接落库：先生成待确认动作，由用户在自己的客户端里确认后执行
+          if (isWriteCall(t.tool, args)) {
+            const actionId = await AgentRepo.createAction({
+              conversationId: null,
+              userId: user.id,
+              tool: t.tool.name,
+              method: t.tool.method || (String((args || {}).action || '').split(' ')[0] || 'POST'),
+              path: t.tool.path || String((args || {}).action || '').split(' ').slice(1).join(' '),
+              params: args || {},
+              preview: preview(t.tool, args || {}),
+              ttlMs: env.AGENT_ACTION_TTL_MS
+            });
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  status: 'pending_confirmation',
+                  actionId,
+                  preview: preview(t.tool, args || {}),
+                  hint: '这是写操作，尚未落库。请把 actionId 交给用户确认后，调用 cm_agent_confirm 才会真正执行（' + Math.round(env.AGENT_ACTION_TTL_MS / 1000) + ' 秒内有效）。'
+                })
+              }]
+            };
+          }
           const result = await execute(t.tool, args || {}, { token: jwt, userId: user.id });
           const text = JSON.stringify({ status: result.status, data: result.data }).slice(0, 12000);
           if (!result.ok) return { isError: true, content: [{ type: 'text', text }] };
@@ -46,6 +75,25 @@ function buildMcpServer({ app, user, jwt, allowWrite }) {
       }
     );
   }
+
+  // 写操作的第二步：确认执行（与站内、微信一致的两阶段确认）
+  // 只在暴露写工具时注册，避免只读模式下工具数与文档口径不一致
+  if (allowWrite) server.registerTool(
+    'cm_agent_confirm',
+    {
+      title: 'cm_agent_confirm',
+      description: '确认执行一个待确认动作（写操作第二步）。参数 actionId 来自写工具返回的 pending_confirmation。',
+      inputSchema: { actionId: require('zod').z.union([require('zod').z.string(), require('zod').z.number()]) }
+    },
+    async (args) => {
+      try {
+        const result = await AgentService.confirm({ id: user.id, name: user.name, role: user.role }, jwt, Number((args || {}).actionId), app);
+        return { content: [{ type: 'text', text: JSON.stringify(result).slice(0, 12000) }] };
+      } catch (e) {
+        return { isError: true, content: [{ type: 'text', text: '确认失败：' + e.message }] };
+      }
+    }
+  );
 
   return { server, tools };
 }
