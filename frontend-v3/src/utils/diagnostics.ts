@@ -12,7 +12,12 @@
 
 const BUILD_ID = typeof __APP_BUILD_ID__ === 'string' ? __APP_BUILD_ID__ : 'unknown'
 
-export type ClientLogKind = 'boot-ok' | 'error' | 'unhandledrejection' | 'route-error' | 'vue-error' | 'timeout'
+export type ClientLogKind =
+  | 'boot-ok' | 'error' | 'unhandledrejection' | 'route-error' | 'vue-error' | 'timeout'
+  /** 路由已切换但内容区是空的：把现场快照一并上报（2026-09-11 手机端"内容全白"排查用） */
+  | 'empty-content'
+  /** 内容正常时的抽样（只上报一次，用于确认设备链路） */
+  | 'content-ok'
 
 interface ClientLogPayload {
   kind: ClientLogKind
@@ -21,6 +26,8 @@ interface ClientLogPayload {
   message?: string
   stack?: string
   viewport?: string
+  /** 现场快照（只有 empty-content / content-ok 会带） */
+  snapshot?: Record<string, unknown>
 }
 
 const CLIP = 600
@@ -39,6 +46,7 @@ export function reportClient(payload: ClientLogPayload): void {
       message: clip(payload.message),
       stack: clip(payload.stack),
       viewport: payload.viewport || (typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : ''),
+      snapshot: payload.snapshot,
     })
     // sendBeacon 不阻塞、页面崩溃/卸载时也能发出；不支持时退回 fetch(keepalive)
     if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
@@ -53,6 +61,49 @@ export function reportClient(payload: ClientLogPayload): void {
     }).catch(() => { /* 上报失败不影响业务 */ })
   } catch {
     /* 上报本身绝不能抛错 */
+  }
+}
+
+/**
+ * 采集"内容区到底渲染成什么样"的现场快照
+ *
+ * 手机端出现过：TabBar 正常、无任何 JS 报错、但内容区一片白。
+ * 这类问题必须看设备现场的样式与 DOM 结构，因此把关键计算值一起上报。
+ */
+export function collectSnapshot(routePath: string): Record<string, unknown> {
+  try {
+    const content = document.querySelector('.app-content') as HTMLElement | null
+    const pageRoot = content?.firstElementChild as HTMLElement | null
+    const cs = pageRoot ? getComputedStyle(pageRoot) : null
+    const rootCs = getComputedStyle(document.documentElement)
+    const rect = pageRoot?.getBoundingClientRect()
+    return {
+      route: routePath,
+      hash: location.hash,
+      contentTextLen: (content?.innerText || '').trim().length,
+      contentTextHead: (content?.innerText || '').replace(/\s+/g, ' ').slice(0, 80),
+      contentChildCount: content?.children.length ?? -1,
+      pageRootClass: pageRoot ? String(pageRoot.className) : null,
+      pageRootRect: rect ? `${Math.round(rect.width)}x${Math.round(rect.height)}@${Math.round(rect.top)}` : null,
+      pageRootDisplay: cs?.display || null,
+      pageRootVisibility: cs?.visibility || null,
+      pageRootOpacity: cs?.opacity || null,
+      pageRootColor: cs?.color || null,
+      pageRootBg: cs?.backgroundColor || null,
+      pageRootOverflow: cs?.overflow || null,
+      bodyBg: getComputedStyle(document.body).backgroundColor,
+      theme: document.documentElement.getAttribute('data-theme'),
+      prefersDark: typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)').matches : null,
+      varBg: rootCs.getPropertyValue('--color-bg').trim(),
+      varText: rootCs.getPropertyValue('--color-text').trim(),
+      varTabbarH: rootCs.getPropertyValue('--tabbar-h').trim(),
+      styleSheets: document.styleSheets.length,
+      tabbar: !!document.querySelector('.tab-bar'),
+      scrollY: Math.round(window.scrollY),
+      docHeight: document.documentElement.scrollHeight,
+    }
+  } catch (e) {
+    return { snapshotError: String((e as Error)?.message || e) }
   }
 }
 

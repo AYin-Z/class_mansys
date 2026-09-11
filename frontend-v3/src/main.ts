@@ -7,7 +7,7 @@ import { setRouteGuard, setRequestToastHandler, setAuthFailureHandler } from '@/
 import { showToast, clearToasts } from '@/utils/ui'
 import { initTheme } from '@/utils/theme'
 import { useUserStore } from '@/stores/user'
-import { reportBootOk, reportClient } from '@/utils/diagnostics'
+import { collectSnapshot, reportBootOk, reportClient } from '@/utils/diagnostics'
 
 // 主题必须在挂载前应用：否则冷启动会先闪一下亮色
 initTheme()
@@ -33,8 +33,29 @@ setAuthFailureHandler(() => {
 })
 
 // 切页时清掉残留提示，避免上一个页面的错误提示漂到新页面
-router.afterEach(() => {
+router.afterEach((to) => {
   clearToasts()
+  /**
+   * 内容区自检（2026-09-11 手机端"内容全白但无报错"排查）
+   *
+   * 挂载成功 ≠ 页面渲染成功：路由已切换但 .app-content 里没有文本，
+   * 说明是"渲染了但不可见"或"根本没匹配到内容"。
+   * 这种情况没有异常可抓，只能把设备现场的样式/DOM 快照上报回来。
+   */
+  setTimeout(() => {
+    const content = document.querySelector('.app-content') as HTMLElement | null
+    const textLen = (content?.innerText || '').trim().length
+    if (textLen === 0) {
+      reportClient({
+        kind: 'empty-content',
+        message: `空内容：${to.fullPath}`,
+        snapshot: collectSnapshot(to.fullPath),
+      })
+    } else if (!(window as unknown as { __contentOkReported__?: boolean }).__contentOkReported__) {
+      ;(window as unknown as { __contentOkReported__?: boolean }).__contentOkReported__ = true
+      reportClient({ kind: 'content-ok', message: to.fullPath, snapshot: collectSnapshot(to.fullPath) })
+    }
+  }, 1500)
 })
 
 /**
