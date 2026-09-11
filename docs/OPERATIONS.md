@@ -42,9 +42,11 @@ cd backend && node tests/restore-db.js class_manage_sys /home/ayin/db_backups/<f
 - 机制：`backend/middleware/uploadAuth.js`，支持 `Authorization: Bearer <jwt>` 或 `?token=<jwt>`。
 - 前端统一用 `frontend-v3/src/utils/media.ts` 的 `mediaUrl()` / `openMedia()` 追加令牌；新增页面渲染上传资源时必须使用它。
 - **模式开关**：`UPLOAD_AUTH_MODE`（`strict` | `compat`，默认 `strict`）。
-  - `compat`：放行未携带令牌的请求（仅首次打印告警），用于兼容尚未带令牌的旧 APK。**当前生产为 compat**。
-  - 切换到 strict 的时机：新版 APK（含 mediaUrl）发布并铺开后，把 `backend/.env` 的 `UPLOAD_AUTH_MODE` 改为 `strict` 并重启服务。
-  - 切换后自检：`curl -o /dev/null -w "%{http_code}" http://127.0.0.1:3002/uploads/leaves/<file>` 应为 401。
+  - `compat`：放行未携带令牌的请求（仅首次打印告警），仅用于兼容尚未带令牌的旧 APK，**不要长期使用**（等于上传资源全部公开）。
+  - **当前生产已切换为 `strict`**（2026-09-11）：无令牌访问 `/uploads/**` 返回 401，带令牌返回 200 且响应头为 `Cache-Control: private, max-age=300`。
+  - 自检：`curl -o /dev/null -w "%{http_code}" http://127.0.0.1:3002/uploads/leaves/<file>` 应为 401；经 nginx 同样应为 401（记得带 `Host: cls.ayinserver.xin`）。
+  - **nginx 注意**：`location /uploads/` 里**不要**再写 `expires` 或 `add_header Cache-Control "public"` —— 会与应用的 `private` 冲突，把受保护的请假证明/报销凭证放进共享缓存 7 天（本轮已从仓库 `nginx-cls.conf` 与线上 `/etc/nginx/sites-enabled/cls.ayinserver.xin` 移除，缓存策略统一由应用决定）。
+  - 日志脱敏：`config/logger.js` 对 `req.url`/`url`/`*.url` 做敏感参数局部脱敏（token/secret/password/code 等 → `***`），并覆盖了 pino 会把 `req.query` 序列化落盘的问题。
 - `/apk/**` 仍为公开静态目录（App 自助下载），产物在 `APK_DIR`（默认 `/home/ayin/class-mansys-artifacts/apk`）。
 
 ## 4.1 定时任务
