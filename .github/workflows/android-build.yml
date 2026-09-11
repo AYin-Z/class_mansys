@@ -157,15 +157,27 @@ jobs:
           echo "SIZE=${APK_SIZE}" >> $GITHUB_OUTPUT
 
       - name: 📝 更新 app-version.json
+        # ⚠️ 提交信息必须经 env 传入，不能直接内插进 run: 脚本体：
+        # 多行 commit message（带换行/引号）会把 shell 脚本拦腰截断，
+        # 之前的失败就是 "line 14: input: command not found"（exit 127）。
+        # changelog 传**原始文本**，JSON 转义交给脚本自己处理（不要再 json.dumps）。
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.VERSION_NAME }}
+          VERSION_CODE: ${{ steps.version.outputs.VERSION_CODE }}
+          APK_FILENAME: ${{ steps.version.outputs.APK_FILENAME }}
+          APK_SIZE: ${{ steps.apk-info.outputs.SIZE }}
+          HEAD_MSG: ${{ github.event.head_commit.message }}
+          INPUT_MSG: ${{ github.event.inputs.changelog }}
         run: |
-          CHANGELOG="${{ github.event.head_commit.message || github.event.inputs.changelog || '自动构建更新' }}"
-          # 转义 JSON 特殊字符
-          CHANGELOG_ESCAPED=$(echo "$CHANGELOG" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))' 2>/dev/null || echo "\"$CHANGELOG\"")
+          # changelog 只取提交标题行，避免整段提交正文塞进 App 更新弹窗
+          CHANGELOG="${INPUT_MSG:-$(printf '%s' "$HEAD_MSG" | head -1)}"
+          CHANGELOG="${CHANGELOG:-自动构建更新}"
           bash scripts/update-app-version.sh \
-            "${{ steps.version.outputs.VERSION_NAME }}" \
-            "${{ steps.version.outputs.VERSION_CODE }}" \
-            "${{ steps.apk-info.outputs.SIZE }}" \
-            "$CHANGELOG_ESCAPED"
+            "$VERSION_NAME" \
+            "$VERSION_CODE" \
+            "$APK_SIZE" \
+            "$CHANGELOG" \
+            "$APK_FILENAME"
 
       - name: 🚀 提交更新到仓库
         run: |

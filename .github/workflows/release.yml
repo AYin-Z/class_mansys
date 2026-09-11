@@ -138,18 +138,21 @@ jobs:
           fi
 
       - name: 📝 更新 app-version.json
+        # changelog 传原始文本，JSON 转义由脚本负责（历史上这里先 json.dumps 再被脚本加引号，
+        # 写出 "changelog": ""xxx"" 非法 JSON）；同时明确传入 APK 文件名，避免取错文件。
+        env:
+          VERSION_NAME: ${{ steps.version.outputs.VERSION_NAME }}
+          VERSION_CODE: ${{ steps.version-code.outputs.VERSION_CODE }}
         run: |
-          APK_PATH="${APK_OUT_DIR:-/home/ayin/class-mansys-artifacts/apk}/class-mansys-v${{ steps.version.outputs.VERSION_NAME }}-release.apk"
-          APK_SIZE=$(stat -c%s "$APK_PATH" 2>/dev/null || echo 0)
-          # 从 tag 注释或最近的 git log 获取 changelog
-          CHANGELOG="Release ${{ steps.version.outputs.VERSION_NAME }}"
-          # 转义
-          CHANGELOG_ESCAPED=$(echo "$CHANGELOG" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')
+          APK_OUT="${APK_OUT_DIR:-/home/ayin/class-mansys-artifacts/apk}"
+          APK_NAME="class-mansys-v${VERSION_NAME}-release.apk"
+          APK_SIZE=$(stat -c%s "$APK_OUT/$APK_NAME" 2>/dev/null || echo 0)
           bash scripts/update-app-version.sh \
-            "${{ steps.version.outputs.VERSION_NAME }}" \
-            "${{ steps.version-code.outputs.VERSION_CODE }}" \
+            "$VERSION_NAME" \
+            "$VERSION_CODE" \
             "$APK_SIZE" \
-            "$CHANGELOG_ESCAPED"
+            "Release $VERSION_NAME" \
+            "$APK_NAME"
 
       - name: 🚀 提交 APK 和版本文件到仓库
         run: |
