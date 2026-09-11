@@ -6,6 +6,7 @@ import { useUserStore } from '@/stores/user'
 import { updateUser } from '@/api/user'
 import { changePassword } from '@/api/auth'
 import { getLatestVersion } from '@/api/app'
+import { APP_VERSION, hasUpdate } from '@/utils/version'
 import NavBar from '@/components/ui/NavBar.vue'
 import { showToast } from '@/utils/ui'
 
@@ -109,22 +110,39 @@ async function handleChangePassword() {
 // 检查更新
 const checkingUpdate = ref(false)
 const updateInfo = ref<{ versionName: string; downloadUrl: string; changelog: string; apkSize: number; forceUpdate: boolean } | null>(null)
+// 已是最新版本（避免"点了检查更新永远显示有新版本"的误导）
+const upToDate = ref(false)
 
 async function checkUpdate() {
   checkingUpdate.value = true
   updateInfo.value = null
+  upToDate.value = false
   try {
     const res = await getLatestVersion()
     if (res.success && res.data) {
-      updateInfo.value = res.data
+      if (hasUpdate(res.data.versionName)) {
+        updateInfo.value = res.data
+      } else {
+        upToDate.value = true
+        showToast(`已是最新版本 v${APP_VERSION}`, 'success')
+      }
     } else {
       showToast('获取版本信息失败', 'error')
     }
   } catch {
-    showToast('检查更新失败', 'error')
+    showToast('检查更新失败，请检查网络后重试', 'error')
   } finally {
     checkingUpdate.value = false
   }
+}
+
+// APK 下载：Capacitor 把 '_system' 交给系统浏览器打开（App 内 WebView 直接跳转会留在壳里甚至无反应），
+// H5 下与普通新开标签页等价。
+function downloadApk() {
+  const url = updateInfo.value?.downloadUrl
+  if (!url) return
+  const win = window.open(url, '_system')
+  if (!win) window.location.href = url
 }
 
 function formatSize(bytes: number): string {
@@ -213,21 +231,21 @@ function handleLogout() {
     <div class="section">
       <div class="section-title">检查更新</div>
       <div class="card">
-        <div class="update-item" @click="checkUpdate">
+        <div class="update-item">
           <span class="update-label">当前版本</span>
-          <span class="update-value">v1.0.0</span>
+          <span class="update-value">v{{ APP_VERSION }}</span>
         </div>
       </div>
       <button v-if="!updateInfo" class="btn btn-primary" :disabled="checkingUpdate" @click="checkUpdate">
-        {{ checkingUpdate ? '检查中...' : '检查更新' }}
+        {{ checkingUpdate ? '检查中...' : upToDate ? '已是最新版本' : '检查更新' }}
       </button>
       <template v-if="updateInfo">
         <div class="card update-card">
-          <div class="update-badge">最新版本 {{ updateInfo.versionName }}</div>
+          <div class="update-badge">发现新版本 {{ updateInfo.versionName }}</div>
           <div class="update-size">大小：{{ formatSize(updateInfo.apkSize) }}</div>
           <div class="update-changelog-title">更新内容</div>
           <pre class="update-changelog">{{ updateInfo.changelog }}</pre>
-          <a class="btn btn-primary download-btn" :href="updateInfo.downloadUrl" target="_blank">下载 APK</a>
+          <button class="btn btn-primary download-btn" @click="downloadApk">下载并安装</button>
         </div>
       </template>
     </div>
