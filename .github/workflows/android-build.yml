@@ -186,12 +186,28 @@ jobs:
             "$APK_FILENAME"
 
       - name: 🚀 提交更新到仓库
+        # 构建期间 main 可能被别的 push 推进（今天就是这样失败的：
+        # CI Bot 的 push 被拒 non-fast-forward，导致版本文件与重启步骤全部跳过）。
+        # 这里先 rebase 到最新 main 再推，并重试 3 次。
         run: |
           git config user.name "CI Bot"
           git config user.email "ci@clamansys.app"
           git add backend/data/app-version.json
           git commit -m "chore: auto-build APK v${{ steps.version.outputs.VERSION_NAME }} (code ${{ steps.version.outputs.VERSION_CODE }})" || echo "无变更需要提交"
-          git push origin main
+
+          for i in 1 2 3; do
+            git fetch origin main
+            # 只动 backend/data/app-version.json，rebase 不会冲突
+            git rebase origin/main || { echo "::warning::rebase 失败，尝试中止后继续"; git rebase --abort || true; }
+            if git push origin main; then
+              echo "已推送版本文件（第 $i 次尝试）"
+              exit 0
+            fi
+            echo "::warning::第 $i 次推送被拒（远端已前进），5 秒后重试"
+            sleep 5
+          done
+          echo "::error::连续 3 次推送失败，请检查 main 是否有保护规则或冲突"
+          exit 1
 
       - name: 🔄 同步代码到生产目录
         # 生产服务跑在 /home/ayin/Current_Works/class_mansys（与 runner 的 checkout 不是一个目录），
