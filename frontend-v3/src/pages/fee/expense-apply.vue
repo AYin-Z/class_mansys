@@ -3,7 +3,8 @@ import { mediaUrl, openMedia } from '@/utils/media'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createExpense } from '@/api/fee'
-import { toastIfNotNotified, uploadFile } from '@/utils/request'
+import {toastIfNotNotified} from '@/utils/request'
+import { uploadMedia } from '@/utils/upload'
 import NavBar from '@/components/ui/NavBar.vue'
 import { showToast } from '@/utils/ui'
 
@@ -24,8 +25,9 @@ async function handleFileChange(e: Event) {
   if (file.size > 10 * 1024 * 1024) { showToast('文件不超过10MB', 'error'); target.value = ''; return }
   uploading.value = true
   try {
-    const res = await uploadFile('/api/fee/proof/upload', file)
-    if (res.success && res.url) {
+    // 统一媒体端点：图片压缩 + 服务端生成缩略图（供审批列表快速预览）
+    const res = await uploadMedia(file, 'fee')
+    if (res.url) {
       proofUrl.value = res.url
       previewUrl.value = res.url
       showToast('上传成功')

@@ -289,3 +289,54 @@ console.log('ES2019 不通过的 chunk:',bad)"
    （已验证：把路径改回错的，`npm test` 立即失败）；
 4. 发布前自检建议：**任何改到导航/路由的改动，都要跑一次"逐个点击 tab"的端到端检查**，
    不能只按完整 URL 访问页面。
+
+## 12. 文件上下行通路（2026-09 改造）
+
+### 12.1 上传：一个端点 + 客户端压缩
+
+| 项目 | 改造前 | 现在 |
+|---|---|---|
+| 端点 | leave / album / fee / homework / announcement / agent 各一套 multer 与 URL，响应字段还不一致 | 统一 `POST /api/media/upload?kind=<album\|proof\|resource\|agent\|homework\|fee>`，返回 `{url, thumbUrl, mediumUrl, width, height, size, mime}` |
+| 老端点 | — | 全部保留（旧 APK 不能失效），内部同样走媒体服务 |
+| 客户端 | 原图直传（手机照片 3–6MB） | `utils/upload.ts`：canvas 压缩（长边 2560 / 质量 0.85，按 EXIF 摆正）→ 通常降到 200–400KB |
+| 进度 | 无 | XHR 上传进度，逐张显示 |
+| 失败处理 | 整批重来 | 并发 3、单张重试 2 次（指数退避）、可取消、失败项可单独重试 |
+| 校验 | 各端点各写一套 | `KINDS` 表统一（目录/体积上限/是否仅图片） |
+
+体积上限：album 25MB、proof 10MB、agent 20MB、resource/homework/fee 100MB。
+`media_assets` 表记录每次上传（含 thumb/medium），用于反查引用与清理。
+
+### 12.2 下行：三档图 + 缓存
+
+上传时用 **ImageMagick**（宿主机自带 `magick`，不新增 npm 依赖）生成两档派生图：
+
+| 档位 | 尺寸 | 典型体积 | 用途 |
+|---|---|---|---|
+| `url` | 长边 ≤2560（客户端已压） | 200KB–1MB | 保存原图 / 需要细节时 |
+| `medium_url` | 长边 ≤1440，quality 82 | 200–400KB | 查看器大图 |
+| `thumb_url` | ≤480，quality 78 | **20–60KB** | 相册网格、列表封面 |
+
+效果：一个 30 张的相册，网格从「100MB+ 原图」降到约 **1MB**；查看器按需加载 medium。
+
+其它：
+- 派生图生成失败**不影响上传成功**（优雅降级，前端回落到原图）；
+- `-auto-orient` 按 EXIF 摆正（手机竖拍不再侧躺）；`-strip` 去掉 EXIF/GPS；
+- 缓存：`/uploads/**` 从 `max-age=300` 改为 `private, max-age=604800, immutable`
+  （文件名含时间戳+随机串，内容不可变；URL 里的令牌在一次登录会话内稳定），
+  仍然禁止 CDN 共享缓存，避免隐私材料外泄；
+- 删除照片/相册会连带删除原图与两档派生图（不再留孤儿）。
+
+### 12.3 孤儿文件巡检与清理
+
+```bash
+cd backend
+node scripts/media-gc.js                 # 巡检（dry-run，默认把 14 天内的新文件视为"可能还没落库"）
+node scripts/media-gc.js --days=30       # 调整保护期
+node scripts/media-gc.js --json --all    # 机器可读全量清单（可配合 mysqldump 交叉校验）
+node scripts/media-gc.js --yes           # 真正删除孤儿文件
+```
+
+2026-09-11 首次执行：巡检发现 **51 个孤儿文件 / 90.2MB**（早期版本删记录不删文件留下的），
+先用 `mysqldump --no-create-info` 全库反查确认无任何引用后清理，`uploads/` 从 145MB 降到 55MB。
+
+建议：每月跑一次 dry-run 看报表；确认后再 `--yes`。

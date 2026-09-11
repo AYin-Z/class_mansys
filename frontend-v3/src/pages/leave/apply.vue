@@ -4,7 +4,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { applyLeave } from '@/api/leave'
 import { getLeaveTypes, type LeaveTypeConfig } from '@/api/leave-config'
-import { toastIfNotNotified, uploadFile } from '@/utils/request'
+import {toastIfNotNotified} from '@/utils/request'
+import { uploadMedia } from '@/utils/upload'
 import NavBar from '@/components/ui/NavBar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { showConfirm, showToast } from '@/utils/ui'
@@ -223,8 +224,9 @@ async function handleProofChange(e: Event) {
   if (file.size > 10 * 1024 * 1024) { showToast('图片≤10MB', 'error'); target.value = ''; return }
   uploadingProof.value = true
   try {
-    const res = await uploadFile('/api/leave/upload-proof', file)
-    if (res.success && res.url) proofs.value.push(res.url)
+    // 走统一媒体端点：上传前压缩（手机照片 3MB → 300KB 量级），并生成缩略图
+    const res = await uploadMedia(file, 'proof')
+    if (res.url) proofs.value.push(res.url)
   } catch (e: any) { showToast(e.message || '上传失败', 'error') }
   finally { uploadingProof.value = false; target.value = '' }
 }

@@ -1,4 +1,5 @@
-import { get, post, del, uploadFile, apiUrl } from '../utils/request'
+import { get, post, del, apiUrl } from '../utils/request'
+import { uploadMedia } from '../utils/upload'
 
 export interface AgentMessage {
   id?: number
@@ -55,7 +56,8 @@ export function agentChat(message: string, conversationId?: number, attachments?
 
 /** 上传对话附件（图片），返回可直接放进消息的 url */
 export function uploadAgentAttachment(file: File): Promise<{ success: boolean; url: string; name: string; mime: string; size: number }> {
-  return uploadFile('/api/agent/upload', file)
+  // 统一媒体端点（kind=agent 仅图片，客户端会先压缩）
+  return uploadMedia(file, 'agent') as any
 }
 
 export function agentConfirm(actionId: number): Promise<{ success: boolean; reply: string; successFlag?: boolean }> {

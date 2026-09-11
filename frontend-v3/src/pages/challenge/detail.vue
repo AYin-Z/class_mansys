@@ -18,9 +18,10 @@ import {
   getChallengeDetail, applyChallenge, judgeApplication, getMyChallengeApplications,
   CHALLENGE_APP_STATUS_LABEL,
 } from '@/api/challenge'
-import { uploadFile, toastIfNotNotified } from '@/utils/request'
+import {toastIfNotNotified} from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 import type { ChallengeItem, ChallengeRecord, ChallengeApplication } from '@/api/challenge'
+import { uploadMedia } from '@/utils/upload'
 import NavBar from '@/components/ui/NavBar.vue'
 import StateView from '@/components/ui/StateView.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -203,8 +204,9 @@ async function handleProofChange(e: Event) {
   if (!file.type.startsWith('image/')) { showToast('仅支持图片', 'error'); target.value = ''; return }
   uploadingProof.value = true
   try {
-    const res = await uploadFile('/api/challenge/upload-proof', file)
-    if (res.success && res.url) proofUrls.value.push(res.url)
+    // 统一媒体端点（图片会先压缩）
+    const res = await uploadMedia(file, 'proof')
+    if (res.url) proofUrls.value.push(res.url)
   } catch (e) {
     toastIfNotNotified(e, '证明上传失败，请稍后重试')
   }

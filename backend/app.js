@@ -157,6 +157,7 @@ const ROUTE_MOUNTS = [
   ['/api/notice', require('./routes/notice')],
   ['/api/announcement', require('./routes/announcement')],
   ['/api/album', require('./routes/album')],
+  ['/api/media', require('./routes/media')],
   ['/api/fee', require('./routes/fee')],
   ['/api/homework', require('./routes/homework')],
   ['/api/psychological', require('./routes/psychological')],

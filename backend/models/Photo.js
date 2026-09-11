@@ -1,14 +1,45 @@
 const db = require('../config/database');
 
 class Photo {
-  static async create({ album_id, url, description, uploader_id, auto_approve = false }) {
+  /**
+   * @param {object} p
+   * @param {string} p.url        原图（客户端已压缩）
+   * @param {string} [p.thumb_url]  480px 缩略图（网格/列表用，几乎总是要带）
+   * @param {string} [p.medium_url] 1440px 中等图（查看器用）
+   */
+  static async create({
+    album_id, url, thumb_url = null, medium_url = null,
+    width = null, height = null, size = null, mime = null,
+    description, uploader_id, auto_approve = false
+  }) {
     const isApproved = auto_approve ? true : false;
     const [result] = await db.query(
-      `INSERT INTO photos (album_id, url, description, uploader_id, is_approved, approved_by, approved_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [album_id, url, description || '', uploader_id, isApproved, auto_approve ? uploader_id : null, auto_approve ? new Date() : null]
+      `INSERT INTO photos
+         (album_id, url, thumb_url, medium_url, width, height, size, mime, description, uploader_id, is_approved, approved_by, approved_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        album_id, url, thumb_url, medium_url, width, height, size, mime,
+        description || '', uploader_id, isApproved,
+        auto_approve ? uploader_id : null, auto_approve ? new Date() : null
+      ]
     );
     return result.insertId;
+  }
+
+  /** 相册封面用的缩略图（有 thumb 用 thumb，没有回落到原图） */
+  static async getCoverUrls(albumIds = []) {
+    if (!albumIds.length) return {};
+    const [rows] = await db.query(
+      `SELECT album_id, url, thumb_url FROM photos
+        WHERE album_id IN (?) AND is_approved = true
+        ORDER BY created_at DESC`,
+      [albumIds]
+    );
+    const map = {};
+    for (const r of rows) {
+      if (!map[r.album_id]) map[r.album_id] = r.thumb_url || r.url;
+    }
+    return map;
   }
 
   static async findById(id) {

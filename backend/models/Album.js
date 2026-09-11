@@ -13,7 +13,8 @@ class Album {
     const [rows] = await db.query(
       `SELECT a.*, u.name AS creator_name,
               (SELECT COUNT(*) FROM photos p WHERE p.album_id = a.id AND p.is_approved = true) AS photo_count,
-              (SELECT p.url FROM photos p WHERE p.album_id = a.id AND p.is_approved = true ORDER BY p.created_at DESC LIMIT 1) AS cover_url
+              (SELECT COALESCE(p.thumb_url, p.url) FROM photos p WHERE p.album_id = a.id AND p.is_approved = true ORDER BY p.created_at DESC LIMIT 1) AS cover_url,
+              (SELECT p.url FROM photos p WHERE p.album_id = a.id AND p.is_approved = true ORDER BY p.created_at DESC LIMIT 1) AS cover_full_url
        FROM albums a
        LEFT JOIN users u ON a.creator_id = u.id
        WHERE a.id = ?`,
@@ -26,7 +27,8 @@ class Album {
     const [rows] = await db.query(
       `SELECT a.*, u.name AS creator_name,
               (SELECT COUNT(*) FROM photos p WHERE p.album_id = a.id AND p.is_approved = true) AS photo_count,
-              (SELECT p.url FROM photos p WHERE p.album_id = a.id AND p.is_approved = true ORDER BY p.created_at DESC LIMIT 1) AS cover_url
+              (SELECT COALESCE(p.thumb_url, p.url) FROM photos p WHERE p.album_id = a.id AND p.is_approved = true ORDER BY p.created_at DESC LIMIT 1) AS cover_url,
+              (SELECT p.url FROM photos p WHERE p.album_id = a.id AND p.is_approved = true ORDER BY p.created_at DESC LIMIT 1) AS cover_full_url
        FROM albums a
        LEFT JOIN users u ON a.creator_id = u.id
        ORDER BY a.created_at DESC`

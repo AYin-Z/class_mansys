@@ -1,5 +1,6 @@
 const Album = require('../models/Album');
 const Photo = require('../models/Photo');
+const mediaService = require('../services/mediaService');
 
 const { isAdmin } = require('../shared/constants');
 const { resolveScope, filterByClassScope, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
@@ -45,7 +46,8 @@ class AlbumController {
       if (!canAccessClassRecord(album, scope)) {
         return res.status(403).json({ success: false, error: '无权查看该相册' });
       }
-      const includePending = isAdmin(req.user);
+      // 待审核照片对"有审核权的人"可见（不只是 role>=8）
+      const includePending = await mediaService.canApprovePhotos(req.user);
       const photos = await Photo.getByAlbum(req.params.id, includePending);
       res.json({ success: true, album, photos });
     } catch (e) {
@@ -64,9 +66,14 @@ class AlbumController {
       if (!canAccessOwnClassRecord(existing, scope)) {
         return res.status(403).json({ success: false, error: '无权删除该相册' });
       }
+      // 先取出照片列表用于清理磁盘文件，再删记录
+      const photos = await Photo.getByAlbum(req.params.id, true).catch(() => []);
       const ok = await Album.delete(req.params.id);
       if (!ok) return res.status(404).json({ success: false, error: '相册不存在' });
-      res.json({ success: true });
+      for (const p of photos) {
+        await mediaService.removeByUrl(p.url).catch(() => {});
+      }
+      res.json({ success: true, removedFiles: photos.length });
     } catch (e) {
       res.status(500).json({ success: false, error: '删除相册失败' });
     }
@@ -87,7 +94,8 @@ class AlbumController {
         return res.status(403).json({ success: false, error: '无权向该相册上传' });
       }
 
-      const autoApprove = isAdmin(req.user) || Number(album.creator_id) === Number(req.user.id);
+      const autoApprove = (await mediaService.canApprovePhotos(req.user))
+        || Number(album.creator_id) === Number(req.user.id);
       const ids = [];
       for (const url of urls) {
         const id = await Photo.create({
@@ -118,26 +126,43 @@ class AlbumController {
         return res.status(400).json({ success: false, error: '请选择图片' });
       }
       const albumId = parseInt(req.body.album_id, 10);
+      const safeRemove = async () => {
+        try { await mediaService.removeByUrl(mediaService.absPathToUrl(req.file.path)); } catch { /* ignore */ }
+      };
       if (!albumId) {
+        await safeRemove();
         return res.status(400).json({ success: false, error: '缺少相册 ID' });
       }
 
       const album = await Album.findById(albumId);
       if (!album) {
+        await safeRemove();
         return res.status(404).json({ success: false, error: '相册不存在' });
       }
       const fileScope = await resolveScope(req.user);
       if (!canAccessOwnClassRecord(album, fileScope)) {
+        await safeRemove();
         return res.status(403).json({ success: false, error: '无权向该相册上传' });
       }
 
-      const file = req.file;
-      const url = `/uploads/albums/${file.filename}`;
-      const autoApprove = isAdmin(req.user) || Number(album.creator_id) === Number(req.user.id);
+      // 生成 thumb(480) / medium(1440) 派生图：网格与查看器不再加载原图
+      const info = await mediaService.describe(req.file, {
+        kind: 'album',
+        ownerId: req.user.id,
+        classId: fileScope.writeClassId || null,
+      });
+      const autoApprove = (await mediaService.canApprovePhotos(req.user))
+        || Number(album.creator_id) === Number(req.user.id);
 
       const photoId = await Photo.create({
         album_id: albumId,
-        url,
+        url: info.url,
+        thumb_url: info.thumbUrl,
+        medium_url: info.mediumUrl,
+        width: info.width,
+        height: info.height,
+        size: info.size,
+        mime: info.mime,
         description: req.body.description || '',
         uploader_id: req.user.id,
         auto_approve: autoApprove,
@@ -145,9 +170,13 @@ class AlbumController {
 
       res.json({
         success: true,
-        url,
-        filename: file.originalname,
-        size: file.size,
+        url: info.url,
+        thumbUrl: info.thumbUrl,
+        mediumUrl: info.mediumUrl,
+        filename: info.filename,
+        size: info.size,
+        width: info.width,
+        height: info.height,
         id: photoId,
         autoApproved: autoApprove,
         message: autoApprove ? '上传成功' : '上传成功，等待审核',
@@ -160,8 +189,10 @@ class AlbumController {
 
   static async getPendingPhotos(req, res) {
     try {
-      if (!isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '需要管理员权限' });
+      // 路由已要求 APPROVE_PHOTO；这里保持同一口径（此前卡 role>=8，
+      // 导致"矩阵里配了审核权但 role<8"的干部拿到 403，审核功能形同虚设）
+      if (!(await mediaService.canApprovePhotos(req.user))) {
+        return res.status(403).json({ success: false, error: '需要照片审核权限' });
       }
       const photos = await Photo.getPendingPhotos();
       res.json({ success: true, photos });
@@ -172,8 +203,8 @@ class AlbumController {
 
   static async approvePhoto(req, res) {
     try {
-      if (!isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '需要管理员权限' });
+      if (!(await mediaService.canApprovePhotos(req.user))) {
+        return res.status(403).json({ success: false, error: '需要照片审核权限' });
       }
       const ok = await Photo.approve(req.params.id, req.user.id);
       if (!ok) return res.status(404).json({ success: false, error: '照片不存在' });
@@ -183,16 +214,38 @@ class AlbumController {
     }
   }
 
+  /**
+   * 删除照片
+   *
+   * 权限（2026-09 放宽到"本人也能删自己的"）：
+   *  - 有 APPROVE_PHOTO：可删任意照片（待审核 = 驳回）
+   *  - 相册创建者：可删本相册任意照片
+   *  - 上传者本人：可删自己上传的照片
+   * 删除时一并清理磁盘文件与派生图，避免留下孤儿文件。
+   */
   static async rejectPhoto(req, res) {
     try {
-      if (!isAdmin(req.user)) {
-        return res.status(403).json({ success: false, error: '需要管理员权限' });
+      const photo = await Photo.findById(req.params.id);
+      if (!photo) return res.status(404).json({ success: false, error: '照片不存在' });
+
+      const album = await Album.findById(photo.album_id);
+      const isOwner = Number(photo.uploader_id) === Number(req.user.id);
+      const isAlbumCreator = album && Number(album.creator_id) === Number(req.user.id);
+      const canApprove = await mediaService.canApprovePhotos(req.user);
+
+      if (!isOwner && !isAlbumCreator && !canApprove && !isAdmin(req.user)) {
+        return res.status(403).json({ success: false, error: '无权删除该照片' });
       }
-      const ok = await Photo.reject(req.params.id);
-      if (!ok) return res.status(404).json({ success: false, error: '照片不存在或已审核' });
-      res.json({ success: true });
+
+      const ok = await Photo.delete(req.params.id);
+      if (!ok) return res.status(404).json({ success: false, error: '照片不存在' });
+
+      // 文件删除失败不影响接口成功（最多留下孤儿文件，可由清理脚本回收）
+      await mediaService.removeByUrl(photo.url).catch(() => {});
+      return res.json({ success: true });
     } catch (e) {
-      res.status(500).json({ success: false, error: '驳回照片失败' });
+      console.error('删除照片失败:', e);
+      res.status(500).json({ success: false, error: '删除照片失败' });
     }
   }
 }

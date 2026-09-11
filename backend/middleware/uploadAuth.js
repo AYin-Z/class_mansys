@@ -34,9 +34,22 @@ function requireUploadAccess(req, res, next) {
     if (err) {
       return res.status(403).json({ success: false, error: '无效的认证令牌', code: 'FORBIDDEN' });
     }
-    // 资源属于个人隐私材料，且令牌随 URL 出现在代理/日志里：
-    // 只允许浏览器私有缓存，禁止 CDN 等共享缓存，并压低有效期。
-    res.set('Cache-Control', 'private, max-age=300');
+    /**
+     * 缓存策略（2026-09 文件通路改造）
+     *
+     * 旧值是 max-age=300：用户每翻一次相册都要重新下载全部图片，
+     * 手机上「看完一遍再进来又从头加载」，这是相册体验差的直接原因之一。
+     *
+     * 现在改为浏览器私有缓存 7 天：URL 里带的 token 在一次登录会话内是稳定的，
+     * 且这些路径下的文件内容不可变（文件名带时间戳+随机串，永不覆盖），
+     * 因此按 URL 缓存是安全的。仍然禁止 CDN 等共享缓存（避免令牌/隐私外泄）。
+     */
+    // req.path 在挂载点内已被剥离前缀（/albums/x.jpg），因此用 originalUrl 判断
+    const isMediaFile = /\/uploads\/(albums|resources|agent|leaves)\//.test(req.originalUrl || req.path);
+    res.set(
+      'Cache-Control',
+      isMediaFile ? 'private, max-age=604800, immutable' : 'private, max-age=604800'
+    );
     return next();
   });
 }

@@ -41,7 +41,10 @@ describe('requireUploadAccess', () => {
     const next = vi.fn();
     mw({ headers: { authorization: 'Bearer ' + token }, query: {} }, res, next);
     expect(next).toHaveBeenCalled();
-    expect(res.headers['Cache-Control']).toBe('private, max-age=300');
+    // 2026-09 文件通路改造：从 max-age=300 提到 7 天（文件名不可变、令牌在会话内稳定），
+    // 关键安全约束是**必须 private**——禁止 CDN 等共享缓存，避免隐私材料被中间层缓存
+    expect(res.headers['Cache-Control']).toMatch(/^private, max-age=604800/);
+    expect(res.headers['Cache-Control']).not.toContain('public');
   });
 
   it('strict：?token= 有效令牌放行，并设置私有缓存', () => {
@@ -52,7 +55,8 @@ describe('requireUploadAccess', () => {
     const next = vi.fn();
     mw({ headers: {}, query: { token } }, res, next);
     expect(next).toHaveBeenCalled();
-    expect(res.headers['Cache-Control']).toBe('private, max-age=300');
+    expect(res.headers['Cache-Control']).toMatch(/^private, max-age=604800/);
+    expect(res.headers['Cache-Control']).not.toContain('public');
   });
 
   it('strict：无效令牌 403', () => {
@@ -159,8 +163,10 @@ describe('requireUploadAccess + express.static 集成', () => {
       const ok = await request(app).get('/uploads/proof.txt?token=' + encodeURIComponent(token));
       expect(ok.status).toBe(200);
       expect(ok.text).toBe('private-proof');
-      // express.static 只在未设置时补 Cache-Control，这里的 private 必须保住
-      expect(ok.headers['cache-control']).toBe('private, max-age=300');
+      // express.static 只在未设置时补 Cache-Control，这里的 private 必须保住；
+      // 且必须是私有缓存（不能变成 public，否则隐私材料会被 CDN 缓存）
+      expect(ok.headers['cache-control']).toMatch(/^private, max-age=604800/);
+      expect(ok.headers['cache-control']).not.toContain('public');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
