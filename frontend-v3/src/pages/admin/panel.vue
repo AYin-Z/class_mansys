@@ -1,9 +1,22 @@
 <script setup lang="ts">
+/**
+ * 超管后台外壳
+ *
+ * 2026-09 对齐新规范：
+ *  - 自建顶栏（57px）→ NavBar（48px 令牌高度），操作按钮收进 #right 插槽
+ *  - emoji 图标 → AppIcon
+ *  - 硬编码色值 → 设计令牌；按钮 → BaseButton
+ *  - 退出登录走 showConfirm（对象 + 动作 + 后果）
+ *  - 请假配置加载失败不再只弹 toast：error 交给 section 渲染错误态 + 重试
+ */
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getAdminLeaveConfig, updateLeaveConfig } from '@/api/admin'
 import type { LeaveTypeConfig } from '@/api/leave-config'
+import NavBar from '@/components/ui/NavBar.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import OverviewSection from './panel/OverviewSection.vue'
 import MembersSection from './panel/MembersSection.vue'
 import RosterImportSection from './panel/RosterImportSection.vue'
@@ -14,7 +27,8 @@ import AuditSection from './panel/AuditSection.vue'
 import AgentOpsSection from './panel/AgentOpsSection.vue'
 import SystemSection from './panel/SystemSection.vue'
 import PermissionsSection from './panel/PermissionsSection.vue'
-import { showToast } from '@/utils/ui'
+import { showConfirm, showToast } from '@/utils/ui'
+import { toastIfNotNotified } from '@/utils/request'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -24,6 +38,7 @@ type TabKey = 'overview' | 'todos' | 'members' | 'roster' | 'classes' | 'leave' 
 interface TabDef {
   key: TabKey
   label: string
+  /** AppIcon 图标名 */
   icon: string
   /** 需要的权限键（任一即可见） */
   perms: string[]
@@ -31,16 +46,16 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { key: 'overview', label: '总览', icon: '📊', perms: ['VIEW_ROSTER'], group: '运行' },
-  { key: 'todos', label: '内容与待办', icon: '✅', perms: ['VIEW_ROSTER'], group: '运行' },
-  { key: 'members', label: '成员管理', icon: '👥', perms: ['VIEW_ROSTER'], group: '组织' },
-  { key: 'roster', label: '名册导入', icon: '📥', perms: ['MANAGE_MEMBERS'], group: '组织' },
-  { key: 'classes', label: '区队与中队', icon: '🏢', perms: ['VIEW_ROSTER'], group: '组织' },
-  { key: 'leave', label: '请假配置', icon: '🏥', perms: ['MANAGE_LEAVE_CONFIG'], group: '组织' },
-  { key: 'audit', label: '审计日志', icon: '📜', perms: ['VIEW_SYSTEM'], group: '系统' },
-  { key: 'agent', label: '助手与渠道', icon: '🤖', perms: ['VIEW_SYSTEM'], group: '系统' },
-  { key: 'system', label: '系统运维', icon: '🛠️', perms: ['VIEW_SYSTEM'], group: '系统' },
-  { key: 'permissions', label: '权限矩阵', icon: '🔐', perms: ['MANAGE_PERMISSIONS'], group: '系统' }
+  { key: 'overview', label: '总览', icon: 'dashboard', perms: ['VIEW_ROSTER'], group: '运行' },
+  { key: 'todos', label: '内容与待办', icon: 'check-circle', perms: ['VIEW_ROSTER'], group: '运行' },
+  { key: 'members', label: '成员管理', icon: 'users', perms: ['VIEW_ROSTER'], group: '组织' },
+  { key: 'roster', label: '名册导入', icon: 'upload', perms: ['MANAGE_MEMBERS'], group: '组织' },
+  { key: 'classes', label: '区队与中队', icon: 'building', perms: ['VIEW_ROSTER'], group: '组织' },
+  { key: 'leave', label: '请假配置', icon: 'calendar', perms: ['MANAGE_LEAVE_CONFIG'], group: '组织' },
+  { key: 'audit', label: '审计日志', icon: 'clipboard', perms: ['VIEW_SYSTEM'], group: '系统' },
+  { key: 'agent', label: '助手与渠道', icon: 'robot', perms: ['VIEW_SYSTEM'], group: '系统' },
+  { key: 'system', label: '系统运维', icon: 'settings', perms: ['VIEW_SYSTEM'], group: '系统' },
+  { key: 'permissions', label: '权限矩阵', icon: 'shield', perms: ['MANAGE_PERMISSIONS'], group: '系统' }
 ]
 
 const visibleTabs = computed(() => TABS.filter((t) => t.perms.some((p) => userStore.hasPermission(p as never))))
@@ -59,6 +74,10 @@ function canEnter(): boolean {
   return visibleTabs.value.length > 0
 }
 
+function switchTab(key: TabKey) {
+  activeTab.value = key
+}
+
 onMounted(async () => {
   await userStore.refresh()
   if (!canEnter()) {
@@ -75,14 +94,18 @@ onMounted(async () => {
 const leaveConfigs = ref<LeaveTypeConfig[]>([])
 const leaveLoading = ref(false)
 const leaveSaving = ref(false)
+const leaveError = ref<unknown>(null)
 
 async function loadLeaveConfig() {
   leaveLoading.value = true
+  leaveError.value = null
   try {
     const res = await getAdminLeaveConfig()
     if (res?.success) leaveConfigs.value = res.data || []
+    else leaveError.value = new Error('未获取到请假配置数据')
   } catch (e: any) {
-    showToast(e?.message || '加载请假配置失败', 'error')
+    leaveConfigs.value = []
+    leaveError.value = e
   } finally {
     leaveLoading.value = false
   }
@@ -100,16 +123,21 @@ async function saveLeaveConfig(config: LeaveTypeConfig) {
       enabled: config.enabled,
       sort_order: config.sort_order
     })
-    showToast('已保存')
+    showToast('已保存', 'success')
     await loadLeaveConfig()
   } catch (e: any) {
-    showToast(e?.message || '保存失败', 'error')
+    toastIfNotNotified(e, '保存失败，请稍后重试')
   } finally {
     leaveSaving.value = false
   }
 }
 
 async function doLogout() {
+  const ok = await showConfirm('退出登录', `确定退出「${userStore.displayName || '当前账号'}」的后台登录？`, {
+    confirmText: '退出登录',
+    hint: '退出后需要重新输入账号与密码才能进入后台，未保存的编辑内容会丢失。'
+  })
+  if (!ok) return
   await userStore.logout()
   router.replace('/admin/login')
 }
@@ -117,35 +145,38 @@ async function doLogout() {
 
 <template>
   <div class="admin-console">
-    <header class="top">
-      <div class="brand">🛡️ 中队管理后台</div>
-      <div class="top-right">
+    <NavBar title="中队管理后台" show-back fallback="/pages/index/index">
+      <template #right>
         <span class="who">{{ userStore.displayName }} · {{ userStore.roleLabel }}</span>
-        <button class="t-btn" @click="router.push('/pages/index/index')">返回前台</button>
-        <button class="t-btn danger" @click="doLogout">退出登录</button>
-      </div>
-    </header>
+        <BaseButton variant="ghost" size="sm" @click="doLogout">退出</BaseButton>
+      </template>
+    </NavBar>
 
     <div class="body">
       <nav class="side">
         <template v-for="g in groups" :key="g.name">
           <div class="group-label">{{ g.name }}</div>
-          <button
+          <BaseButton
             v-for="t in g.items"
             :key="t.key"
+            variant="text"
+            size="sm"
+            block
             class="nav-item"
             :class="{ active: activeTab === t.key }"
-            @click="activeTab = t.key"
+            :aria-current="activeTab === t.key ? 'page' : undefined"
+            @click="switchTab(t.key)"
           >
-            <span class="nav-icon">{{ t.icon }}</span>{{ t.label }}
-          </button>
+            <AppIcon :name="t.icon" :size="16" />
+            <span class="nav-label">{{ t.label }}</span>
+          </BaseButton>
         </template>
       </nav>
 
       <main class="content">
         <OverviewSection
           v-if="activeTab === 'overview'"
-          @switch-tab="(tab: string) => (activeTab = tab as TabKey)"
+          @switch-tab="(tab: string) => switchTab(tab as TabKey)"
           @navigate="(path: string) => router.push(path)"
         />
         <TodosSection v-else-if="activeTab === 'todos'" @navigate="(path: string) => router.push(path)" />
@@ -157,7 +188,9 @@ async function doLogout() {
           :configs="leaveConfigs"
           :loading="leaveLoading"
           :saving="leaveSaving"
+          :error="leaveError"
           @save="saveLeaveConfig"
+          @retry="loadLeaveConfig"
         />
         <AuditSection v-else-if="activeTab === 'audit'" />
         <AgentOpsSection v-else-if="activeTab === 'agent'" />
@@ -170,43 +203,48 @@ async function doLogout() {
 
 <style scoped>
 .admin-console { min-height: 100vh; background: var(--color-bg); display: flex; flex-direction: column; }
-.top {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  padding: 12px 18px; background: var(--color-surface); border-bottom: 1px solid var(--color-border);
-  position: sticky; top: 0; z-index: 30;
+.who {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-3);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.brand { font-size: 16px; font-weight: 700; color: var(--color-text); }
-.top-right { display: flex; align-items: center; gap: 8px; }
-.who { font-size: 12px; color: var(--color-text-3); }
-.t-btn {
-  font-size: 12px; padding: 6px 10px; border-radius: 8px; cursor: pointer;
-  border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-2);
-}
-.t-btn.danger { color: #e5484d; border-color: rgba(229, 72, 77, .4); }
 .body { display: flex; flex: 1; min-height: 0; align-items: flex-start; }
 .side {
   width: 190px; flex: 0 0 190px; padding: 12px 10px; border-right: 1px solid var(--color-border);
-  background: var(--color-surface); position: sticky; top: 57px; max-height: calc(100vh - 57px); overflow-y: auto;
+  background: var(--color-surface);
+  position: sticky; top: var(--navbar-h, 48px);
+  max-height: calc(100vh - var(--navbar-h, 48px)); overflow-y: auto;
 }
-.group-label { font-size: 11px; color: var(--color-text-3); padding: 10px 8px 4px; }
-.nav-item {
-  display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px; margin-bottom: 2px;
-  font-size: 13px; text-align: left; cursor: pointer; border: none; border-radius: 8px;
-  background: transparent; color: var(--color-text-2);
+.group-label { font-size: var(--font-size-2xs); color: var(--color-text-3); padding: 10px 8px 4px; }
+/* 侧栏导航项：BaseButton(text) 的居中布局在这里被局部覆盖（多类选择器优先级高于 .btn / .btn.block） */
+.admin-console .side .nav-item {
+  justify-content: flex-start;
+  gap: 8px;
+  margin-bottom: 2px;
+  color: var(--color-text-2);
+  font-weight: 500;
 }
-.nav-item:hover { background: var(--color-surface-hover); }
-.nav-item.active { background: var(--color-accent-bg); color: var(--color-accent); font-weight: 600; }
-.nav-icon { font-size: 14px; }
+.admin-console .side .nav-item.active { background: var(--color-accent-bg); color: var(--color-accent); font-weight: 600; }
+.nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .content { flex: 1; min-width: 0; padding: 18px 20px 60px; }
 
 @media (max-width: 860px) {
   .body { flex-direction: column; }
   .side {
-    width: 100%; flex: none; position: static; max-height: none; border-right: none; border-bottom: 1px solid var(--color-border);
+    width: 100%; flex: none; position: static; max-height: none; border-right: none;
+    border-bottom: 1px solid var(--color-border);
     display: flex; gap: 6px; overflow-x: auto; padding: 8px;
+    -webkit-overflow-scrolling: touch;
   }
   .group-label { display: none; }
-  .nav-item { width: auto; white-space: nowrap; margin-bottom: 0; }
+  .admin-console .side .nav-item { width: auto; flex: 0 0 auto; margin-bottom: 0; white-space: nowrap; }
   .content { padding: 14px 12px 50px; }
+}
+
+@media (max-width: 560px) {
+  .who { display: none; }
 }
 </style>

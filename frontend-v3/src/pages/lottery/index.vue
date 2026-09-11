@@ -1,13 +1,25 @@
 <script setup lang="ts">
+/**
+ * 抽奖列表
+ *
+ * 2026-09（体验修复）：
+ *  - 加载失败不再被 `catch (_) {}` 吞成「暂无抽奖活动」→ error + 重试
+ *  - emoji（👥🏆）→ AppIcon；状态标签改用 BaseBadge；字号/颜色令牌化
+ *  - 底部避让交给 App.vue（删除页面手写 padding-bottom）
+ */
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getLotteries } from '@/api/lottery'
 import type { LotteryItem } from '@/api/lottery'
 import NavBar from '@/components/ui/NavBar.vue'
+import StateView from '@/components/ui/StateView.vue'
+import BaseBadge from '@/components/ui/BaseBadge.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const router = useRouter()
 const lotteries = ref<LotteryItem[]>([])
 const loading = ref(true)
+const error = ref<unknown>(null)
 
 function getStatus(item: LotteryItem): 'active' | 'ended' | 'pending' {
   if (!item.is_active) return 'ended'
@@ -26,11 +38,11 @@ function statusLabel(item: LotteryItem): string {
   return '进行中'
 }
 
-function statusClass(item: LotteryItem): string {
+function statusVariant(item: LotteryItem): 'success' | 'default' | 'warning' {
   const s = getStatus(item)
-  if (s === 'pending') return 'status-pending'
-  if (s === 'ended') return 'status-ended'
-  return 'status-active'
+  if (s === 'pending') return 'warning'
+  if (s === 'ended') return 'default'
+  return 'success'
 }
 
 function goToDetail(id: number) {
@@ -47,59 +59,69 @@ function formatTime(t: string): string {
   return `${m}/${day} ${h}:${min}`
 }
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
+  error.value = null
   try {
     const res = await getLotteries()
     if (res.success) lotteries.value = res.lotteries || []
-  } catch (_) {
-    /* ignore */
+    else error.value = new Error('加载抽奖列表失败，请稍后重试')
+  } catch (e) {
+    error.value = e
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(load)
 </script>
 
 <template>
   <div class="lottery-page">
     <NavBar title="抽奖" />
 
-    <div v-if="loading" class="state-text">加载中...</div>
-    <div v-else-if="lotteries.length === 0" class="state-text">暂无抽奖活动</div>
-
-    <div
-      v-for="item in lotteries"
-      :key="item.id"
-      class="card"
-      @click="goToDetail(item.id)"
+    <StateView
+      :loading="loading"
+      :error="error"
+      :empty="lotteries.length === 0"
+      loading-text="正在加载抽奖活动…"
+      empty-icon="gift"
+      empty-title="还没有抽奖活动"
+      empty-description="干部发起活动后会显示在这里"
+      @retry="load"
     >
-      <div class="card-title-row">
-        <span class="card-title">{{ item.name }}</span>
-        <span class="status-badge" :class="statusClass(item)">{{ statusLabel(item) }}</span>
+      <div
+        v-for="item in lotteries"
+        :key="item.id"
+        class="card"
+        @click="goToDetail(item.id)"
+      >
+        <div class="card-title-row">
+          <span class="card-title">{{ item.name }}</span>
+          <BaseBadge :variant="statusVariant(item)">{{ statusLabel(item) }}</BaseBadge>
+        </div>
+        <div v-if="item.description" class="card-desc">{{ item.description }}</div>
+        <div class="card-meta">
+          <span>{{ item.creator_name || '' }}</span>
+          <span>{{ formatTime(item.start_time) }} ~ {{ formatTime(item.end_time) }}</span>
+        </div>
+        <div class="card-stats">
+          <span class="stat">
+            <AppIcon name="users" :size="14" />
+            {{ item.participant_count ?? 0 }} 人参与
+          </span>
+          <span class="stat">
+            <AppIcon name="trophy" :size="14" />
+            {{ item.winner_count ?? 0 }} 个奖项
+          </span>
+        </div>
       </div>
-      <div v-if="item.description" class="card-desc">{{ item.description }}</div>
-      <div class="card-meta">
-        <span>{{ item.creator_name || '' }}</span>
-        <span>{{ formatTime(item.start_time) }} ~ {{ formatTime(item.end_time) }}</span>
-      </div>
-      <div class="card-stats">
-        <span>👥 {{ item.participant_count ?? 0 }} 人参与</span>
-        <span>🏆 {{ item.winner_count ?? 0 }} 个奖项</span>
-      </div>
-    </div>
+    </StateView>
   </div>
 </template>
 
 <style scoped>
-.lottery-page {
-  padding-bottom: 24px;
-}
-
-.state-text {
-  text-align: center;
-  padding: 48px 16px;
-  font-size: 14px;
-  color: var(--color-text-3);
-}
+.lottery-page { min-height: 100vh; }
 
 .card {
   background: var(--color-surface);
@@ -124,7 +146,7 @@ onMounted(async () => {
 }
 
 .card-title {
-  font-size: 15px;
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text);
   flex: 1;
@@ -133,31 +155,8 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.status-badge {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  flex-shrink: 0;
-}
-
-.status-active {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-}
-
-.status-ended {
-  background: var(--color-border);
-  color: var(--color-text-3);
-}
-
-.status-pending {
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
-}
-
 .card-desc {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-2);
   margin-top: 6px;
   line-height: 1.5;
@@ -168,15 +167,16 @@ onMounted(async () => {
 }
 
 .card-meta {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-3);
   margin-top: 8px;
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .card-stats {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-2);
   margin-top: 10px;
   display: flex;
@@ -184,4 +184,5 @@ onMounted(async () => {
   padding-top: 10px;
   border-top: 1px solid var(--color-border);
 }
+.stat { display: inline-flex; align-items: center; gap: 4px; }
 </style>

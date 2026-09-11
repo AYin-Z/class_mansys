@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { mediaUrl, openMedia } from '@/utils/media'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createExpense } from '@/api/fee'
-import { uploadFile } from '@/utils/request'
+import { toastIfNotNotified, uploadFile } from '@/utils/request'
 import NavBar from '@/components/ui/NavBar.vue'
 import { showToast } from '@/utils/ui'
 
@@ -51,17 +51,35 @@ async function handleSubmit() {
       proof_url: proofUrl.value || undefined
     })
     if (res.success) {
-      showToast('申请已提交')
+      showToast(`报销申请已提交${tierHint.value ? '，' + tierHint.value : ''}`, 'success')
       router.replace('/pages/fee/index')
     } else {
-      showToast(res.message || '提交失败', 'error')
+      showToast(res.message || '提交失败，请稍后重试', 'error')
     }
-  } catch (_) {
-    showToast('提交失败，请稍后重试', 'error')
+  } catch (e) {
+    toastIfNotNotified(e, '提交失败，请稍后重试')
   } finally {
     loading.value = false
   }
 }
+
+/**
+ * 金额分级提示（2026-09 B3）：
+ * 此前申请页完全不提分级规则，用户提交后才知道要等 19 票投票。
+ * 现在按 PRD：≤100 区队长审批；100–500 班长 + 辅导员；>500 转全班匿名投票（19 票以上同意）。
+ */
+const tier = computed<'small' | 'medium' | 'large'>(() => {
+  const v = Number(amount.value) || 0
+  if (v <= 100) return 'small'
+  if (v <= 500) return 'medium'
+  return 'large'
+})
+const tierHint = computed(() => {
+  if (!amount.value) return ''
+  if (tier.value === 'small') return '将由区队长审批'
+  if (tier.value === 'medium') return '需班长与辅导员审批'
+  return '属于大额支出，将发起全班匿名投票（需 19 票以上同意）'
+})
 </script>
 <template>
   <div class="apply-page">
@@ -70,6 +88,9 @@ async function handleSubmit() {
       <div class="form-group">
         <label>报销金额（元）</label>
         <input v-model.number="amount" type="number" step="0.01" min="0" placeholder="输入金额" class="input" />
+        <p v-if="tierHint" class="tier-hint" :class="tier">
+          {{ tierHint }}
+        </p>
       </div>
       <div class="form-group">
         <label>用途说明</label>
@@ -93,9 +114,15 @@ async function handleSubmit() {
   </div>
 </template>
 <style scoped>
-.apply-page { padding-bottom: 80px; }
+.apply-page { padding-bottom: var(--spacing-lg); }
 .form { padding: 20px 16px; }
 .form-group { margin-bottom: 20px; }
+.tier-hint {
+  margin-top: 8px; font-size: var(--font-size-xs); line-height: 1.5;
+  padding: 8px 10px; border-radius: var(--radius-sm);
+  background: var(--color-accent-bg); color: var(--color-accent);
+}
+.tier-hint.large { background: var(--color-warning-bg); color: var(--color-warning); }
 .form-group label { display: block; font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 8px; }
 .input, .textarea {
   width: 100%; padding: 12px 14px; border: 1px solid var(--color-border);

@@ -1,77 +1,164 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+/**
+ * 底部导航
+ *
+ * 2026-09 修复（B4/B6）：
+ *  - 图标由 emoji（🏠📊🏢🤖👤）换成内联 SVG：emoji 跨平台字形漂移、
+ *    无法跟随主题着色，不同 Android 版本大小还不一致。
+ *  - 高亮不再依赖父组件传入的 key（App.vue 之前返回的 notice/homework/leave
+ *    在 tab 列表里并不存在，导致 15+ 页面永不高亮），改为按路径前缀判定。
+ *  - 首页 tab 增加待办/未读角标（B5）：重要待办不再只藏在「我的」里。
+ *  - 高度统一用 --tabbar-h，供页面避让（替代 39 处手写 80px）。
+ */
+import { computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useBadgeStore } from '@/stores/badge'
+import AppIcon from './AppIcon.vue'
 
-const TABS = [
-  { key: 'home', label: '首页', icon: '🏠', path: '/pages/index/index', adminOnly: false },
-  { key: 'dashboard', label: '仪表盘', icon: '📊', path: '/pages/dashboard/index', adminOnly: true },
-  { key: 'company', label: '中队', icon: '🏢', path: '/pages/company/index', perm: 'VIEW_COMPANY' },
-  { key: 'agent', label: '助手', icon: '🤖', path: '/pages/agent/index' },
-  { key: 'profile', label: '我的', icon: '👤', path: '/pages/profile/index', adminOnly: false },
+interface TabItem {
+  key: string
+  label: string
+  icon: string
+  path: string
+  /** 需要该权限才显示（服务端权限矩阵优先） */
+  perm?: string
+  /** 仅管理员可见 */
+  adminOnly?: boolean
+  /** 是否显示待办/未读角标 */
+  badge?: boolean
+}
+
+const TABS: TabItem[] = [
+  { key: 'home', label: '首页', icon: 'home', path: '/pages/index', badge: true },
+  { key: 'dashboard', label: '待办', icon: 'dashboard', path: '/pages/dashboard', badge: true },
+  { key: 'company', label: '中队', icon: 'building', path: '/pages/company', perm: 'VIEW_COMPANY' },
+  { key: 'agent', label: '助手', icon: 'sparkles', path: '/pages/agent' },
+  { key: 'profile', label: '我的', icon: 'user', path: '/pages/profile' },
 ]
-
-const props = defineProps<{
-  current?: string
-}>()
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const badgeStore = useBadgeStore()
 
-const visibleTabs = computed(() => {
-  return TABS.filter(t => {
+const visibleTabs = computed(() =>
+  TABS.filter((t) => {
     if (t.perm) return userStore.hasPermission(t.perm as any)
     if (t.adminOnly) return userStore.isAdmin
     return true
-  })
+  }),
+)
+
+/** 当前激活的 tab：按路径前缀判定，深层页面（详情/表单）归属其所属 tab */
+const activeKey = computed(() => {
+  const path = route.path
+  const hit = TABS.find((t) => path === t.path || path.startsWith(t.path + '/'))
+  return hit?.key || ''
 })
 
-function goTo(tab: typeof TABS[0]) {
+function badgeOf(tab: TabItem): number {
+  if (!tab.badge) return 0
+  // 首页 = 未读通知 + 待办通知合计；待办中心 = 待办通知（避免两个 tab 显示同一个数字）
+  if (tab.key === 'dashboard') return badgeStore.todoCount
+  if (tab.key === 'home') return badgeStore.totalUrgent
+  return 0
+}
+
+function goTo(tab: TabItem) {
+  if (activeKey.value === tab.key) return
+  // replace：tab 之间切换不写历史，避免「返回」在 tab 间来回跳
   router.replace(tab.path)
 }
+
+onMounted(() => {
+  void badgeStore.refresh()
+})
+
+// 处理完待办/读完通知后回到列表页即可看到最新角标
+watch(() => route.path, () => {
+  void badgeStore.refresh()
+})
 </script>
 
 <template>
-  <div class="tab-bar">
+  <nav class="tab-bar" role="tablist">
     <div
       v-for="tab in visibleTabs"
       :key="tab.key"
       class="tab-item"
-      :class="{ active: current === tab.key || route.path.startsWith(tab.path) }"
+      :class="{ active: activeKey === tab.key }"
+      role="tab"
+      :aria-selected="activeKey === tab.key"
+      :aria-label="tab.label"
       @click="goTo(tab)"
     >
-      <span class="tab-icon">{{ tab.icon }}</span>
+      <span class="tab-icon-wrap">
+        <AppIcon :name="tab.icon" :size="22" :stroke="activeKey === tab.key ? 2.1 : 1.8" />
+        <span v-if="badgeOf(tab) > 0" class="tab-badge">{{ badgeOf(tab) > 99 ? '99+' : badgeOf(tab) }}</span>
+      </span>
       <span class="tab-label">{{ tab.label }}</span>
     </div>
-  </div>
+  </nav>
 </template>
 
 <style scoped>
 .tab-bar {
   position: fixed;
   bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 20;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  z-index: var(--z-tabbar, 20);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
   display: flex;
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  max-width: 100%;
-  transition: background 0.3s, border-color 0.3s;
+  padding-bottom: var(--safe-bottom, env(safe-area-inset-bottom, 0px));
+  transition: background var(--dur-base), border-color var(--dur-base);
+}
+@media (min-width: 768px) {
+  .tab-bar { max-width: 900px; }
+}
+@media (min-width: 1200px) {
+  .tab-bar { max-width: 1100px; }
 }
 .tab-item {
   flex: 1;
+  height: var(--tabbar-h, 56px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 0 4px;
+  justify-content: center;
+  gap: 2px;
+  color: var(--color-text-3);
   cursor: pointer;
+  user-select: none;
   -webkit-tap-highlight-color: transparent;
+  transition: color var(--dur-fast), background var(--dur-fast);
 }
-.tab-icon { font-size: 20px; line-height: 1.2; }
-.tab-label { font-size: 10px; font-weight: 500; margin-top: 2px; }
+.tab-item:active { background: var(--color-surface-hover); }
 .tab-item.active { color: var(--color-accent); }
-.tab-item:not(.active) { color: var(--color-text-3); transition: color 0.15s; }
+.tab-icon-wrap { position: relative; display: inline-flex; }
+.tab-badge {
+  position: absolute;
+  top: -4px;
+  left: 12px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-error);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  box-sizing: border-box;
+}
+.tab-label {
+  font-size: var(--font-size-2xs);
+  font-weight: 500;
+  line-height: 1.2;
+}
 </style>

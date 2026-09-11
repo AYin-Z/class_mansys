@@ -2,6 +2,17 @@
  * 认证相关 API
  */
 import { get, post, setToken } from '../utils/request'
+import type { RequestOpts } from '../utils/request'
+
+/**
+ * 登录/验证码类接口统一选项：
+ *  - needAuth 恒为 false（登录接口不该带旧令牌，也不该触发全局登出）
+ *  - 默认 silent: true —— 登录失败由页面在表单里就地展示，
+ *    不需要请求层再弹一遍 toast（此前会出现 toast + 行内错误双重提示）
+ */
+function authOpts(opts: RequestOpts = {}): RequestOpts {
+  return { needAuth: false, silent: true, ...opts }
+}
 
 export interface LoginParams {
   code: string
@@ -64,50 +75,50 @@ export interface UserInfoResult {
 /**
  * 学号+密码登录
  */
-export function loginWithPassword(params: { student_id: string; password: string }): Promise<LoginResult> {
-  return post<LoginResult>('/api/auth/login-with-password', params, false)
+export function loginWithPassword(params: { student_id: string; password: string }, opts: RequestOpts = {}): Promise<LoginResult> {
+  return post<LoginResult>('/api/auth/login-with-password', params, authOpts(opts))
 }
 
 /**
  * 手机号+密码登录
  */
-export function loginWithPhone(params: { phone: string; password: string }): Promise<LoginResult> {
-  return post<LoginResult>('/api/auth/login-with-phone', params, false)
+export function loginWithPhone(params: { phone: string; password: string }, opts: RequestOpts = {}): Promise<LoginResult> {
+  return post<LoginResult>('/api/auth/login-with-phone', params, authOpts(opts))
 }
 
 /**
  * 邮箱+密码登录
  */
-export function loginWithEmail(params: { email: string; password: string }): Promise<LoginResult> {
-  return post<LoginResult>('/api/auth/login-with-email', params, false)
+export function loginWithEmail(params: { email: string; password: string }, opts: RequestOpts = {}): Promise<LoginResult> {
+  return post<LoginResult>('/api/auth/login-with-email', params, authOpts(opts))
 }
 
 /**
  * 发送验证码（手机号/邮箱）
  */
-export function sendCode(params: { phone?: string; email?: string }): Promise<{ success: boolean; code?: string; message: string }> {
-  return post('/api/auth/send-code', params, false)
+export function sendCode(params: { phone?: string; email?: string }, opts: RequestOpts = {}): Promise<{ success: boolean; code?: string; message: string }> {
+  return post('/api/auth/send-code', params, authOpts({ silent: false, ...opts }))
 }
 
 /**
  * 手机号+验证码登录/注册
  */
-export function phoneCodeLogin(params: { phone: string; code: string; name?: string; student_id?: string }): Promise<LoginResult> {
-  return post<LoginResult>('/api/auth/phone-code-login', params, false)
+export function phoneCodeLogin(params: { phone: string; code: string; name?: string; student_id?: string }, opts: RequestOpts = {}): Promise<LoginResult> {
+  return post<LoginResult>('/api/auth/phone-code-login', params, authOpts(opts))
 }
 
 /**
  * 邮箱+验证码登录
  */
-export function emailCodeLogin(params: { email: string; code: string }): Promise<LoginResult> {
-  return post<LoginResult>('/api/auth/email-code-login', params, false)
+export function emailCodeLogin(params: { email: string; code: string }, opts: RequestOpts = {}): Promise<LoginResult> {
+  return post<LoginResult>('/api/auth/email-code-login', params, authOpts(opts))
 }
 
 /**
  * 设置/重置密码
  */
-export function setPassword(params: { phone?: string; email?: string; code: string; password: string }): Promise<LoginResult> {
-  return post<LoginResult>('/api/auth/set-password', params, false)
+export function setPassword(params: { phone?: string; email?: string; code: string; password: string }, opts: RequestOpts = {}): Promise<LoginResult> {
+  return post<LoginResult>('/api/auth/set-password', params, authOpts(opts))
 }
 
 // --- 原有认证方式 ---
@@ -210,6 +221,10 @@ export async function cloudBaseLoginAndStoreToken(params: CloudBaseLoginParams):
 /**
  * 修改密码
  */
-export function changePassword(params: { old_password: string; new_password: string }): Promise<{ success: boolean; message: string }> {
-  return post('/api/auth/change-password', params)
+export function changePassword(
+  params: { old_password: string; new_password: string },
+  opts: RequestOpts = { silent: true },
+): Promise<{ success: boolean; message: string }> {
+  // 默认 silent：设置页在表单里就地展示「原密码错误」等原因
+  return post('/api/auth/change-password', params, opts)
 }

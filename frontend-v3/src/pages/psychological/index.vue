@@ -1,12 +1,28 @@
 <script setup lang="ts">
+/**
+ * 心理倾诉（学员）
+ *
+ * 2026-09 体验修复：
+ *  - 「我的记录」加载失败 → StateView 错误态 + 重试（原来 catch (_) {} 后显示「暂无记录」）；
+ *  - 提交成功/失败都有反馈（原来两个 catch 都是空的，提交失败用户完全无感）；
+ *  - 空态改成「标题 + 一句解释」，说明会有人跟进；
+ *  - 状态标签换 BaseBadge，次要文字从 11px 提到 --font-size-xs。
+ */
 import { ref, onMounted } from 'vue'
 import { submitPsychApplication, getMyPsychApplications, PSYCH_STATUS_LABEL } from '@/api/psychological'
 import type { PsychApplication } from '@/api/psychological'
 import NavBar from '@/components/ui/NavBar.vue'
+import StateView from '@/components/ui/StateView.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseBadge from '@/components/ui/BaseBadge.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
+import { showToast } from '@/utils/ui'
+import { toastIfNotNotified } from '@/utils/request'
 
 const content = ref('')
 const applications = ref<PsychApplication[]>([])
 const loading = ref(true)
+const error = ref<unknown>(null)
 const submitting = ref(false)
 
 onMounted(async () => {
@@ -14,11 +30,14 @@ onMounted(async () => {
 })
 
 async function loadApplications() {
+  loading.value = true
+  error.value = null
   try {
     const res = await getMyPsychApplications()
     if (res.success) applications.value = res.applications || []
-  } catch (_) {
-    /* ignore */
+  } catch (e) {
+    error.value = e
+    applications.value = []
   } finally {
     loading.value = false
   }
@@ -26,26 +45,31 @@ async function loadApplications() {
 
 async function handleSubmit() {
   const text = content.value.trim()
-  if (!text || submitting.value) return
+  if (!text) {
+    showToast('请先写下你想说的内容', 'error')
+    return
+  }
+  if (submitting.value) return
 
   submitting.value = true
   try {
     const res = await submitPsychApplication(text)
     if (res.success) {
       content.value = ''
+      showToast('已提交，干部会尽快跟进', 'success')
       await loadApplications()
     }
-  } catch (_) {
-    /* ignore */
+  } catch (e) {
+    toastIfNotNotified(e, '提交失败，请重试')
   } finally {
     submitting.value = false
   }
 }
 
-function statusClass(status: number): string {
-  if (status === 0) return 'status-pending'
-  if (status === 1) return 'status-processing'
-  return 'status-done'
+function statusVariant(status: number): 'warning' | 'info' | 'success' {
+  if (status === 0) return 'warning'
+  if (status === 2) return 'success'
+  return 'info'
 }
 
 function formatTime(t: string): string {
@@ -75,61 +99,66 @@ function formatTime(t: string): string {
       ></textarea>
       <div class="submit-row">
         <span class="char-count">{{ content.length }}/1000</span>
-        <button
-          class="submit-btn"
-          :disabled="!content.trim() || submitting"
+        <BaseButton
+          variant="primary"
+          :loading="submitting"
+          :disabled="!content.trim()"
           @click="handleSubmit"
         >
-          {{ submitting ? '提交中...' : '提交' }}
-        </button>
+          <AppIcon v-if="!submitting" name="send" :size="15" />
+          提交
+        </BaseButton>
       </div>
+      <p class="submit-hint">内容仅干部可见，会有人跟进你的情况。</p>
     </div>
 
     <!-- History Section -->
     <div class="history-section">
       <div class="section-title">我的记录</div>
 
-      <div v-if="loading" class="state-text">加载中...</div>
-      <div v-else-if="applications.length === 0" class="state-text">暂无记录</div>
-
-      <div
-        v-for="item in applications"
-        :key="item.id"
-        class="history-card"
+      <StateView
+        :loading="loading"
+        :error="error"
+        :empty="applications.length === 0"
+        loading-text="正在加载记录…"
+        empty-icon="heart"
+        empty-title="还没有倾诉记录"
+        empty-description="提交后会在这里看到处理进度和回复"
+        @retry="loadApplications"
       >
-        <div class="history-header">
-          <span class="history-content">{{ item.content }}</span>
-          <span class="status-badge" :class="statusClass(item.status)">
-            {{ PSYCH_STATUS_LABEL[item.status] || '未知' }}
-          </span>
+        <div
+          v-for="item in applications"
+          :key="item.id"
+          class="history-card"
+        >
+          <div class="history-header">
+            <span class="history-content">{{ item.content }}</span>
+            <BaseBadge :variant="statusVariant(item.status)">
+              {{ PSYCH_STATUS_LABEL[item.status] || '未知' }}
+            </BaseBadge>
+          </div>
+          <div class="history-meta">
+            <span>{{ formatTime(item.created_at) }}</span>
+            <span v-if="item.handler_name">处理人: {{ item.handler_name }}</span>
+          </div>
+          <div v-if="item.handler_notes" class="handler-notes">
+            {{ item.handler_notes }}
+          </div>
         </div>
-        <div class="history-meta">
-          <span>{{ formatTime(item.created_at) }}</span>
-          <span v-if="item.handler_name">处理人: {{ item.handler_name }}</span>
-        </div>
-        <div v-if="item.handler_notes" class="handler-notes">
-          {{ item.handler_notes }}
-        </div>
-      </div>
+      </StateView>
     </div>
   </div>
 </template>
 
 <style scoped>
 .psych-page {
-  padding-bottom: 24px;
-}
-
-.state-text {
-  text-align: center;
-  padding: 48px 16px;
-  font-size: 14px;
-  color: var(--color-text-3);
+  min-height: 100vh;
+  background: var(--color-bg);
 }
 
 /* Section Title */
 .section-title {
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   font-weight: 600;
   color: var(--color-text);
   margin-bottom: 12px;
@@ -143,15 +172,15 @@ function formatTime(t: string): string {
 .psych-textarea {
   width: 100%;
   padding: 12px;
-  border: 1.5px solid var(--color-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
-  font-size: 14px;
+  font-size: var(--font-size-body);
   line-height: 1.6;
   resize: vertical;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color var(--dur-fast);
   box-sizing: border-box;
   font-family: inherit;
 }
@@ -168,40 +197,25 @@ function formatTime(t: string): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-top: 8px;
 }
 
 .char-count {
-  font-size: 12px;
-  color: var(--color-text-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
 }
 
-.submit-btn {
-  height: 38px;
-  padding: 0 24px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: var(--color-accent);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.submit-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.submit-btn:not(:disabled):active {
-  opacity: 0.8;
+.submit-hint {
+  margin-top: 8px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
+  line-height: 1.5;
 }
 
 /* History Section */
 .history-section {
-  padding: 0 16px;
+  padding: 0 16px 16px;
 }
 
 .history-card {
@@ -220,46 +234,22 @@ function formatTime(t: string): string {
 
 .history-content {
   flex: 1;
-  font-size: 14px;
+  font-size: var(--font-size-body);
   color: var(--color-text);
   line-height: 1.6;
   word-break: break-word;
 }
 
-.status-badge {
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  white-space: nowrap;
-}
-
-.status-pending {
-  background: var(--color-warning-bg);
-  color: var(--color-warning);
-}
-
-.status-processing {
-  background: var(--color-accent-bg);
-  color: var(--color-accent);
-}
-
-.status-done {
-  background: var(--color-success-bg);
-  color: var(--color-success);
-}
-
 .history-meta {
-  font-size: 11px;
-  color: var(--color-text-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
   display: flex;
   gap: 12px;
   margin-top: 8px;
 }
 
 .handler-notes {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-2);
   background: var(--color-surface-2);
   border-radius: var(--radius-sm);

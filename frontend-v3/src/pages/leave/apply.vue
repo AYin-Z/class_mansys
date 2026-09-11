@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { mediaUrl, openMedia } from '@/utils/media'
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { applyLeave } from '@/api/leave'
 import { getLeaveTypes, type LeaveTypeConfig } from '@/api/leave-config'
-import { uploadFile } from '@/utils/request'
+import { toastIfNotNotified, uploadFile } from '@/utils/request'
 import NavBar from '@/components/ui/NavBar.vue'
-import { showToast } from '@/utils/ui'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import { showConfirm, showToast } from '@/utils/ui'
 
 const router = useRouter()
 const leaveType = ref('')
@@ -19,6 +20,59 @@ const endTime = ref('')
 const loading = ref(false)
 const configLoading = ref(true)
 const configError = ref(false)
+
+/**
+ * 草稿保护（2026-09 B2）：
+ * 请假表单字段多、还要上传证明材料，此前误触返回或被系统回收就全部作废。
+ * 这里把可序列化字段落到 sessionStorage，回到页面自动回填。
+ */
+const DRAFT_KEY = 'leave_apply_draft'
+function saveDraft() {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+      leaveType: leaveType.value,
+      leaveReason: leaveReason.value,
+      reasonDetail: reasonDetail.value,
+      startDate: startDate.value,
+      endDate: endDate.value,
+      startTime: startTime.value,
+      endTime: endTime.value,
+    }))
+  } catch { /* ignore */ }
+}
+function clearDraft() {
+  try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ }
+}
+function restoreDraft() {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    if (!raw) return
+    const d = JSON.parse(raw)
+    leaveType.value = d.leaveType || ''
+    leaveReason.value = d.leaveReason || ''
+    reasonDetail.value = d.reasonDetail || ''
+    startDate.value = d.startDate || ''
+    endDate.value = d.endDate || ''
+    startTime.value = d.startTime || ''
+    endTime.value = d.endTime || ''
+    if (leaveType.value || leaveReason.value || startDate.value) {
+      showToast('已恢复上次未提交的内容', 'none')
+    }
+  } catch { /* ignore */ }
+}
+
+watch([leaveType, leaveReason, reasonDetail, startDate, endDate, startTime, endTime], saveDraft)
+
+// 有内容未提交时提醒，避免误触返回丢表单
+onBeforeRouteLeave(async () => {
+  if (loading.value) return true
+  const dirty = leaveType.value || leaveReason.value || startDate.value
+  if (!dirty) return true
+  const ok = await showConfirm('离开申请页？', '已填写的内容会保留为草稿，下次进入自动恢复。', {
+    confirmText: '离开',
+  })
+  return ok
+})
 
 // 从 API 获取的请假类型配置
 const leaveConfigs = ref<LeaveTypeConfig[]>([])
@@ -34,7 +88,9 @@ const REASON_ICONS: Record<string, string> = {
   '调休': '🔄', '出督': '🎖️', '公区': '🧹', '病假': '🤒', '事假': '📋', '公假': '🏛️', '其他': '📌',
 }
 
-onMounted(async () => {
+async function loadConfigs() {
+  configLoading.value = true
+  configError.value = false
   try {
     const res = await getLeaveTypes()
     leaveConfigs.value = res?.data || []
@@ -43,6 +99,11 @@ onMounted(async () => {
   } finally {
     configLoading.value = false
   }
+}
+
+onMounted(async () => {
+  restoreDraft()
+  await loadConfigs()
 })
 
 // 从 API 配置推导的可选类型列表
@@ -134,14 +195,15 @@ async function handleSubmit() {
       start_time: se.start,
       end_time: se.end,
       attachments: proofs.value.length > 0 ? proofs.value : undefined,
-    } as any)
+    })
     if (res.success) {
-      showToast('提交成功')
+      clearDraft()
+      showToast('请假申请已提交，等待干部审批', 'success')
       router.replace('/pages/leave/index')
     } else {
-      showToast(res.message || '提交失败', 'error')
+      showToast(res.message || '提交失败，请稍后重试', 'error')
     }
-  } catch (_) { showToast('提交失败，请稍后重试', 'error') }
+  } catch (e) { toastIfNotNotified(e, '提交失败，请稍后重试') }
   finally { loading.value = false }
 }
 
@@ -177,7 +239,10 @@ function removeProof(idx: number) { proofs.value.splice(idx, 1) }
       <div class="form-group">
         <label>请假种类</label>
         <div v-if="configLoading" class="hint">加载请假类型中...</div>
-        <div v-else-if="configError" class="hint free">加载请假类型失败，请刷新重试</div>
+        <div v-else-if="configError" class="hint free">
+          加载请假类型失败
+          <BaseButton variant="text" size="sm" @click="loadConfigs">重试</BaseButton>
+        </div>
         <div v-else class="grid-5">
           <span v-for="t in LEAVE_TYPES" :key="t.key"
             :class="['option', { active: leaveType === t.key }]"
@@ -268,7 +333,7 @@ function removeProof(idx: number) { proofs.value.splice(idx, 1) }
 </template>
 
 <style scoped>
-.apply-page { padding-bottom: 80px; }
+.apply-page { padding-bottom: var(--spacing-lg); }
 .form { padding: 20px 16px; }
 .form-group { margin-bottom: 20px; }
 .form-group label { display: block; font-size: 14px; font-weight: 600; color: var(--color-text); margin-bottom: 8px; }
@@ -293,7 +358,7 @@ function removeProof(idx: number) { proofs.value.splice(idx, 1) }
   background: var(--color-accent-bg); color: var(--color-accent);
   font-size: 13px; text-align: center; font-weight: 500;
 }
-.hint.free { background: #dcfce7; color: #16a34a; }
+.hint.free { background: var(--color-success-bg); color: var(--color-success); }
 
 .row { display: flex; gap: 6px; align-items: center; }
 .flex-1 { flex: 1; }

@@ -7,6 +7,7 @@ import { ROLE_LABELS } from '@/types/roles'
 import { addPointRecord } from '@/api/points'
 import { showToast } from '@/utils/ui'
 import NavBar from '@/components/ui/NavBar.vue'
+import StateView from '@/components/ui/StateView.vue'
 
 const route = useRoute()
 const user = ref<any>(null)
@@ -14,6 +15,7 @@ const leaves = ref<LeaveItem[]>([])
 const activeLeave = ref<any>(null)
 const stats = ref({ leave_count: 0, approved_leave_count: 0, pending_leave_count: 0, total_points: 0 })
 const loading = ref(true)
+const error = ref<unknown>(null)
 
 // 积分加减
 const pointScore = ref(0)
@@ -40,20 +42,27 @@ async function handleAddPoint() {
   finally { addingPoint.value = false }
 }
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
+  error.value = null
   try {
     const id = Number(route.query.id)
-    if (!id) return
+    if (!id) { error.value = new Error('缺少成员编号，请从名册重新进入'); return }
     const res = await getMemberDetail(id)
     if (res.success) {
       user.value = res.user
       leaves.value = res.leaves || []
       activeLeave.value = res.active_leave
       stats.value = res.stats || stats.value
+    } else {
+      error.value = new Error('成员信息加载失败')
     }
-  } catch (_) {}
-  finally { loading.value = false }
-})
+  } catch (e) {
+    error.value = e
+  } finally { loading.value = false }
+}
+
+onMounted(load)
 
 function roleLabel(r: number) { return ROLE_LABELS[r] || '学员' }
 
@@ -74,10 +83,15 @@ function formatDateTime(t: string) {
   <div class="page">
     <NavBar title="成员详情" show-back />
 
-    <div v-if="loading" class="state">加载中...</div>
-    <div v-else-if="!user" class="state">成员不存在</div>
-
-    <template v-else>
+    <StateView
+      :loading="loading"
+      :error="error"
+      :empty="!user"
+      empty-title="成员不存在"
+      empty-description="该成员可能已被移出，或链接已失效"
+      @retry="load"
+    >
+    <template v-if="user">
       <!-- 基本信息 -->
       <div class="profile-card">
         <div class="avatar">{{ user.name?.charAt(0) }}</div>
@@ -154,11 +168,12 @@ function formatDateTime(t: string) {
         <div class="text">{{ formatDateTime(user.created_at) }}</div>
       </div>
     </template>
+    </StateView>
   </div>
 </template>
 
 <style scoped>
-.page { padding-bottom: 80px; min-height: 100vh; background: var(--color-bg); }
+.page { padding-bottom: var(--spacing-lg); min-height: 100vh; background: var(--color-bg); }
 .state { text-align: center; padding: 48px 16px; font-size: 14px; color: var(--color-text-3); }
 
 .profile-card {
@@ -208,7 +223,7 @@ function formatDateTime(t: string) {
 .leave-item span:first-child { flex: 1; font-weight: 500; }
 .leave-item span:last-child { font-size: 11px; font-weight: 600; }
 .leave-item .pending { color: var(--color-warning); }
-.leave-item .approved { color: #16a34a; }
+.leave-item .approved { color: var(--color-success); }
 .leave-item .rejected { color: var(--color-error); }
 
 .point-row { display: flex; gap: 6px; }

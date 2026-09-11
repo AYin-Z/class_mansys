@@ -103,10 +103,13 @@ CM_API_TOKEN=cm_xxx CM_ALLOW_WRITE=1 node backend/mcp/server.js   # stdio，由 
 
 ## 7. 质量门禁（CI 与本机一致）
 
+> 前端规范见 `FRONTEND_DESIGN_SYSTEM.md`（令牌 / 组件 / 三态 / 确认 / 触控），
+> 前端体验审计与修复清单见 `FRONTEND_PM_AUDIT_2026-09.md`。
+
 ```bash
 # 后端：lint + 单测（173 项，含 MCP 工具映射 / iLink 协议构造 / 令牌 / 权限矩阵 / 超管接口）
 cd backend && npm run lint && npm test
-# 前端：lint + 类型 + 单测（45 项，含 API 拆包契约 / 用户手册 / MCP 文案）+ 构建
+# 前端：lint + 类型 + 单测（74 项，含 API 拆包契约 / 用户手册 / MCP 文案 / 三态容器 / Toast-Confirm / 请求超时与 401 语义 / 关键页面挂载冒烟）+ 构建
 cd frontend-v3 && npm run lint && npm run typecheck && npm test && npm run build
 # 端到端（独立测试库 + 独立端口，108 项）
 cd backend && node tests/setup-test-db.js class_manage_sys_test && \

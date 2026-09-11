@@ -31,17 +31,17 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     audience: 'all',
     keywords: '登录 密码 手机号 邮箱 验证码 界面 首页 底部导航 忘记密码',
     blocks: [
-      { kind: 'p', text: '系统是手机优先的网页应用（H5），也可以装安卓 App。用学号 + 密码登录；忘记密码时先用手机号或邮箱验证码登录，再在「我的 → 设置」里改密码。' },
+      { kind: 'p', text: '系统是手机优先的网页应用（H5），也可以装安卓 App。用学号 + 密码登录（首次登录的初始密码是 123456，登录后请立刻在「我的 → 设置」里改掉）。忘记密码时找区队长或管理员重置，重置后仍为初始密码。' },
       { kind: 'steps', items: [
         '打开系统地址 → 输入学号 + 密码 → 登录',
         '底部导航：首页、仪表盘（干部）、中队（干部）、助手、我的',
-        '首页是常用功能聚合：通知、请假、作业、班费、积分等，点卡片进入',
+        '首页是常用功能聚合：通知、公告、请假、作业、班费、报销、相册等，点卡片进入；有未处理的通知或待办时，首页顶部会出现提醒条',
         '找不到的功能去「我的 → 全部功能」，或直接在「助手」里用一句话问'
       ] },
-      { kind: 'tip', text: '手机浏览器建议「添加到主屏幕」，用起来和 App 一样；安卓用户可在首页下载 APK。' },
+      { kind: 'tip', text: '手机浏览器建议「添加到主屏幕」，用起来和 App 一样；安卓用户在「我的 → 设置 → 检查更新」里下载安装包。' },
       { kind: 'table', head: ['我想做的事情', '去哪里'], rows: [
         ['请假 / 看请假记录', '首页 → 请假，或底部「助手」直接说「我要请明天的早操假」'],
-        ['看通知、公告', '首页 → 通知中心（公告在「全部功能」里）'],
+        ['看通知、公告', '首页 → 通知 / 公告卡片，或首页顶部的待办提醒条'],
         ['交作业', '首页 → 作业管理'],
         ['交班费 / 报销', '首页 → 班费'],
         ['提建议', '全部功能 → 建议箱'],
@@ -98,7 +98,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         '只能看到自己的请假记录；干部在审批页按区队/中队范围查看'
       ] },
       { kind: 'tip', text: '着急时直接对助手说「我要请明天早操的病假，理由感冒」，助手会填好表单并给你一张确认卡片——点「确认执行」才算提交。' },
-      { kind: 'p', text: '干部：审批入口在「仪表盘 → 待办」或「请假 → 审批」，可按区队筛选并批量处理；驳回务必写理由，学员能在详情里看到。' },
+      { kind: 'p', text: '干部：审批入口在「待办」标签页，或「请假」页右上角的「审批」按钮，可按区队筛选并批量处理；驳回务必写理由，学员能在详情里看到。' },
       { kind: 'p', text: '管理员：请假类型与允许时段在超管后台「请假配置」维护，改动对所有区队立即生效。' }
     ]
   },
@@ -112,8 +112,8 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     blocks: [
       { kind: 'p', text: '通知用于日常事务（集合时间、临时安排），公告用于正式发布（制度、评比结果）。两者都能带附件与图片。' },
       { kind: 'list', items: [
-        '未读通知会在首页与「我的」显示数字角标，点开即标记已读',
-        '干部可在详情页看到完成名单（谁读了、谁没读）',
+        '未读通知与待办通知会在底部「首页」和顶部提醒条上显示数字，点开即标记已读',
+        '「待办」类通知需要在详情页点「标记完成」，干部可以看到完成名单（谁完成、谁没完成）；已读/未读名单在通知管理页查看',
         '发布（干部）：通知 → 管理，或直接让助手发：「发个通知：明早 6:50 操场集合」'
       ] },
       { kind: 'tip', text: '发布类操作只在本区队可见；管理员可选择面向全中队发布。' }
@@ -306,13 +306,13 @@ export const MANUAL_SECTIONS: ManualSection[] = [
       { kind: 'p', text: '最省事的做法：把令牌页面上的「复制给 AI 的提示词」发给你的 AI 助手。那段提示词里已经写好了端点、令牌、常见客户端的配置文件位置、只支持 stdio 时的桥接命令，以及「调用 tools/list 与 cm_my_leaves 验证后把配置贴回来」的验收步骤——AI 会自己完成配置，你只需要确认它贴回来的片段。' },
       { kind: 'steps', items: [
         '助手 → 微信 / MCP 接入 → MCP 令牌 → 填备注 → 生成令牌（明文只显示一次，页面会提示你立即复制）',
-        '按需勾选「允许写操作」：不勾 = 只读（38 个查询工具）；勾上 = 读写（47 个，写操作仍需二次确认）',
+        '按需勾选「允许写操作」：不勾 = 只读（只能用查询类工具）；勾上 = 可读写（写操作仍需你在 App 里二次确认）',
         '复制页面给出的配置，粘贴到 AI 客户端的 MCP 设置里，重启客户端即可',
-        '不确定是否通？点页面上的「连接自检」，会显示「连接正常：38 个工具 · 只读」'
+        '不确定是否通？点页面上的「连接自检」，会显示连通的工具数量与读写模式'
       ] },
-      { kind: 'code', lang: 'json', caption: 'HTTP 方式（推荐：只填 URL + 令牌，客户端无需安装任何东西）', text: '{\n  "mcpServers": {\n    "class-mansys": {\n      "url": "https://cls.ayinserver.xin/api/mcp",\n      "headers": { "Authorization": "Bearer cm_你的令牌" }\n    }\n  }\n}' },
-      { kind: 'code', lang: 'json', caption: 'stdio 方式（仅当客户端与服务器在同一台机器）', text: '{\n  "mcpServers": {\n    "class-mansys": {\n      "command": "node",\n      "args": ["/home/ayin/Current_Works/class_mansys/backend/mcp/server.js"],\n      "env": { "CM_API_TOKEN": "cm_你的令牌" }\n    }\n  }\n}' },
-      { kind: 'p', text: '客户端只支持 stdio 时，可用桥接命令：npx -y mcp-remote https://cls.ayinserver.xin/api/mcp --header "Authorization: Bearer cm_你的令牌"。' },
+      { kind: 'code', lang: 'json', caption: 'HTTP 方式（推荐：只填 URL + 令牌，客户端无需安装任何东西）', text: '{\n  "mcpServers": {\n    "class-mansys": {\n      "url": "<本站地址>/api/mcp",\n      "headers": { "Authorization": "Bearer cm_你的令牌" }\n    }\n  }\n}' },
+      { kind: 'code', lang: 'json', caption: 'stdio 方式（仅当客户端与服务器在同一台机器）', text: '{\n  "mcpServers": {\n    "class-mansys": {\n      "command": "node",\n      "args": ["<你的部署目录>/backend/mcp/server.js"],\n      "env": { "CM_API_TOKEN": "cm_你的令牌" }\n    }\n  }\n}' },
+      { kind: 'p', text: '客户端只支持 stdio 时，可用桥接命令：npx -y mcp-remote <本站地址>/api/mcp --header "Authorization: Bearer cm_你的令牌"（本站地址就是你在浏览器里打开系统的地址）。' },
       { kind: 'table', head: ['现象', '原因 / 处理'], rows: [
         ['401 令牌无效或已吊销', '令牌写错、被吊销，或客户端没有带上 Authorization 头'],
         ['工具比预期少', '令牌是只读的；作用域不可改，请重新生成一个勾选「允许写操作」的令牌'],

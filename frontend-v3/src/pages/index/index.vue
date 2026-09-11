@@ -3,14 +3,21 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useUserStore } from '@/stores/user'
+import { useBadgeStore } from '@/stores/badge'
 import { getNotices } from '@/api/notice'
 import { getAnnouncements } from '@/api/announcement'
 import NavBar from '@/components/ui/NavBar.vue'
+import StateView from '@/components/ui/StateView.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+const badgeStore = useBadgeStore()
 const { profile, displayName } = storeToRefs(userStore)
 const notices = ref<any[]>([])
+const noticesLoading = ref(true)
+const noticesError = ref<unknown>(null)
 const pinnedNotices = computed(() => notices.value.filter(n => n.is_pinned))
 
 const greeting = computed(() => {
@@ -33,15 +40,31 @@ const currentDate = computed(() => {
 
 const pinnedAnnouncements = ref<any[]>([])
 
-onMounted(async () => {
+async function loadNotices() {
+  noticesLoading.value = true
+  noticesError.value = null
   try {
     const res = await getNotices()
     if (res.success) notices.value = res.notices || []
-  } catch (_) {}
+    else noticesError.value = new Error('通知加载失败')
+  } catch (e) {
+    noticesError.value = e
+  } finally {
+    noticesLoading.value = false
+  }
+}
+
+async function loadAnnouncements() {
   try {
-    const res2 = await getAnnouncements()
-    if (res2.success) pinnedAnnouncements.value = (res2.announcements || []).filter((a: any) => a.is_pinned)
-  } catch (_) {}
+    const res = await getAnnouncements()
+    if (res.success) pinnedAnnouncements.value = (res.announcements || []).filter((a: any) => a.is_pinned)
+  } catch { /* 置顶公告非关键，失败不展示 */ }
+}
+
+onMounted(() => {
+  void loadNotices()
+  void loadAnnouncements()
+  void badgeStore.refresh(true)
 })
 
 function goToNotice(id: number) {
@@ -59,6 +82,21 @@ function goTo(path: string) {
 <template>
   <div class="home-page">
     <NavBar title="区队管理系统" />
+
+    <!-- 待办 / 未读：必须处理的待办通知最容易漏，放到首屏 -->
+    <button
+      v-if="badgeStore.totalUrgent > 0"
+      class="todo-banner"
+      type="button"
+      @click="goTo('/pages/notice/index')"
+    >
+      <AppIcon name="bell" :size="18" />
+      <span class="todo-text">
+        <template v-if="badgeStore.todoCount > 0">{{ badgeStore.todoCount }} 条待办需要处理</template>
+        <template v-else>{{ badgeStore.unreadCount }} 条未读通知</template>
+      </span>
+      <span class="todo-more">查看 ›</span>
+    </button>
 
     <!-- 置顶通知 + 公告 -->
     <div v-if="pinnedNotices.length > 0 || pinnedAnnouncements.length > 0" class="pinned-bar">
@@ -114,14 +152,25 @@ function goTo(path: string) {
     </div>
 
     <!-- Latest Notices -->
-    <div class="section-title">📋 最新通知</div>
-    <div v-if="notices.length === 0" class="empty-state">暂无通知</div>
-    <div
-      v-for="item in notices"
-      :key="item.id"
-      class="notice-item"
-      @click="goToNotice(item.id)"
+    <div class="section-title">最新通知</div>
+    <StateView
+      :loading="noticesLoading"
+      :error="noticesError"
+      :empty="notices.length === 0"
     >
+      <template #empty>
+        <EmptyState
+          icon="megaphone"
+          title="本区队还没有发布通知"
+          description="请假审批、班费收缴等重要事项都会在这里提醒你"
+        />
+      </template>
+      <div
+        v-for="item in notices"
+        :key="item.id"
+        class="notice-item"
+        @click="goToNotice(item.id)"
+      >
       <div class="tag" :class="item.priority > 0 ? 'important' : item.is_todo ? 'todo' : 'normal'"></div>
       <div class="body">
         <div class="title">{{ item.title }}</div>
@@ -131,17 +180,32 @@ function goTo(path: string) {
           <span>{{ item.created_at ? new Date(item.created_at).toLocaleDateString('zh-CN') : '' }}</span>
         </div>
       </div>
-    </div>
+      </div>
+    </StateView>
   </div>
 </template>
 
 <style scoped>
-.home-page { padding-bottom: 80px; }
+.home-page { padding-bottom: var(--spacing-lg); }
+
+/* 待办提醒条 */
+.todo-banner {
+  display: flex; align-items: center; gap: 8px;
+  width: calc(100% - 24px); margin: 12px 12px 0;
+  min-height: 46px; padding: 10px 14px;
+  border: 1px solid var(--color-accent-bg); border-radius: var(--radius-md);
+  background: var(--color-accent-bg); color: var(--color-accent);
+  font-family: inherit; font-size: var(--font-size-body); font-weight: 600;
+  cursor: pointer; text-align: left;
+}
+.todo-banner:active { opacity: 0.9; }
+.todo-text { flex: 1; }
+.todo-more { font-size: var(--font-size-sm); font-weight: 500; }
 
 /* 置顶栏 */
 .pinned-bar {
-  background: linear-gradient(135deg, #fff7ed, #fef3c7);
-  border-bottom: 1px solid #fde68a;
+  background: linear-gradient(135deg, var(--color-pinned-bg), var(--color-warning-bg));
+  border-bottom: 1px solid var(--color-pinned-border);
   overflow: hidden;
 }
 .pinned-inner {
@@ -151,13 +215,13 @@ function goTo(path: string) {
 .pinned-icon { font-size: 14px; flex-shrink: 0; }
 .pinned-scroll {
   flex: 1; overflow-x: auto; white-space: nowrap;
-  font-size: 13px; font-weight: 500; color: #92400e;
+  font-size: 13px; font-weight: 500; color: var(--color-warning);
   -webkit-overflow-scrolling: touch;
 }
 .pinned-scroll::-webkit-scrollbar { display: none; }
 .pinned-item { cursor: pointer; margin-right: 12px; }
 .pinned-item:active { opacity: 0.7; }
-.pinned-tag { font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-right: 4px; background: #fcd34d; color: #78350f; }
+.pinned-tag { font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-right: 4px; background: var(--color-warning); color: #78350f; }
 .pinned-tag.type-ann { background: #bfdbfe; color: #1e40af; }
 
 .home-hero {

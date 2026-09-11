@@ -56,7 +56,7 @@ const router = useRouter()
   background: var(--color-warning-bg); color: var(--color-warning);
   margin-left: 8px; vertical-align: middle;
 }
-.matrix-badge.empty { background: #dcfce7; color: #16a34a; }
+.matrix-badge.empty { background: var(--color-success-bg); color: var(--color-success); }
 
 .matrix-link {
   font-size: 12px; color: var(--color-accent); cursor: pointer;

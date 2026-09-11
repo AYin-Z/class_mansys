@@ -1,4 +1,12 @@
 <script setup lang="ts">
+/**
+ * 中队与区队管理
+ *
+ * 2026-09 修复：
+ *  - 加载失败不再只弹 toast（页面随后是完全空白的「暂无中队数据」），
+ *    error 交给 StateView 渲染 + 重试
+ *  - 按钮 → BaseButton；空态 → EmptyState；窄屏隐藏次要列
+ */
 import { computed, onMounted, ref } from 'vue'
 import {
   createAdminClass,
@@ -8,11 +16,17 @@ import {
 } from '@/api/admin'
 import type { AdminClassRow } from '@/api/admin'
 import { showToast } from '@/utils/ui'
+import { toastIfNotNotified } from '@/utils/request'
+import StateView from '@/components/ui/StateView.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
 
 const classes = ref<AdminClassRow[]>([])
 const companies = ref<{ id: string; name: string }[]>([])
 const leaders = ref<{ class_id: string; name: string }[]>([])
 const loading = ref(true)
+/** 错误对象：有值即渲染错误态 + 重试 */
+const error = ref<unknown>(null)
 
 /* 中队重命名 */
 const editingCompanyId = ref<string | null>(null)
@@ -45,6 +59,7 @@ const leadersByClass = computed<Record<string, string>>(() => {
 
 async function load() {
   loading.value = true
+  error.value = null
   try {
     const res = await getAdminClasses()
     classes.value = res?.data?.classes || []
@@ -54,7 +69,8 @@ async function load() {
     classes.value = []
     companies.value = []
     leaders.value = []
-    showToast(e?.message || '加载中队与区队数据失败', 'error')
+    error.value = e
+    toastIfNotNotified(e, '加载中队与区队数据失败')
   } finally {
     loading.value = false
   }
@@ -78,6 +94,7 @@ function cancelCompanyEdit() {
 }
 
 async function saveCompany(c: { id: string; name: string }) {
+  if (savingCompanyId.value) return
   const name = companyDraft.value.trim()
   if (!name) {
     showToast('中队名称不能为空', 'error')
@@ -91,10 +108,10 @@ async function saveCompany(c: { id: string; name: string }) {
   try {
     await updateCompany(c.id, name)
     cancelCompanyEdit()
-    showToast('中队名称已更新')
+    showToast('中队名称已更新', 'success')
     await load()
   } catch (e: any) {
-    showToast(e?.message || '中队重命名失败', 'error')
+    toastIfNotNotified(e, '中队重命名失败')
   } finally {
     savingCompanyId.value = null
   }
@@ -112,6 +129,7 @@ function cancelClassEdit() {
 }
 
 async function saveClass(row: AdminClassRow) {
+  if (savingClassId.value) return
   const name = classDraft.value.trim()
   if (!name) {
     showToast('区队名称不能为空', 'error')
@@ -125,10 +143,10 @@ async function saveClass(row: AdminClassRow) {
   try {
     await updateAdminClass(row.id, { name })
     cancelClassEdit()
-    showToast('区队名称已更新')
+    showToast('区队名称已更新', 'success')
     await load()
   } catch (e: any) {
-    showToast(e?.message || '区队重命名失败', 'error')
+    toastIfNotNotified(e, '区队重命名失败')
   } finally {
     savingClassId.value = null
   }
@@ -136,6 +154,7 @@ async function saveClass(row: AdminClassRow) {
 
 /* ===== 新建区队 ===== */
 async function handleCreate() {
+  if (creating.value) return
   const id = newId.value.trim()
   const name = newName.value.trim()
   if (!id) {
@@ -153,13 +172,13 @@ async function handleCreate() {
       name,
       company_id: newCompanyId.value || undefined,
     })
-    showToast('区队创建成功')
+    showToast('区队创建成功', 'success')
     newId.value = ''
     newName.value = ''
     newCompanyId.value = ''
     await load()
   } catch (e: any) {
-    showToast(e?.message || '新建区队失败', 'error')
+    toastIfNotNotified(e, '新建区队失败')
   } finally {
     creating.value = false
   }
@@ -169,13 +188,17 @@ async function handleCreate() {
 <template>
   <section>
     <h2>中队与区队管理</h2>
-    <div v-if="loading" class="loading">加载中...</div>
 
-    <template v-else>
+    <StateView :loading="loading" :error="error" loading-text="正在加载中队与区队…" @retry="load">
       <!-- 中队 -->
       <div class="section-label">中队</div>
       <div class="company-cards">
-        <div v-if="companies.length === 0" class="empty-msg">暂无中队数据</div>
+        <EmptyState
+          v-if="companies.length === 0"
+          icon="building"
+          title="还没有中队"
+          description="中队由后台数据初始化；如需新增，请先在服务端配置 company 数据。"
+        />
         <div v-for="c in companies" :key="c.id" class="company-card">
           <template v-if="editingCompanyId === c.id">
             <input
@@ -185,10 +208,10 @@ async function handleCreate() {
               @keyup.enter="saveCompany(c)"
             />
             <div class="company-actions">
-              <button class="btn-sm" :disabled="savingCompanyId === c.id" @click="saveCompany(c)">
-                {{ savingCompanyId === c.id ? '保存中…' : '保存' }}
-              </button>
-              <button class="btn-ghost" :disabled="savingCompanyId === c.id" @click="cancelCompanyEdit">取消</button>
+              <BaseButton size="sm" :loading="savingCompanyId === c.id" @click="saveCompany(c)">保存</BaseButton>
+              <BaseButton variant="ghost" size="sm" :disabled="savingCompanyId === c.id" @click="cancelCompanyEdit">
+                取消
+              </BaseButton>
             </div>
           </template>
           <template v-else>
@@ -196,14 +219,19 @@ async function handleCreate() {
               <span class="company-name">{{ c.name }}</span>
               <span class="company-id">编号 {{ c.id }}</span>
             </div>
-            <button class="btn-ghost" @click="startCompanyEdit(c)">重命名</button>
+            <BaseButton variant="ghost" size="sm" @click="startCompanyEdit(c)">重命名</BaseButton>
           </template>
         </div>
       </div>
 
       <!-- 区队 -->
       <div class="section-label">区队</div>
-      <div v-if="classes.length === 0" class="empty-msg">暂无区队数据</div>
+      <EmptyState
+        v-if="classes.length === 0"
+        icon="building"
+        title="还没有区队"
+        description="可在下方「新建区队」里填写编号与名称创建；区队创建后即可在成员管理里分配学员。"
+      />
       <div v-else class="table-wrap">
         <table class="data-table">
           <thead>
@@ -212,16 +240,16 @@ async function handleCreate() {
               <th>名称</th>
               <th>所属中队</th>
               <th>在队人数</th>
-              <th>干部数</th>
-              <th>已离开数</th>
+              <th class="col-optional">干部数</th>
+              <th class="col-optional">已离开数</th>
               <th>区队长</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in classes" :key="row.id">
-              <td class="col-id">{{ row.id }}</td>
-              <td class="col-name">
+              <td class="col-id" data-label="编号">{{ row.id }}</td>
+              <td class="col-name" data-label="名称">
                 <input
                   v-if="editingClassId === row.id"
                   v-model="classDraft"
@@ -231,19 +259,19 @@ async function handleCreate() {
                 />
                 <span v-else>{{ row.name }}</span>
               </td>
-              <td>{{ row.company_name || row.company_id || '—' }}</td>
-              <td>{{ row.students }}</td>
-              <td>{{ row.cadres }}</td>
-              <td>{{ row.lefts }}</td>
-              <td>{{ leaderName(row.id) }}</td>
-              <td class="col-actions">
+              <td data-label="所属中队">{{ row.company_name || row.company_id || '—' }}</td>
+              <td data-label="在队人数">{{ row.students }}</td>
+              <td class="col-optional" data-label="干部数">{{ row.cadres }}</td>
+              <td class="col-optional" data-label="已离开数">{{ row.lefts }}</td>
+              <td data-label="区队长">{{ leaderName(row.id) }}</td>
+              <td class="col-actions" data-label="操作">
                 <template v-if="editingClassId === row.id">
-                  <button class="btn-sm" :disabled="savingClassId === row.id" @click="saveClass(row)">
-                    {{ savingClassId === row.id ? '保存中…' : '保存' }}
-                  </button>
-                  <button class="btn-ghost" :disabled="savingClassId === row.id" @click="cancelClassEdit">取消</button>
+                  <BaseButton size="sm" :loading="savingClassId === row.id" @click="saveClass(row)">保存</BaseButton>
+                  <BaseButton variant="ghost" size="sm" :disabled="savingClassId === row.id" @click="cancelClassEdit">
+                    取消
+                  </BaseButton>
                 </template>
-                <button v-else class="btn-ghost" @click="startClassEdit(row)">重命名</button>
+                <BaseButton v-else variant="ghost" size="sm" @click="startClassEdit(row)">重命名</BaseButton>
               </td>
             </tr>
           </tbody>
@@ -268,24 +296,22 @@ async function handleCreate() {
             <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
           </select>
         </div>
-        <button class="btn-sm create-btn" :disabled="creating" @click="handleCreate">
-          {{ creating ? '创建中…' : '新建区队' }}
-        </button>
+        <BaseButton class="create-btn" :loading="creating" @click="handleCreate">新建区队</BaseButton>
       </div>
-    </template>
+    </StateView>
   </section>
 </template>
 
 <style scoped>
 h2 {
-  font-size: 20px;
+  font-size: var(--font-size-title);
   font-weight: 600;
   color: var(--color-text);
   margin: 0 0 16px;
 }
 
 .section-label {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--color-text-3);
   text-transform: uppercase;
@@ -302,7 +328,7 @@ h2 {
 }
 .company-card {
   background: var(--color-surface);
-  border-radius: var(--radius-md, 12px);
+  border-radius: var(--radius-md);
   padding: 12px 14px;
   box-shadow: var(--shadow-card);
   display: flex;
@@ -312,8 +338,8 @@ h2 {
   flex-wrap: wrap;
 }
 .company-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.company-name { font-size: 14px; font-weight: 600; color: var(--color-text); }
-.company-id { font-size: 11px; color: var(--color-text-3); }
+.company-name { font-size: var(--font-size-body); font-weight: 600; color: var(--color-text); }
+.company-id { font-size: var(--font-size-2xs); color: var(--color-text-3); }
 .company-actions { display: flex; gap: 6px; }
 
 /* ========== 表格 ========== */
@@ -323,7 +349,7 @@ h2 {
   min-width: 720px;
   border-collapse: collapse;
   background: var(--color-surface);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   box-shadow: var(--shadow-card);
 }
@@ -331,7 +357,7 @@ h2 {
 .data-table td {
   text-align: left;
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   border-bottom: 1px solid var(--color-border);
 }
 .data-table th {
@@ -344,12 +370,12 @@ h2 {
 .data-table tbody tr:hover { background: var(--color-surface-hover); }
 .col-id { color: var(--color-text-2); font-variant-numeric: tabular-nums; }
 .col-name { min-width: 180px; }
-.col-actions { display: flex; gap: 6px; align-items: center; }
+.col-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 
 /* ========== 新建表单 ========== */
 .create-card {
   background: var(--color-surface);
-  border-radius: var(--radius-md, 12px);
+  border-radius: var(--radius-md);
   padding: 14px 16px;
   box-shadow: var(--shadow-card);
   display: flex;
@@ -358,51 +384,35 @@ h2 {
   align-items: flex-end;
 }
 .create-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 160px; }
-.field-label { font-size: 12px; font-weight: 600; color: var(--color-text-2); }
+.field-label { font-size: var(--font-size-xs); font-weight: 600; color: var(--color-text-2); }
 .text-input,
 .inline-input {
   height: 36px;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 0 10px;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   background: var(--color-surface);
   color: var(--color-text);
   box-sizing: border-box;
 }
 .inline-input { width: 100%; min-width: 120px; }
-.create-btn { height: 36px; }
-
-/* ========== 按钮 ========== */
-.btn-sm {
-  padding: 8px 16px;
-  background: var(--color-accent);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.btn-sm:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-ghost {
-  padding: 8px 14px;
-  background: var(--color-surface);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.btn-ghost:hover { background: var(--color-surface-hover); }
-.btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.loading { padding: 40px; text-align: center; color: var(--color-text-2); font-size: 14px; }
-.empty-msg { text-align: center; padding: 20px; color: var(--color-text-3); font-size: 13px; }
+.create-btn { height: 38px; }
 
 /* ========== 响应式 ========== */
 @media (max-width: 768px) {
-  h2 { font-size: 18px; margin-bottom: 12px; }
+  h2 { font-size: var(--font-size-lg); margin-bottom: 12px; }
   .company-cards { grid-template-columns: 1fr; }
   .create-field { min-width: 100%; }
+  .create-btn { width: 100%; }
+}
+
+/* 窄屏：隐藏次要统计列，表格不再横向滚动 */
+@media (max-width: 640px) {
+  .table-wrap { overflow-x: visible; }
+  .data-table { min-width: 0; font-size: var(--font-size-xs); }
+  .data-table .col-optional { display: none; }
+  .data-table th, .data-table td { padding: 8px 6px; }
+  .col-name { min-width: 0; }
 }
 </style>

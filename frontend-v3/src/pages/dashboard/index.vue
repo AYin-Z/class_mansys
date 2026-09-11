@@ -8,6 +8,7 @@ import CompanyOverview from './components/CompanyOverview.vue'
 import MgmtGrid from './components/MgmtGrid.vue'
 import MySummary from './components/MySummary.vue'
 import QuickGrid from './components/QuickGrid.vue'
+import StateView from '@/components/ui/StateView.vue'
 import { useUserStore } from '@/stores/user'
 import { getSummary, getPendingApprovals } from '@/api/fee'
 import { getUnreadCount, getTodoCount } from '@/api/notice'
@@ -20,8 +21,9 @@ import type { LeaveItem } from '@/api/leave'
 
 const router = useRouter()
 const userStore = useUserStore()
-const isAdmin = userStore.isAdmin
-const isSuperAdmin = userStore.role === 8
+// 必须用 computed：此前是 setup 期求值的普通布尔，同一会话内换账号/权限变更后不会更新
+const isAdmin = computed(() => userStore.isAdmin)
+const isSuperAdmin = computed(() => userStore.role === 8)
 const feeSummary = ref<any>(null)
 const unreadNoticeCount = ref(0)
 const pendingFeeCount = ref(0)
@@ -185,7 +187,11 @@ function formatLeaveDate(t: string) {
   return `${m}/${d} ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
 }
 
-onMounted(async () => {
+const error = ref<unknown>(null)
+
+async function load() {
+  loading.value = true
+  error.value = null
   try {
     const [summaryRes, approvalRes, noticeRes, suggestionRes, leaveRes, todoRes, configRes, companyRes] = await Promise.all([
       getSummary().catch(() => null),
@@ -211,9 +217,16 @@ onMounted(async () => {
       companySummary.value = (companyRes as any).summary || null
       companyClasses.value = (companyRes as any).classes || []
     }
-  } catch (_) {}
-  finally { loading.value = false }
-})
+    // 核心数据全挂时才显示错误态：局部失败保留其余内容，但数字不会被当成 0（见模板里的 --）
+    if (!summaryRes && !approvalRes && !noticeRes && !leaveRes && !todoRes) {
+      error.value = new Error('待办数据加载失败')
+    }
+  } catch (e) {
+    error.value = e
+  } finally { loading.value = false }
+}
+
+onMounted(load)
 
 interface MgmtItem {
   icon: string
@@ -261,11 +274,14 @@ const mgmtGroups = computed<{ name: string; items: MgmtItem[] }[]>(() => [
 </script>
 <template>
   <div class="dashboard-page">
-    <NavBar title="仪表盘" show-back />
+    <NavBar :title="isAdmin ? '待办中心' : '我的待办'" />
 
-    <div v-if="loading" class="loading-state">加载中...</div>
-
-    <template v-else>
+    <StateView
+      :loading="loading"
+      :error="error"
+      empty-title="暂时没有需要处理的事"
+      @retry="load"
+    >
       <!-- ≡≡ 管理员仪表盘 ≡≡ -->
       <template v-if="isAdmin">
         <!-- 超管入口 -->
@@ -330,16 +346,16 @@ const mgmtGroups = computed<{ name: string; items: MgmtItem[] }[]>(() => [
           <span class="value">¥{{ Number(feeSummary.totalExpense).toFixed(2) }}</span>
         </div>
       </div>
-    </template>
+    </StateView>
   </div>
 </template>
 <style scoped>
-.dashboard-page { padding-bottom: 80px; }
+.dashboard-page { padding-bottom: var(--spacing-lg); }
 .loading-state { text-align: center; padding: 48px 16px; font-size: 14px; color: var(--color-text-3); }
 .super-admin-banner {
   display: flex; align-items: center; gap: 8px;
   margin: 12px; padding: 12px 16px;
-  background: linear-gradient(135deg, #1a3a5c 0%, #0f2440 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, #0f2440 100%);
   border-radius: 10px; color: #fff; cursor: pointer;
   box-shadow: 0 2px 8px rgba(26,58,92,0.3);
 }

@@ -109,7 +109,7 @@ onMounted(async () => {
 
 <style scoped>
 .about-page {
-  padding-bottom: 80px;
+  padding-bottom: var(--spacing-lg);
   min-height: 100vh;
 }
 
@@ -126,7 +126,7 @@ onMounted(async () => {
   width: 72px;
   height: 72px;
   border-radius: 18px;
-  background: linear-gradient(135deg, var(--color-accent), #4f8cff);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent));
   display: flex;
   align-items: center;
   justify-content: center;

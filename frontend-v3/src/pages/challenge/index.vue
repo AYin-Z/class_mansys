@@ -1,24 +1,39 @@
 <script setup lang="ts">
+/**
+ * 挑战擂台列表
+ *
+ * 2026-09（体验修复）：
+ *  - 加载失败不再被 `catch (_) {}` 吞成「暂无挑战项目」→ error + 重试
+ *  - 空态 emoji 🏆 → AppIcon；硬编码色值兜底 → 令牌；字号阶梯收敛
+ */
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getChallenges } from '@/api/challenge'
 import type { ChallengeItem } from '@/api/challenge'
 import NavBar from '@/components/ui/NavBar.vue'
+import StateView from '@/components/ui/StateView.vue'
+import BaseBadge from '@/components/ui/BaseBadge.vue'
 
 const router = useRouter()
 const challenges = ref<ChallengeItem[]>([])
 const loading = ref(true)
+const error = ref<unknown>(null)
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
+  error.value = null
   try {
     const res = await getChallenges()
     if (res.success) challenges.value = res.challenges || []
-  } catch (_) {
-    /* ignore */
+    else error.value = new Error('加载挑战列表失败，请稍后重试')
+  } catch (e) {
+    error.value = e
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(load)
 
 function goDetail(id: number) {
   router.push({ path: '/pages/challenge/detail', query: { id: String(id) } })
@@ -52,60 +67,47 @@ function formatDate(dateStr: string): string {
   <div class="challenge-page">
     <NavBar title="挑战" />
 
-    <div v-if="loading" class="state-text">加载中...</div>
-    <div v-else-if="challenges.length === 0" class="state-text empty-state">
-      <div class="empty-icon">🏆</div>
-      <div class="empty-text">暂无挑战项目</div>
-    </div>
-
-    <div v-else class="card-list">
-      <div
-        v-for="item in challenges"
-        :key="item.id"
-        class="card"
-        @click="goDetail(item.id)"
-      >
-        <div class="card-top">
-          <div class="card-name">{{ item.name }}</div>
-          <span class="type-badge">{{ typeLabel(item.type) }}</span>
-        </div>
-        <div class="card-desc">{{ item.description }}</div>
-        <div class="card-meta">
-          <span class="champion-info">
-            擂主：
-            <template v-if="item.champion_name">{{ item.champion_name }}</template>
-            <template v-else><span class="no-champion">暂无擂主</span></template>
-          </span>
-          <span class="record-count">{{ item.record_count || 0 }} 次挑战</span>
-          <span class="card-date">{{ formatDate(item.created_at) }}</span>
+    <StateView
+      :loading="loading"
+      :error="error"
+      :empty="challenges.length === 0"
+      loading-text="正在加载挑战…"
+      empty-icon="trophy"
+      empty-title="还没有挑战项目"
+      empty-description="干部创建擂台后会显示在这里"
+      @retry="load"
+    >
+      <div class="card-list">
+        <div
+          v-for="item in challenges"
+          :key="item.id"
+          class="card"
+          @click="goDetail(item.id)"
+        >
+          <div class="card-top">
+            <div class="card-name">{{ item.name }}</div>
+            <BaseBadge variant="info">{{ typeLabel(item.type) }}</BaseBadge>
+          </div>
+          <div class="card-desc">{{ item.description }}</div>
+          <div class="card-meta">
+            <span class="champion-info">
+              擂主：
+              <template v-if="item.champion_name">{{ item.champion_name }}</template>
+              <template v-else><span class="no-champion">暂无擂主</span></template>
+            </span>
+            <span class="record-count">{{ item.record_count || 0 }} 次挑战</span>
+            <span class="card-date">{{ formatDate(item.created_at) }}</span>
+          </div>
         </div>
       </div>
-    </div>
+    </StateView>
   </div>
 </template>
 
 <style scoped>
 .challenge-page {
-  padding-bottom: 24px;
   min-height: 100vh;
-  background: var(--color-bg, #f5f5f5);
-}
-
-.state-text {
-  text-align: center;
-  padding: 64px 16px;
-  font-size: 14px;
-  color: var(--color-text-3);
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-}
-
-.empty-text {
-  font-size: 14px;
-  color: var(--color-text-3);
+  background: var(--color-bg);
 }
 
 .card-list {
@@ -136,24 +138,14 @@ function formatDate(dateStr: string): string {
 }
 
 .card-name {
-  font-size: 15px;
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text);
   flex: 1;
 }
 
-.type-badge {
-  flex-shrink: 0;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--color-accent-bg, #e8f0fe);
-  color: var(--color-accent, #1a73e8);
-}
-
 .card-desc {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-2);
   line-height: 1.5;
   margin-bottom: 10px;
@@ -167,7 +159,7 @@ function formatDate(dateStr: string): string {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-3);
 }
 

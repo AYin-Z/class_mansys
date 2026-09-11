@@ -34,6 +34,8 @@ export interface LeaveApplyParams {
   reason: string
   start_time: string
   end_time: string
+  /** 证明材料图片 URL 数组（后端 schema 与 model 都已支持，落库为 JSON） */
+  attachments?: string[]
 }
 
 /**

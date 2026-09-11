@@ -1,9 +1,26 @@
 <script setup lang="ts">
+/**
+ * 通知管理（干部）
+ *
+ * 2026-09 体验修复：
+ *  - 加载失败 → StateView 错误态 + 重试（原来 catch (_) {} 后显示「暂无通知」）；
+ *  - 删除通知加二次确认，文案写明后果（学员端立即不可见且不可恢复）；
+ *  - 发布表单从手写遮罩弹窗换成 BaseModal + FormField，去掉了 3 处 rgba 遮罩/阴影硬编码；
+ *  - 删除/发布按钮 loading 防重复提交；失败提示走 toastIfNotNotified，不覆盖后端原因；
+ *  - 优先级/待办/已读角标用 BaseBadge，emoji 换成 AppIcon。
+ */
 import { ref, onMounted, computed } from 'vue'
 import { getNotices, getUnreadCount, createNotice, deleteNotice } from '@/api/notice'
 import type { NoticeItem, NoticeCreateParams } from '@/api/notice'
 import NavBar from '@/components/ui/NavBar.vue'
-import { showToast } from '@/utils/ui'
+import StateView from '@/components/ui/StateView.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseBadge from '@/components/ui/BaseBadge.vue'
+import FormField from '@/components/ui/FormField.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
+import { showToast, showConfirm } from '@/utils/ui'
+import { toastIfNotNotified } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -13,6 +30,7 @@ const canManageNotice = computed(() => userStore.hasPermission('MANAGE_NOTICE'))
 const notices = ref<NoticeItem[]>([])
 const unreadCount = ref(0)
 const loading = ref(true)
+const error = ref<unknown>(null)
 const deleting = ref<number | null>(null)
 
 const showForm = ref(false)
@@ -28,6 +46,7 @@ const submitting = ref(false)
 
 async function loadData() {
   loading.value = true
+  error.value = null
   try {
     const [noticeRes, countRes] = await Promise.all([
       getNotices(),
@@ -35,8 +54,12 @@ async function loadData() {
     ])
     if (noticeRes.success) notices.value = noticeRes.notices || []
     if (countRes.success) unreadCount.value = countRes.count
-  } catch (_) {}
-  finally { loading.value = false }
+  } catch (e) {
+    error.value = e
+    notices.value = []
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(loadData)
@@ -47,41 +70,52 @@ function openForm() {
 }
 
 async function handleCreate() {
+  if (submitting.value) return
   if (!form.value.title.trim()) {
-    showToast('请输入通知标题')
+    showToast('请输入通知标题', 'error')
     return
   }
   if (!form.value.content.trim()) {
-    showToast('请输入通知内容')
+    showToast('请输入通知内容', 'error')
     return
   }
   submitting.value = true
   try {
     const res = await createNotice(form.value)
     if (res.success) {
-      showToast('通知发布成功')
+      showToast('通知发布成功', 'success')
       showForm.value = false
       await loadData()
-    } else {
-      showToast(res.message || '发布失败', 'error')
     }
-  } catch (_) { showToast('发布失败', 'error') }
-  finally { submitting.value = false }
+  } catch (e) {
+    toastIfNotNotified(e, '发布失败，请重试')
+  } finally {
+    submitting.value = false
+  }
 }
 
-async function handleDelete(id: number) {
-  if (deleting.value === id) return
-  deleting.value = id
+async function handleDelete(item: NoticeItem) {
+  if (deleting.value === item.id) return
+  const ok = await showConfirm('删除通知', `《${item.title}》`, {
+    confirmText: '删除',
+    danger: true,
+    hint: '删除后学员端立即不可见，且无法恢复。',
+  })
+  if (!ok) return
+  deleting.value = item.id
   try {
-    const res = await deleteNotice(id)
+    const res = await deleteNotice(item.id)
     if (res.success) {
-      showToast('已删除')
-      notices.value = notices.value.filter(n => n.id !== id)
+      showToast('通知已删除', 'success')
+      notices.value = notices.value.filter(n => n.id !== item.id)
     } else {
-      showToast('删除失败', 'error')
+      showToast('删除失败，请重试', 'error')
     }
-  } catch (_) { showToast('删除失败', 'error') }
-  finally { deleting.value = null }
+  } catch (e) {
+    toastIfNotNotified(e, '删除失败，请重试')
+  } finally {
+    deleting.value = null
+  }
 }
 
 function formatDate(dateStr: string) {
@@ -96,10 +130,10 @@ function priorityLabel(p: number) {
   return '普通'
 }
 
-function priorityClass(p: number) {
-  if (p >= 2) return 'urgent'
-  if (p === 1) return 'important'
-  return 'normal'
+function priorityVariant(p: number): 'danger' | 'warning' | 'info' {
+  if (p >= 2) return 'danger'
+  if (p === 1) return 'warning'
+  return 'info'
 }
 </script>
 
@@ -109,106 +143,115 @@ function priorityClass(p: number) {
 
     <!-- Unread badge -->
     <div class="unread-bar">
+      <AppIcon name="bell" :size="16" />
       <span class="unread-label">未读通知</span>
       <span class="unread-count">{{ unreadCount }}</span>
     </div>
 
-    <div v-if="loading" class="loading-state">加载中...</div>
-    <div v-else-if="notices.length === 0" class="empty-state">暂无通知</div>
-
-    <div
-      v-for="item in notices"
-      :key="item.id"
-      class="notice-card"
+    <StateView
+      :loading="loading"
+      :error="error"
+      :empty="notices.length === 0"
+      loading-text="正在加载通知…"
+      empty-icon="bell"
+      empty-title="还没有发布过通知"
+      empty-description="发布后学员端会立即收到提醒，重要事项可标记为待办"
+      :empty-action-text="canManageNotice ? '发布通知' : ''"
+      @retry="loadData"
+      @empty-action="openForm"
     >
-      <div class="card-left">
-        <div class="priority-indicator" :class="priorityClass(item.priority)"></div>
-      </div>
-      <div class="card-body">
-        <div class="card-title-row">
-          <span class="card-title">{{ item.title }}</span>
-          <span class="read-badge" :class="{ unread: !item.is_read }">
-            {{ item.is_read ? '已读' : '未读' }}
-          </span>
-        </div>
-        <div class="card-content">{{ item.content?.replace(/<[^>]*>/g, '').slice(0, 120) || '' }}</div>
-        <div class="card-meta">
-          <span class="priority-tag" :class="priorityClass(item.priority)">{{ priorityLabel(item.priority) }}</span>
-          <span>{{ item.creator_name || '' }}</span>
-          <span>{{ formatDate(item.created_at) }}</span>
-          <span v-if="item.is_todo" class="todo-tag">待办</span>
-        </div>
-      </div>
-      <button
-        v-if="canManageNotice"
-        class="delete-btn"
-        :disabled="deleting === item.id"
-        @click="handleDelete(item.id)"
+      <div
+        v-for="item in notices"
+        :key="item.id"
+        class="notice-card"
       >
-        {{ deleting === item.id ? '…' : '删除' }}
-      </button>
-    </div>
+        <div class="card-body">
+          <div class="card-title-row">
+            <span class="card-title">{{ item.title }}</span>
+            <BaseBadge :variant="item.is_read ? 'default' : 'info'">
+              {{ item.is_read ? '已读' : '未读' }}
+            </BaseBadge>
+          </div>
+          <div class="card-content">{{ item.content?.replace(/<[^>]*>/g, '').slice(0, 120) || '' }}</div>
+          <div class="card-meta">
+            <BaseBadge :variant="priorityVariant(item.priority)">
+              {{ priorityLabel(item.priority) }}
+            </BaseBadge>
+            <BaseBadge v-if="item.is_todo" variant="warning">
+              <AppIcon name="clipboard" :size="11" />
+              待办
+            </BaseBadge>
+            <span>{{ item.creator_name || '' }}</span>
+            <span>{{ formatDate(item.created_at) }}</span>
+          </div>
+        </div>
+        <button
+          v-if="canManageNotice"
+          class="delete-btn"
+          type="button"
+          :disabled="deleting === item.id"
+          :aria-label="`删除通知：${item.title}`"
+          @click="handleDelete(item)"
+        >
+          <AppIcon v-if="deleting !== item.id" name="trash" :size="17" />
+          <span v-else class="dot-loading" aria-hidden="true" />
+        </button>
+      </div>
+    </StateView>
 
     <!-- FAB 发布通知 -->
-    <button v-if="canManageNotice" class="fab" @click="openForm">发布通知</button>
+    <button
+      v-if="canManageNotice"
+      class="fab"
+      type="button"
+      aria-label="发布通知"
+      @click="openForm"
+    >
+      <AppIcon name="plus" :size="24" />
+    </button>
 
     <!-- 发布通知弹窗 -->
-    <div v-if="showForm" class="overlay" @click.self="showForm = false">
-      <div class="form-modal">
-        <h3 class="form-title">发布通知</h3>
+    <BaseModal v-model="showForm" title="发布通知" :close-on-overlay="false">
+      <div class="form">
+        <FormField label="标题" required>
+          <input v-model="form.title" placeholder="请输入通知标题" />
+        </FormField>
 
-        <label class="form-field">
-          <span class="field-label">标题</span>
-          <input v-model="form.title" class="field-input" placeholder="请输入通知标题" />
-        </label>
+        <FormField label="内容" required>
+          <textarea v-model="form.content" rows="4" placeholder="请输入通知内容"></textarea>
+        </FormField>
 
-        <label class="form-field">
-          <span class="field-label">内容</span>
-          <textarea v-model="form.content" class="field-textarea" rows="4" placeholder="请输入通知内容"></textarea>
-        </label>
-
-        <label class="form-field">
-          <span class="field-label">优先级</span>
-          <select v-model="form.priority" class="field-input">
+        <FormField label="优先级">
+          <select v-model="form.priority">
             <option :value="0">普通</option>
             <option :value="1">重要</option>
             <option :value="2">紧急</option>
           </select>
-        </label>
+        </FormField>
 
-        <label class="form-field form-field-row">
-          <span class="field-label">标记为待办</span>
+        <label class="check-row">
+          <span class="check-label">标记为待办</span>
           <input v-model="form.is_todo" type="checkbox" class="field-checkbox" />
         </label>
-        <label class="form-field form-field-row">
-          <span class="field-label">📌 首页置顶</span>
+        <label class="check-row">
+          <span class="check-label">首页置顶</span>
           <input v-model="form.is_pinned" type="checkbox" class="field-checkbox" />
         </label>
-
-        <div class="form-actions">
-          <button class="btn-cancel" @click="showForm = false">取消</button>
-          <button class="btn-submit" :disabled="submitting" @click="handleCreate">
-            {{ submitting ? '发布中…' : '发布' }}
-          </button>
-        </div>
+        <p class="form-hint">标记为待办后，学员需在通知详情里点「标记完成」。</p>
       </div>
-    </div>
+
+      <template #footer>
+        <BaseButton variant="secondary" @click="showForm = false">取消</BaseButton>
+        <BaseButton :loading="submitting" @click="handleCreate">发布</BaseButton>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <style scoped>
 .notice-admin-page {
-  padding-bottom: 80px;
   min-height: 100vh;
   background: var(--color-bg);
-}
-
-.loading-state,
-.empty-state {
-  text-align: center;
-  padding: 48px 16px;
-  font-size: 14px;
-  color: var(--color-text-3);
 }
 
 /* Unread bar */
@@ -219,15 +262,16 @@ function priorityClass(p: number) {
   gap: 8px;
   padding: 10px 16px;
   background: var(--color-accent-bg);
+  color: var(--color-accent);
   margin: 8px 12px;
   border-radius: var(--radius-md);
 }
 .unread-label {
-  font-size: 14px;
+  font-size: var(--font-size-body);
   color: var(--color-text-2);
 }
 .unread-count {
-  font-size: 20px;
+  font-size: var(--font-size-title);
   font-weight: 700;
   color: var(--color-accent);
 }
@@ -241,31 +285,15 @@ function priorityClass(p: number) {
   background: var(--color-surface);
   box-shadow: var(--shadow-card);
   overflow: hidden;
-  transition: background 0.15s;
+  transition: background var(--dur-fast);
 }
 .notice-card:active {
   background: var(--color-surface-hover);
 }
 
-.card-left {
-  display: flex;
-  align-items: stretch;
-  padding: 4px 0;
-  flex-shrink: 0;
-}
-
-.priority-indicator {
-  width: 3px;
-  border-radius: 2px;
-  margin: 0 6px;
-}
-.priority-indicator.normal { background: var(--color-accent); }
-.priority-indicator.important { background: var(--color-warning); }
-.priority-indicator.urgent { background: var(--color-error); }
-
 .card-body {
   flex: 1;
-  padding: 12px 0 12px 4px;
+  padding: 12px 0 12px 14px;
   min-width: 0;
 }
 
@@ -276,31 +304,18 @@ function priorityClass(p: number) {
   margin-bottom: 4px;
 }
 .card-title {
-  font-size: 15px;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-.read-badge {
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--color-bg);
-  color: var(--color-text-3);
-  flex-shrink: 0;
-}
-.read-badge.unread {
-  background: var(--color-accent-bg);
-  color: var(--color-accent);
-  font-weight: 600;
 }
 
 .card-content {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-2);
   line-height: 1.5;
   overflow: hidden;
@@ -310,44 +325,26 @@ function priorityClass(p: number) {
 }
 
 .card-meta {
-  font-size: 11px;
-  color: var(--color-text-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-2);
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
-.priority-tag {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-.priority-tag.normal { background: var(--color-accent-bg); color: var(--color-accent); }
-.priority-tag.important { background: #fef3c7; color: #d97706; }
-.priority-tag.urgent { background: var(--color-error-bg); color: var(--color-error); }
-.todo-tag {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: #fef3c7;
-  color: #d97706;
-}
 
 .delete-btn {
   flex-shrink: 0;
   width: 52px;
+  min-height: 44px;
   border: none;
   background: transparent;
   color: var(--color-error);
-  font-size: 12px;
-  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s;
+  transition: background var(--dur-fast);
   -webkit-tap-highlight-color: transparent;
 }
 .delete-btn:active {
@@ -355,12 +352,22 @@ function priorityClass(p: number) {
 }
 .delete-btn:disabled {
   opacity: 0.5;
+  cursor: not-allowed;
 }
+.dot-loading {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: dot-spin 0.7s linear infinite;
+}
+@keyframes dot-spin { to { transform: rotate(360deg); } }
 
 /* FAB */
 .fab {
   position: fixed;
-  bottom: 24px;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 16px);
   right: 24px;
   width: 56px;
   height: 56px;
@@ -368,124 +375,42 @@ function priorityClass(p: number) {
   border: none;
   background: var(--color-accent);
   color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-lift);
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
-  z-index: 50;
+  transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+  z-index: var(--z-fab);
   -webkit-tap-highlight-color: transparent;
 }
 .fab:active {
   transform: scale(0.92);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
-/* Overlay / Modal */
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 100;
+/* 弹窗内表单 */
+.form { display: flex; flex-direction: column; gap: 14px; }
+.check-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 16px;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
 }
-
-.form-modal {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  width: 100%;
-  max-width: 400px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-}
-
-.form-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-text);
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-.form-field {
-  display: block;
-  margin-bottom: 16px;
-}
-
-.field-label {
-  display: block;
-  font-size: 13px;
+.check-label {
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-2);
-  margin-bottom: 6px;
-}
-
-.field-input,
-.field-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  color: var(--color-text);
-  background: var(--color-bg);
-  outline: none;
-  transition: border-color 0.15s;
-  box-sizing: border-box;
-}
-.field-input:focus,
-.field-textarea:focus {
-  border-color: var(--color-accent);
-}
-.field-textarea {
-  resize: vertical;
-  font-family: inherit;
-  line-height: 1.5;
-}
-
-.form-field-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.form-field-row .field-label {
-  margin-bottom: 0;
 }
 .field-checkbox {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
   accent-color: var(--color-accent);
 }
-
-.form-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-}
-.form-actions button {
-  flex: 1;
-  height: 42px;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-.form-actions button:disabled {
-  opacity: 0.5;
-}
-.btn-cancel {
-  background: var(--color-surface-hover);
-  color: var(--color-text-2);
-}
-.btn-submit {
-  background: var(--color-accent);
-  color: #fff;
+.form-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-3);
+  line-height: 1.5;
 }
 </style>

@@ -3,14 +3,24 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMyLeaves, cancelLeave } from '@/api/leave'
 import type { LeaveItem } from '@/api/leave'
+import { useUserStore } from '@/stores/user'
 import NavBar from '@/components/ui/NavBar.vue'
-import { showToast } from '@/utils/ui'
+import StateView from '@/components/ui/StateView.vue'
+import BaseBadge from '@/components/ui/BaseBadge.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
+import { showConfirm, showToast } from '@/utils/ui'
+import { toastIfNotNotified } from '@/utils/request'
 
 const router = useRouter()
+const userStore = useUserStore()
 const leaves = ref<LeaveItem[]>([])
 const loading = ref(true)
+const error = ref<unknown>(null)
 const TABS = ['全部', '待审批', '已通过', '已驳回']
 const activeTab = ref(0)
+/** 干部看得到审批入口：此前请假页只有"我的记录"，干部每天批假要绕到仪表盘（手册却写了「请假 → 审批」） */
+const canApprove = computed(() => userStore.hasPermission('APPROVE_LEAVE'))
 
 const filteredLeaves = computed(() => {
   if (activeTab.value === 0) return leaves.value
@@ -18,13 +28,23 @@ const filteredLeaves = computed(() => {
   return leaves.value.filter(l => l.status === statusMap[activeTab.value])
 })
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
+  error.value = null
   try {
     const res = await getMyLeaves()
     if (res.success) leaves.value = res.leaves || []
-  } catch (_) {}
-  finally { loading.value = false }
-})
+    else error.value = new Error('加载请假记录失败')
+  } catch (e) {
+    error.value = e
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(load)
+
+function goApprovals() { router.push('/pages/leave/approvals') }
 
 function goApply() {
   router.push('/pages/leave/apply')
@@ -35,17 +55,22 @@ function goDetail(id: number) {
 }
 
 async function handleCancel(id: number) {
-  if (!confirm('确定要销假吗？')) return
+  const ok = await showConfirm('销假', '确认销假这次请假？', {
+    confirmText: '确认销假',
+    danger: true,
+    hint: '销假后本次请假立即失效，如需再休要重新申请',
+  })
+  if (!ok) return
   try {
     const res = await cancelLeave(id)
     if (res.success) {
-      showToast('已销假')
+      showToast('已销假', 'success')
       leaves.value = leaves.value.map(l => l.id === id ? { ...l, is_cancelled: true } : l)
     } else {
-      showToast(res.message || '销假失败', 'error')
+      showToast(res.message || '销假失败，请稍后重试', 'error')
     }
-  } catch (_) {
-    showToast('销假失败', 'error')
+  } catch (e) {
+    toastIfNotNotified(e, '销假失败，请稍后重试')
   }
 }
 
@@ -62,12 +87,28 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
           :class="['tab', { active: activeTab === i }]"
           @click="activeTab = i">{{ tab }}</span>
       </div>
-      <button class="apply-btn" @click="goApply">+ 请假</button>
+      <div class="top-actions">
+        <button v-if="canApprove" class="approve-btn" @click="goApprovals">
+          <AppIcon name="clipboard" :size="14" /> 审批
+        </button>
+        <button class="apply-btn" @click="goApply">
+          <AppIcon name="plus" :size="14" /> 请假
+        </button>
+      </div>
     </div>
 
-    <div v-if="loading" class="loading-state">加载中...</div>
-    <div v-else-if="filteredLeaves.length === 0" class="empty-state">暂无记录</div>
-
+    <StateView
+      :loading="loading"
+      :error="error"
+      :empty="filteredLeaves.length === 0"
+      empty-icon="calendar"
+      :empty-variant="activeTab === 0 ? 'default' : 'filtered'"
+      :empty-title="activeTab === 0 ? '还没有请假记录' : '当前分类下没有记录'"
+      :empty-description="activeTab === 0 ? '请假需要干部审批，建议提前申请' : '换个分类看看'"
+      :empty-action-text="activeTab === 0 ? '发起请假' : ''"
+      @retry="load"
+      @empty-action="goApply"
+    >
     <div v-for="item in filteredLeaves" :key="item.id" class="leave-card" @click="goDetail(item.id)">
       <div class="card-header">
         <span class="leave-type">{{ item.leave_type }}</span>
@@ -84,17 +125,27 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
         <span v-else-if="item.is_cancelled" class="cancelled-label">已销假</span>
       </div>
     </div>
+    </StateView>
   </div>
 </template>
 
 <style scoped>
-.leave-page { padding-bottom: 80px; }
+.leave-page { padding-bottom: var(--spacing-lg); }
 .top-bar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 16px; background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
 }
 .tabs { display: flex; gap: 4px; }
+.top-actions { display: flex; gap: 6px; }
+.approve-btn, .apply-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 34px; padding: 6px 12px;
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface); color: var(--color-text-2);
+  font-size: var(--font-size-sm); font-weight: 600; font-family: inherit; cursor: pointer;
+}
+.approve-btn:active, .apply-btn:active { background: var(--color-surface-hover); }
 .tab {
   font-size: 13px; font-weight: 500; padding: 6px 14px;
   border-radius: var(--radius-sm); cursor: pointer;
@@ -116,7 +167,7 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
 .leave-type { font-size: 15px; font-weight: 600; color: var(--color-text); }
 .status-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
 .status-badge.pending { background: var(--color-warning-bg); color: var(--color-warning); }
-.status-badge.approved { background: #dcfce7; color: #16a34a; }
+.status-badge.approved { background: var(--color-success-bg); color: var(--color-success); }
 .status-badge.rejected { background: var(--color-error-bg); color: var(--color-error); }
 .card-body .row {
   display: flex; gap: 8px; font-size: 13px; color: var(--color-text-2);

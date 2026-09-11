@@ -1,21 +1,41 @@
 <script setup lang="ts">
+/**
+ * 投票列表
+ *
+ * 2026-09（体验修复）：
+ *  - 加载失败不再被 `catch (_) {}` 吞成「暂无投票」→ error + 重试
+ *  - 状态标签改 BaseBadge（硬编码 #dcfce7/#16a34a/#fef9c3/#ca8a04 → 语义令牌）
+ *  - 底部避让交给 App.vue，删除手写 padding-bottom: 80px
+ */
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getVotes, getVoteStatus, isVoteSingle } from '@/api/vote'
 import type { VoteItem } from '@/api/vote'
 import NavBar from '@/components/ui/NavBar.vue'
+import StateView from '@/components/ui/StateView.vue'
+import BaseBadge from '@/components/ui/BaseBadge.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 const router = useRouter()
 const votes = ref<VoteItem[]>([])
 const loading = ref(true)
+const error = ref<unknown>(null)
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
+  error.value = null
   try {
     const res = await getVotes()
     if (res.success) votes.value = res.votes || []
-  } catch (_) { /* ignore */ }
-  finally { loading.value = false }
-})
+    else error.value = new Error('加载投票列表失败，请稍后重试')
+  } catch (e) {
+    error.value = e
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(load)
 
 function goToDetail(id: number) {
   router.push({ path: '/pages/vote/detail', query: { id: String(id) } })
@@ -28,11 +48,11 @@ function statusLabel(v: VoteItem): string {
   return '进行中'
 }
 
-function statusClass(v: VoteItem): string {
+function statusVariant(v: VoteItem): 'success' | 'default' | 'warning' {
   const s = getVoteStatus(v)
-  if (s === 'pending') return 'status-pending'
-  if (s === 'ended') return 'status-ended'
-  return 'status-active'
+  if (s === 'pending') return 'warning'
+  if (s === 'ended') return 'default'
+  return 'success'
 }
 
 function typeLabel(v: VoteItem): string {
@@ -53,40 +73,43 @@ function formatDateRange(start: string, end: string): string {
   <div class="vote-page">
     <NavBar title="投票" />
 
-    <div v-if="loading" class="state-text">加载中...</div>
-    <div v-else-if="votes.length === 0" class="state-text">暂无投票</div>
-
-    <div
-      v-for="item in votes"
-      :key="item.id"
-      class="vote-card"
-      @click="goToDetail(item.id)"
+    <StateView
+      :loading="loading"
+      :error="error"
+      :empty="votes.length === 0"
+      loading-text="正在加载投票…"
+      empty-icon="check-circle"
+      empty-title="还没有投票"
+      empty-description="干部发起投票后会显示在这里"
+      @retry="load"
     >
-      <div class="card-top">
-        <span class="card-title">{{ item.title }}</span>
-        <span :class="['status-badge', statusClass(item)]">{{ statusLabel(item) }}</span>
+      <div
+        v-for="item in votes"
+        :key="item.id"
+        class="vote-card"
+        @click="goToDetail(item.id)"
+      >
+        <div class="card-top">
+          <span class="card-title">{{ item.title }}</span>
+          <BaseBadge :variant="statusVariant(item)">{{ statusLabel(item) }}</BaseBadge>
+        </div>
+        <div v-if="item.description" class="card-desc">{{ item.description }}</div>
+        <div class="card-meta">
+          <span class="meta-tag">{{ typeLabel(item) }}</span>
+          <span>{{ item.creator_name || '' }}</span>
+          <span v-if="item.participant_count !== undefined">
+            <AppIcon name="users" :size="13" />
+            {{ item.participant_count }} 人参与
+          </span>
+        </div>
+        <div class="card-time">{{ formatDateRange(item.start_time, item.end_time) }}</div>
       </div>
-      <div v-if="item.description" class="card-desc">{{ item.description }}</div>
-      <div class="card-meta">
-        <span class="meta-tag">{{ typeLabel(item) }}</span>
-        <span>{{ item.creator_name || '' }}</span>
-        <span v-if="item.participant_count !== undefined">{{ item.participant_count }} 人参与</span>
-      </div>
-      <div class="card-time">{{ formatDateRange(item.start_time, item.end_time) }}</div>
-    </div>
+    </StateView>
   </div>
 </template>
 
 <style scoped>
-.vote-page {
-  padding-bottom: 80px;
-}
-.state-text {
-  text-align: center;
-  padding: 48px 16px;
-  font-size: 14px;
-  color: var(--color-text-3);
-}
+.vote-page { min-height: 100vh; }
 
 /* Vote Card */
 .vote-card {
@@ -110,7 +133,7 @@ function formatDateRange(start: string, end: string): string {
   gap: 8px;
 }
 .card-title {
-  font-size: 15px;
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text);
   flex: 1;
@@ -119,28 +142,8 @@ function formatDateRange(start: string, end: string): string {
   white-space: nowrap;
 }
 
-.status-badge {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 20px;
-  flex-shrink: 0;
-}
-.status-active {
-  background: #dcfce7;
-  color: #16a34a;
-}
-.status-ended {
-  background: var(--color-border);
-  color: var(--color-text-3);
-}
-.status-pending {
-  background: #fef9c3;
-  color: #ca8a04;
-}
-
 .card-desc {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-2);
   margin-top: 6px;
   line-height: 1.5;
@@ -150,22 +153,24 @@ function formatDateRange(start: string, end: string): string {
   overflow: hidden;
 }
 .card-meta {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-3);
   margin-top: 8px;
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
 }
+.card-meta > span { display: inline-flex; align-items: center; gap: 3px; }
 .meta-tag {
   background: var(--color-accent-bg);
   color: var(--color-accent);
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-weight: 500;
 }
 .card-time {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-3);
   margin-top: 4px;
 }

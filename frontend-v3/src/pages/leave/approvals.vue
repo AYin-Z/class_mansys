@@ -4,27 +4,61 @@ import { ref, onMounted, computed } from 'vue'
 import { getAllLeaves, approveLeave, cancelLeave } from '@/api/leave'
 import type { LeaveItem } from '@/api/leave'
 import NavBar from '@/components/ui/NavBar.vue'
-import { showToast } from '@/utils/ui'
+import StateView from '@/components/ui/StateView.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseBadge from '@/components/ui/BaseBadge.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
+import { showConfirm, showToast } from '@/utils/ui'
+import { toastIfNotNotified } from '@/utils/request'
 
 const leaves = ref<LeaveItem[]>([])
 const loading = ref(true)
+const error = ref<unknown>(null)
 const actionLoading = ref<number | null>(null)
 const expandedId = ref<number | null>(null)
 const proofViewUrl = ref<string | null>(null)
 const approvalNote = ref('')
 const cancelling = ref<number | null>(null)
+/** 驳回弹窗（此前用原生 prompt，在 Capacitor 壳里可能返回 null 导致驳回静默失败，还丢掉已填意见） */
+const rejectModal = ref<{ id: number; show: boolean }>({ id: 0, show: false })
+const rejectNote = ref('')
+
+async function load() {
+  loading.value = true
+  error.value = null
+  try {
+    const res = await getAllLeaves()
+    if (res.success) {
+      leaves.value = (res.leaves || []).sort((a, b) => a.status - b.status)
+    } else {
+      error.value = new Error('加载请假列表失败')
+    }
+  } catch (e) {
+    error.value = e
+  } finally {
+    loading.value = false
+  }
+}
 
 async function handleAdminCancel(id: number) {
+  const item = leaves.value.find(l => l.id === id)
+  const ok = await showConfirm(
+    '管理员销假',
+    `确认对「${item?.applicant_name || '该同学'}」的请假执行销假？`,
+    { confirmText: '确认销假', danger: true, hint: '销假后该请假立即失效，同学如需再休必须重新申请' },
+  )
+  if (!ok) return
   cancelling.value = id
   try {
     const res = await cancelLeave(id)
     if (res.success) {
-      showToast('已销假')
+      showToast('已销假', 'success')
       leaves.value = leaves.value.map(l => l.id === id ? { ...l, is_cancelled: true } : l)
     } else {
-      showToast(res.message || '操作失败', 'error')
+      showToast(res.message || '销假失败，请刷新后重试', 'error')
     }
-  } catch (_) { showToast('操作失败', 'error') }
+  } catch (e) { toastIfNotNotified(e, '销假失败，请刷新后重试') }
   finally { cancelling.value = null }
 }
 
@@ -77,56 +111,53 @@ const filteredLeaves = computed(() => {
   return leaves.value
 })
 
-onMounted(async () => {
-  try {
-    const res = await getAllLeaves()
-    if (res.success) {
-      leaves.value = (res.leaves || []).sort((a, b) => a.status - b.status)
-    }
-  } catch (_) {
-    showToast('加载失败', 'error')
-  } finally {
-    loading.value = false
-  }
-})
+onMounted(load)
 
 function toggleExpand(id: number) {
   expandedId.value = expandedId.value === id ? null : id
 }
 
 async function handleApprove(id: number) {
+  if (actionLoading.value) return
   actionLoading.value = id
   try {
     const res = await approveLeave(id, 1, approvalNote.value.trim() || undefined)
     if (res.success) {
-      showToast('已通过')
+      showToast('已通过该请假', 'success')
       leaves.value = leaves.value.filter(l => l.id !== id)
       if (expandedId.value === id) { expandedId.value = null; approvalNote.value = '' }
     } else {
-      showToast(res.message || '操作失败', 'error')
+      showToast(res.message || '审批失败，请刷新后重试', 'error')
     }
-  } catch (_) {
-    showToast('操作失败', 'error')
+  } catch (e) {
+    toastIfNotNotified(e, '审批失败，请刷新后重试')
   } finally {
     actionLoading.value = null
   }
 }
 
-async function handleReject(id: number) {
-  const notes = prompt('驳回原因（选填）：')
-  if (notes === null) return // user cancelled
+function openReject(id: number) {
+  rejectModal.value = { id, show: true }
+  // 把干部在卡片里已填的审批意见带进来，不要在驳回时丢掉
+  rejectNote.value = approvalNote.value.trim()
+}
+
+async function handleReject() {
+  const id = rejectModal.value.id
+  if (actionLoading.value) return
   actionLoading.value = id
   try {
-    const res = await approveLeave(id, 2, notes || undefined)
+    const res = await approveLeave(id, 2, rejectNote.value.trim() || undefined)
     if (res.success) {
-      showToast('已驳回')
+      showToast('已驳回该请假', 'success')
       leaves.value = leaves.value.filter(l => l.id !== id)
+      rejectModal.value.show = false
       if (expandedId.value === id) { expandedId.value = null; approvalNote.value = '' }
     } else {
-      showToast(res.message || '操作失败', 'error')
+      showToast(res.message || '驳回失败，请刷新后重试', 'error')
     }
-  } catch (_) {
-    showToast('操作失败', 'error')
+  } catch (e) {
+    toastIfNotNotified(e, '驳回失败，请刷新后重试')
   } finally {
     actionLoading.value = null
   }
@@ -152,12 +183,19 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
         @click="activeTab = i">{{ tab }}</span>
     </div>
 
-    <div v-if="loading" class="state-msg">加载中...</div>
-    <div v-else-if="filteredLeaves.length === 0" class="state-msg">暂无审批记录</div>
-
-    <div v-for="item in filteredLeaves" :key="item.id"
-      :class="['card', { expanded: expandedId === item.id }]"
-      @click="toggleExpand(item.id)">
+    <StateView
+      :loading="loading"
+      :error="error"
+      :empty="filteredLeaves.length === 0"
+      empty-icon="calendar"
+      :empty-variant="activeTab === 0 ? 'default' : 'filtered'"
+      :empty-title="activeTab === 0 ? '没有待审批的请假' : '当前分类下没有记录'"
+      :empty-description="activeTab === 0 ? '同学提交请假后会出现在这里' : '换个分类看看，或稍后下拉刷新'"
+      @retry="load"
+    >
+      <div v-for="item in filteredLeaves" :key="item.id"
+        :class="['card', { expanded: expandedId === item.id }]"
+        @click="toggleExpand(item.id)">
 
       <div class="card-main">
         <div class="card-header">
@@ -201,38 +239,46 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
             <p>{{ item.approval_notes }}</p>
           </div>
           <div v-if="item.status === 1 && !item.is_cancelled" class="actions" @click.stop>
-            <button class="btn btn-cancel"
-              :disabled="cancelling === item.id"
-              @click="handleAdminCancel(item.id)">
-              {{ cancelling === item.id ? '…' : '管理员销假' }}
-            </button>
+            <BaseButton variant="ghost" size="md" :loading="cancelling === item.id" @click="handleAdminCancel(item.id)">
+              管理员销假
+            </BaseButton>
           </div>
           <div v-if="item.status === 0" class="actions" @click.stop>
             <input v-model="approvalNote" class="note-input" placeholder="审批意见（选填）" maxlength="100" />
-            <button class="btn btn-approve"
-              :disabled="actionLoading === item.id"
-              @click="handleApprove(item.id)">
+            <BaseButton size="md" :loading="actionLoading === item.id" @click="handleApprove(item.id)">
               通过
-            </button>
-            <button class="btn btn-reject"
-              :disabled="actionLoading === item.id"
-              @click="handleReject(item.id)">
+            </BaseButton>
+            <BaseButton variant="danger" size="md" :disabled="actionLoading === item.id" @click="openReject(item.id)">
               驳回
-            </button>
+            </BaseButton>
           </div>
         </div>
       </template>
-    </div>
+      </div>
+    </StateView>
+
+    <!-- 驳回弹窗（替代原生 prompt） -->
+    <BaseModal v-model="rejectModal.show" title="驳回请假" danger>
+      <p class="modal-desc">驳回后同学需要重新提交申请，请说明原因。</p>
+      <textarea v-model="rejectNote" class="note-textarea" placeholder="驳回原因（选填，会展示给同学）" maxlength="200" />
+      <template #footer>
+        <BaseButton variant="secondary" :disabled="actionLoading === rejectModal.id" @click="rejectModal.show = false">取消</BaseButton>
+        <BaseButton variant="danger" :loading="actionLoading === rejectModal.id" @click="handleReject">确认驳回</BaseButton>
+      </template>
+    </BaseModal>
+
     <!-- 图片查看器 -->
     <div v-if="proofViewUrl" class="viewer-overlay" @click="proofViewUrl = null">
-      <div class="viewer-close" @click="proofViewUrl = null">✕</div>
+      <div class="viewer-close" @click="proofViewUrl = null">
+        <AppIcon name="close" :size="22" />
+      </div>
       <img :src="mediaUrl(proofViewUrl)" class="viewer-img" @click.stop />
     </div>
   </div>
 </template>
 
 <style scoped>
-.approval-page { padding-bottom: 80px; }
+.approval-page { padding-bottom: var(--spacing-lg); }
 
 .tabs {
   display: flex; gap: 4px; padding: 12px 16px;
@@ -248,7 +294,13 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
 }
 .tab.active { background: var(--color-accent-bg); color: var(--color-accent); font-weight: 600; }
 
-.state-msg { text-align: center; padding: 48px 16px; font-size: 14px; color: var(--color-text-3); }
+.modal-desc { font-size: var(--font-size-body); color: var(--color-text-2); margin-bottom: 12px; line-height: 1.55; }
+.note-textarea {
+  width: 100%; min-height: 80px; padding: 10px 12px; box-sizing: border-box;
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  background: var(--color-surface-2); color: var(--color-text);
+  font-size: var(--font-size-body); font-family: inherit; resize: vertical;
+}
 
 .card {
   margin: 8px 12px; border-radius: var(--radius-md);
@@ -267,7 +319,7 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
 
 .status-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
 .status-badge.pending { background: var(--color-warning-bg); color: var(--color-warning); }
-.status-badge.approved { background: #dcfce7; color: #16a34a; }
+.status-badge.approved { background: var(--color-success-bg); color: var(--color-success); }
 .status-badge.rejected { background: var(--color-error-bg); color: var(--color-error); }
 
 .meta-row {
@@ -297,17 +349,8 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
   margin: 0;
 }
 
-.actions { display: flex; gap: 8px; }
-.btn {
-  flex: 1; height: 40px; border: none; border-radius: var(--radius-sm);
-  font-size: 14px; font-weight: 600; cursor: pointer;
-  transition: opacity 0.15s;
-}
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn:active:not(:disabled) { opacity: 0.85; }
-.btn-approve { background: #dcfce7; color: #16a34a; }
-.btn-reject { background: var(--color-error-bg); color: var(--color-error); }
-.btn-cancel { background: var(--color-surface-hover); color: var(--color-text-2); width: 100%; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.actions > :deep(.btn) { flex: 1; }
 .note-input { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 13px; background: var(--color-bg); color: var(--color-text); outline: none; margin-bottom: 8px; box-sizing: border-box; }
 
 .proof-section { margin-bottom: 12px; }

@@ -1,15 +1,29 @@
 <script setup lang="ts">
+/**
+ * 投票详情
+ *
+ * 2026-09（体验修复）：
+ *  - 三态（loading / error+retry / 投票不存在）：catch (_) {} 不再把失败吞成「投票不存在」
+ *  - 原生 confirm() → await showConfirm()，写清对象与后果（结束投票不可再投）
+ *  - 投票 / 结束投票加在途锁与 loading；成功 toast、失败 toastIfNotNotified
+ *  - #dcfce7/#16a34a/#fef9c3/#ca8a04 → 语义令牌；底部避让交给 App.vue
+ */
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { getVoteDetail, castVote, closeVote, getVoteStatus, isVoteSingle } from '@/api/vote'
 import type { VoteItem, VoteOption } from '@/api/vote'
 import NavBar from '@/components/ui/NavBar.vue'
-import { showToast } from '@/utils/ui'
+import StateView from '@/components/ui/StateView.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
+import { showToast, showConfirm } from '@/utils/ui'
+import { toastIfNotNotified } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const userStore = useUserStore()
 const loading = ref(true)
+const error = ref<unknown>(null)
 const vote = ref<VoteItem | null>(null)
 const options = ref<VoteOption[]>([])
 const myChoices = ref<number[]>([])
@@ -38,15 +52,6 @@ const statusClass = computed(() => {
   return 'status-active'
 })
 
-onMounted(async () => {
-  try {
-    const id = Number(route.query.id)
-    if (!id) return
-    await loadDetail(id)
-  } catch (_) { /* ignore */ }
-  finally { loading.value = false }
-})
-
 async function loadDetail(id: number) {
   try {
     const res = await getVoteDetail(id)
@@ -56,14 +61,29 @@ async function loadDetail(id: number) {
       myChoices.value = res.my_choices || []
       totalVotes.value = res.total_votes || 0
       // If already voted, show results; otherwise prepare fresh selection
-      if (myChoices.value.length > 0) {
-        selectedOptions.value = [...myChoices.value]
-      } else {
-        selectedOptions.value = []
-      }
+      selectedOptions.value = myChoices.value.length > 0 ? [...myChoices.value] : []
+    } else {
+      error.value = new Error('加载投票详情失败，请稍后重试')
     }
-  } catch (_) { /* ignore */ }
+  } catch (e) {
+    error.value = e
+  }
 }
+
+async function load() {
+  loading.value = true
+  error.value = null
+  const id = Number(route.query.id)
+  if (!id) {
+    // 无 id：直接进空态，不能停在 loading
+    loading.value = false
+    return
+  }
+  await loadDetail(id)
+  loading.value = false
+}
+
+onMounted(load)
 
 function toggleOption(optionId: number) {
   if (hasVoted.value) return
@@ -85,37 +105,46 @@ function isSelected(optionId: number): boolean {
 }
 
 async function handleCastVote() {
-  if (!vote.value || selectedOptions.value.length === 0) return
+  if (!vote.value || submitting.value) return
+  if (selectedOptions.value.length === 0) {
+    showToast(isSingle.value ? '请选择一个选项' : '请至少选择一个选项', 'error')
+    return
+  }
   submitting.value = true
   try {
     const res = await castVote(vote.value.id, selectedOptions.value)
     if (res.success) {
-      showToast('投票成功')
+      showToast('投票成功', 'success')
       await loadDetail(vote.value.id)
     } else {
-      showToast('投票失败', 'error')
+      showToast('投票失败，请稍后重试', 'error')
     }
-  } catch (_) {
-    showToast('投票失败', 'error')
+  } catch (e) {
+    toastIfNotNotified(e, '投票失败，请稍后重试')
   } finally {
     submitting.value = false
   }
 }
 
 async function handleCloseVote() {
-  if (!vote.value) return
-  if (!confirm('确定要结束这次投票吗？')) return
+  if (!vote.value || closing.value) return
+  const ok = await showConfirm('结束投票', `《${vote.value.title}》`, {
+    danger: true,
+    confirmText: '结束投票',
+    hint: `结束后所有人不能再投票，当前已投的 ${totalVotes.value} 票仍计入结果`,
+  })
+  if (!ok) return
   closing.value = true
   try {
     const res = await closeVote(vote.value.id)
     if (res.success) {
-      showToast('已结束投票')
+      showToast('已结束投票', 'success')
       await loadDetail(vote.value.id)
     } else {
-      showToast('操作失败', 'error')
+      showToast('操作失败，请稍后重试', 'error')
     }
-  } catch (_) {
-    showToast('操作失败', 'error')
+  } catch (e) {
+    toastIfNotNotified(e, '操作失败，请稍后重试')
   } finally {
     closing.value = false
   }
@@ -136,120 +165,125 @@ function formatTime(t: string): string {
   <div class="detail-page">
     <NavBar :title="vote?.title || '投票详情'" show-back />
 
-    <div v-if="loading" class="state-text">加载中...</div>
-    <div v-else-if="!vote" class="state-text">投票不存在</div>
-
-    <template v-else>
-      <!-- Vote Info -->
-      <div class="vote-header">
-        <h2 class="vote-title">{{ vote.title }}</h2>
-        <div v-if="vote.description" class="vote-desc">{{ vote.description }}</div>
-        <div class="header-meta">
-          <span :class="['big-badge', statusClass]">{{ statusText }}</span>
-          <span class="type-tag">{{ isSingle ? '单选' : '多选' }}</span>
-        </div>
-        <div class="time-info">
-          <div class="time-row">
-            <span class="time-label">开始</span>
-            <span class="time-value">{{ formatTime(vote.start_time) }}</span>
+    <StateView
+      :loading="loading"
+      :error="error"
+      :empty="!vote"
+      loading-text="正在加载投票详情…"
+      empty-icon="check-circle"
+      empty-title="投票不存在"
+      empty-description="投票可能已被删除，请返回列表重新进入"
+      @retry="load"
+    >
+      <template v-if="vote">
+        <!-- Vote Info -->
+        <div class="vote-header">
+          <h2 class="vote-title">{{ vote.title }}</h2>
+          <div v-if="vote.description" class="vote-desc">{{ vote.description }}</div>
+          <div class="header-meta">
+            <span :class="['big-badge', statusClass]">{{ statusText }}</span>
+            <span class="type-tag">{{ isSingle ? '单选' : '多选' }}</span>
           </div>
-          <div class="time-row">
-            <span class="time-label">结束</span>
-            <span class="time-value">{{ formatTime(vote.end_time) }}</span>
+          <div class="time-info">
+            <div class="time-row">
+              <span class="time-label">开始</span>
+              <span class="time-value">{{ formatTime(vote.start_time) }}</span>
+            </div>
+            <div class="time-row">
+              <span class="time-label">结束</span>
+              <span class="time-value">{{ formatTime(vote.end_time) }}</span>
+            </div>
           </div>
-        </div>
-        <div class="creator-info">发起人：{{ vote.creator_name || '' }}</div>
-      </div>
-
-      <!-- Options Area -->
-      <div class="options-section">
-        <div class="section-title">
-          投票选项
-          <span v-if="hasVoted || statusText === '已结束'" class="total-label">
-            共 {{ totalVotes }} 票
-          </span>
+          <div class="creator-info">发起人：{{ vote.creator_name || '' }}</div>
         </div>
 
-        <!-- Voting Mode: active and not voted yet -->
-        <template v-if="statusText === '进行中' && !hasVoted">
-          <div
-            v-for="opt in options"
-            :key="opt.id"
-            class="option-item"
-            :class="{ selected: isSelected(opt.id) }"
-            @click="toggleOption(opt.id)"
-          >
-            <div class="option-selector">
-              <div v-if="isSingle" class="radio-circle">
-                <div v-if="isSelected(opt.id)" class="radio-dot"></div>
+        <!-- Options Area -->
+        <div class="options-section">
+          <div class="section-title">
+            投票选项
+            <span v-if="hasVoted || statusText === '已结束'" class="total-label">
+              共 {{ totalVotes }} 票
+            </span>
+          </div>
+
+          <!-- Voting Mode: active and not voted yet -->
+          <template v-if="statusText === '进行中' && !hasVoted">
+            <div
+              v-for="opt in options"
+              :key="opt.id"
+              class="option-item"
+              :class="{ selected: isSelected(opt.id) }"
+              @click="toggleOption(opt.id)"
+            >
+              <div class="option-selector">
+                <div v-if="isSingle" class="radio-circle">
+                  <div v-if="isSelected(opt.id)" class="radio-dot"></div>
+                </div>
+                <div v-else class="checkbox-square">
+                  <AppIcon v-if="isSelected(opt.id)" name="check" :size="13" :stroke="3" />
+                </div>
               </div>
-              <div v-else class="checkbox-square">
-                <span v-if="isSelected(opt.id)" class="checkmark">✓</span>
+              <span class="option-text">{{ opt.content }}</span>
+            </div>
+
+            <BaseButton
+              block
+              :loading="submitting"
+              :disabled="selectedOptions.length === 0 || submitting"
+              @click="handleCastVote"
+            >
+              {{ submitting ? '提交中…' : '提交投票' }}
+            </BaseButton>
+          </template>
+
+          <!-- Results Mode: ended or already voted -->
+          <template v-else>
+            <div
+              v-for="opt in options"
+              :key="opt.id"
+              class="result-item"
+              :class="{ 'my-choice': myChoices.includes(opt.id) }"
+            >
+              <div class="result-row">
+                <span class="result-label">
+                  {{ opt.content }}
+                  <span
+                    v-if="myChoices.includes(opt.id)"
+                    class="my-tag"
+                  >我的选择</span>
+                </span>
+                <span class="result-stat">{{ opt.vote_count }}票 · {{ opt.rate ?? 0 }}%</span>
+              </div>
+              <div class="progress-track">
+                <div
+                  class="progress-fill"
+                  :style="{ width: (opt.rate ?? 0) + '%' }"
+                ></div>
               </div>
             </div>
-            <span class="option-text">{{ opt.content }}</span>
-          </div>
+          </template>
+        </div>
 
-          <button
-            class="vote-btn"
-            :disabled="selectedOptions.length === 0 || submitting"
-            @click="handleCastVote"
+        <!-- Admin: Close Vote -->
+        <div v-if="canCloseVote && statusText === '进行中'" class="close-wrap">
+          <BaseButton
+            variant="danger"
+            block
+            :loading="closing"
+            :disabled="closing"
+            @click="handleCloseVote"
           >
-            {{ submitting ? '提交中...' : '提交投票' }}
-          </button>
-        </template>
-
-        <!-- Results Mode: ended or already voted -->
-        <template v-else>
-          <div
-            v-for="opt in options"
-            :key="opt.id"
-            class="result-item"
-            :class="{ 'my-choice': myChoices.includes(opt.id) }"
-          >
-            <div class="result-row">
-              <span class="result-label">
-                {{ opt.content }}
-                <span
-                  v-if="myChoices.includes(opt.id)"
-                  class="my-tag"
-                >我的选择</span>
-              </span>
-              <span class="result-stat">{{ opt.vote_count }}票 · {{ opt.rate ?? 0 }}%</span>
-            </div>
-            <div class="progress-track">
-              <div
-                class="progress-fill"
-                :style="{ width: (opt.rate ?? 0) + '%' }"
-              ></div>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <!-- Admin: Close Vote -->
-      <button
-        v-if="canCloseVote && statusText === '进行中'"
-        class="close-btn"
-        :disabled="closing"
-        @click="handleCloseVote"
-      >
-        {{ closing ? '处理中...' : '结束投票' }}
-      </button>
-    </template>
+            <AppIcon name="lock" :size="16" />
+            <span>{{ closing ? '处理中…' : '结束投票' }}</span>
+          </BaseButton>
+        </div>
+      </template>
+    </StateView>
   </div>
 </template>
 
 <style scoped>
-.detail-page {
-  padding-bottom: 80px;
-}
-.state-text {
-  text-align: center;
-  padding: 48px 16px;
-  font-size: 14px;
-  color: var(--color-text-3);
-}
+.detail-page { min-height: 100vh; }
 
 /* Vote Header */
 .vote-header {
@@ -260,14 +294,14 @@ function formatTime(t: string): string {
   box-shadow: var(--shadow-card);
 }
 .vote-title {
-  font-size: 18px;
+  font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--color-text);
   margin: 0 0 8px;
   line-height: 1.3;
 }
 .vote-desc {
-  font-size: 14px;
+  font-size: var(--font-size-body);
   color: var(--color-text-2);
   line-height: 1.6;
   margin-bottom: 12px;
@@ -278,25 +312,25 @@ function formatTime(t: string): string {
   margin-bottom: 12px;
 }
 .big-badge {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
   padding: 4px 12px;
   border-radius: var(--radius-sm);
 }
 .status-active {
-  background: #dcfce7;
-  color: #16a34a;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 .status-ended {
-  background: var(--color-border);
+  background: var(--color-surface-2);
   color: var(--color-text-3);
 }
 .status-pending {
-  background: #fef9c3;
-  color: #ca8a04;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 .type-tag {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   font-weight: 500;
   padding: 4px 12px;
   border-radius: var(--radius-sm);
@@ -311,7 +345,7 @@ function formatTime(t: string): string {
 .time-row {
   display: flex;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   margin-bottom: 4px;
 }
 .time-label {
@@ -323,7 +357,7 @@ function formatTime(t: string): string {
   color: var(--color-text);
 }
 .creator-info {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-3);
 }
 
@@ -332,7 +366,7 @@ function formatTime(t: string): string {
   margin: 0 12px;
 }
 .section-title {
-  font-size: 15px;
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text);
   margin-bottom: 12px;
@@ -341,7 +375,7 @@ function formatTime(t: string): string {
   justify-content: space-between;
 }
 .total-label {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   font-weight: 400;
   color: var(--color-text-3);
 }
@@ -351,6 +385,7 @@ function formatTime(t: string): string {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 44px;
   padding: 12px 14px;
   margin-bottom: 10px;
   border-radius: var(--radius-sm);
@@ -403,8 +438,6 @@ function formatTime(t: string): string {
   justify-content: center;
   transition: all 0.15s;
   color: #fff;
-  font-size: 13px;
-  font-weight: 700;
 }
 .option-item.selected .checkbox-square {
   border-color: var(--color-accent);
@@ -412,31 +445,9 @@ function formatTime(t: string): string {
 }
 
 .option-text {
-  font-size: 14px;
+  font-size: var(--font-size-body);
   color: var(--color-text);
   flex: 1;
-}
-
-.vote-btn {
-  width: 100%;
-  height: 44px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: var(--color-accent);
-  color: #fff;
-  font-size: 16px;
-  font-weight: 600;
-  margin-top: 4px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-  -webkit-tap-highlight-color: transparent;
-}
-.vote-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.vote-btn:not(:disabled):active {
-  opacity: 0.8;
 }
 
 /* Result Items */
@@ -459,7 +470,7 @@ function formatTime(t: string): string {
   margin-bottom: 8px;
 }
 .result-label {
-  font-size: 14px;
+  font-size: var(--font-size-body);
   color: var(--color-text);
   flex: 1;
   overflow: hidden;
@@ -467,13 +478,13 @@ function formatTime(t: string): string {
   white-space: nowrap;
 }
 .my-tag {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   color: var(--color-accent);
   font-weight: 500;
   margin-left: 4px;
 }
 .result-stat {
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-2);
   flex-shrink: 0;
 }
@@ -489,27 +500,9 @@ function formatTime(t: string): string {
   background: var(--color-accent);
   transition: width 0.4s ease;
 }
-.result-item.my-choice .progress-fill {
-  background: var(--color-accent);
-}
 
 /* Close Button */
-.close-btn {
-  display: block;
-  width: calc(100% - 24px);
+.close-wrap {
   margin: 20px 12px 0;
-  height: 44px;
-  border: 1.5px solid var(--color-error);
-  color: var(--color-error);
-  background: none;
-  border-radius: var(--radius-md);
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-.close-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 </style>

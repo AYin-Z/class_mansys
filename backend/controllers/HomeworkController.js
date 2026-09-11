@@ -104,6 +104,19 @@ class HomeworkController {
     }
   }
 
+  /** 上传作业附件（与班费凭证同一套 multer 配置：图片/PDF/Office/zip ≤100MB） */
+  static async uploadAttachment(req, res) {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: '请选择文件' });
+    }
+    return res.json({
+      success: true,
+      url: '/uploads/resources/' + req.file.filename,
+      filename: req.file.originalname,
+      size: req.file.size
+    });
+  }
+
   static async pendingCount(req, res) {
     try {
       const count = await Homework.getPendingCount(req.user.id);

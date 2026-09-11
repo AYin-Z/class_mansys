@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { isAdmin as isAdminRole, USER_ROLES } from '@/types/roles'
+import { isAdmin as isAdminRole, hasPermission, USER_ROLES } from '@/types/roles'
+import type { PermissionKey } from '@/types/roles'
 
 // Lazy-loaded components — top-level const to help Rollup static analysis
 const Features = () => import('@/pages/features/index.vue')
@@ -110,7 +111,9 @@ const routes: RouteRecordRaw[] = [
   { path: '/pages/notice/admin', name: 'notice-admin', component: NoticeAdmin, meta: { requiresAdmin: true, perm: 'MANAGE_NOTICE' } },
 
   // ===== 仪表盘 =====
-  { path: '/pages/dashboard/index', name: 'dashboard-index', component: Dashboard, meta: { requiresAdmin: true } },
+  // 待办中心对全员开放（学员看到「我的待办」卡片，干部看到审批聚合）；
+  // 此前 requiresAdmin 让 dashboard 里的学员分支成了死代码，学生失去唯一待办汇总页
+  { path: '/pages/dashboard/index', name: 'dashboard-index', component: Dashboard },
   { path: '/pages/company/index', name: 'company-index', component: CompanyIndex, meta: { requiresAdmin: true } },
   { path: '/pages/agent/index', name: 'agent-index', component: AgentPage },
   { path: '/pages/help/index', name: 'help-index', component: HelpPage },
@@ -206,6 +209,16 @@ function readStoredRole(): number | null {
   }
 }
 
+/** 读取服务端权限快照（登录后由 user store 落盘） */
+function readStoredPermissions(): Record<string, boolean> | null {
+  try {
+    const raw = localStorage.getItem('user_permissions')
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 router.beforeEach(async (to) => {
   // 公开路由：登录页 & 超管登录页放行
   for (const prefix of PUBLIC_ROUTES) {
@@ -233,6 +246,18 @@ router.beforeEach(async (to) => {
   if (to.meta?.requiresAdmin && !isAdminRole(readStoredRole())) {
     return DEFAULT_AUTHENTICATED
   }
+
+  // 路由级权限（B4）：此前 meta.perm 是死元数据，只判 requiresAdmin，
+  // 低权限干部手输 URL 就能打开管理页。服务端快照优先，无快照时回落角色镜像。
+  const perm = (to.meta as { perm?: PermissionKey } | undefined)?.perm
+  if (perm) {
+    const snapshot = readStoredPermissions()
+    const granted = snapshot && perm in snapshot
+      ? !!snapshot[perm]
+      : hasPermission(readStoredRole() ?? -1, perm)
+    if (!granted) return DEFAULT_AUTHENTICATED
+  }
+
   return true
 })
 

@@ -2,7 +2,19 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- 允许缩放：此前 user-scalable=no 会让弱视用户无法放大，属无障碍问题 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="区队管理系统：通知、请假、班费、作业与智能助手" />
+    <!-- 浏览器地址栏 / 状态栏配色，跟随主题在 utils/theme.ts 里切换 -->
+    <meta name="theme-color" content="#1a3a5c" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- 添加到主屏 / PWA 场景 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="区队管理" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="apple-touch-icon" href="./favicon.svg" />
     <title>区队管理系统</title>
   </head>
   <body>

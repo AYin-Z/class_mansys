@@ -1,4 +1,5 @@
 import { get, post, put, del, uploadFile, apiUrl } from '../utils/request'
+import type { RequestOpts } from '../utils/request'
 import type { LeaveTypeConfig } from './leave-config'
 
 export interface AdminMember {
@@ -78,8 +79,8 @@ export function listMembers(params: {
   member_type?: 'student' | 'left' | 'all'
   page?: number
   pageSize?: number
-} = {}): Promise<MemberListResult> {
-  return get<MemberListResult>('/api/admin/members', params)
+} = {}, opts: RequestOpts = {}): Promise<MemberListResult> {
+  return get<MemberListResult>('/api/admin/members', params, opts)
 }
 
 export function getMemberDetail(id: number | string): Promise<MemberDetailResult> {
@@ -124,8 +125,8 @@ export interface ConsoleOverview {
   health: { errors24h: number; dbSizeMb: number; tables: number }
 }
 
-export function getConsoleOverview(): Promise<{ success: boolean; data: ConsoleOverview }> {
-  return get('/api/admin/console/overview')
+export function getConsoleOverview(opts: RequestOpts = {}): Promise<{ success: boolean; data: ConsoleOverview }> {
+  return get('/api/admin/console/overview', undefined, opts)
 }
 
 export function getConsoleTodos(): Promise<{ success: boolean; data: { items: { key: string; label: string; count: number; path: string }[] } }> {
@@ -142,8 +143,8 @@ export interface AgentPanelData {
   wechat: { worker: string; configured: boolean; credentialsFile: string }
 }
 
-export function getAgentPanel(): Promise<{ success: boolean; data: AgentPanelData }> {
-  return get('/api/admin/console/agent')
+export function getAgentPanel(opts: RequestOpts = {}): Promise<{ success: boolean; data: AgentPanelData }> {
+  return get('/api/admin/console/agent', undefined, opts)
 }
 
 export function revokeAnyToken(id: number): Promise<{ success: boolean; message?: string }> {
@@ -233,12 +234,12 @@ export interface RosterPreview {
   warnings: { level: string; text: string; class?: string }[]
 }
 
-export function uploadRosterPreview(file: File): Promise<{ success: boolean; data: RosterPreview }> {
-  return uploadFile('/api/admin/roster/preview', file)
+export function uploadRosterPreview(file: File, opts: { signal?: AbortSignal; silent?: boolean } = {}): Promise<{ success: boolean; data: RosterPreview }> {
+  return uploadFile('/api/admin/roster/preview', file, undefined, opts)
 }
 
-export function applyRoster(file: File): Promise<{ success: boolean; data: { summary: RosterPreview['summary']; created: { student_id: string; name: string }[]; defaultPassword: string }; message?: string }> {
-  return uploadFile('/api/admin/roster/apply', file)
+export function applyRoster(file: File, opts: { signal?: AbortSignal; silent?: boolean } = {}): Promise<{ success: boolean; data: { summary: RosterPreview['summary']; created: { student_id: string; name: string }[]; defaultPassword: string }; message?: string }> {
+  return uploadFile('/api/admin/roster/apply', file, undefined, opts)
 }
 
 export interface AuditRow {
@@ -265,8 +266,8 @@ export function getAuditLog(params: {
   from?: string
   to?: string
   errorsOnly?: 1
-} = {}): Promise<{ success: boolean; data: { page: number; pageSize: number; total: number; rows: AuditRow[]; stats24h: { all_count: number; errors: number; server_errors: number } } }> {
-  return get('/api/admin/audit', params)
+} = {}, opts: RequestOpts = {}): Promise<{ success: boolean; data: { page: number; pageSize: number; total: number; rows: AuditRow[]; stats24h: { all_count: number; errors: number; server_errors: number } } }> {
+  return get('/api/admin/audit', params, opts)
 }
 
 export function auditExportUrl(): string {
@@ -283,8 +284,8 @@ export interface SystemStatus {
   flags: Record<string, string | boolean>
 }
 
-export function getSystemStatus(): Promise<{ success: boolean; data: SystemStatus }> {
-  return get('/api/admin/system/status')
+export function getSystemStatus(opts: RequestOpts = {}): Promise<{ success: boolean; data: SystemStatus }> {
+  return get('/api/admin/system/status', undefined, opts)
 }
 
 export function runBackup(): Promise<{ success: boolean; data: { ok: boolean; output: string; latest: { name: string; size: number; mtime: string } | null }; message?: string }> {

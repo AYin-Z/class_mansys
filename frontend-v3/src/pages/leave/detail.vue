@@ -5,34 +5,51 @@ import { useRoute } from 'vue-router'
 import { getLeaveById, cancelLeave } from '@/api/leave'
 import type { LeaveItem } from '@/api/leave'
 import NavBar from '@/components/ui/NavBar.vue'
-import { showToast } from '@/utils/ui'
+import StateView from '@/components/ui/StateView.vue'
+import { showConfirm, showToast } from '@/utils/ui'
+import { toastIfNotNotified } from '@/utils/request'
 
 const route = useRoute()
 const leave = ref<LeaveItem | null>(null)
 const loading = ref(true)
+const error = ref<unknown>(null)
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
+  error.value = null
   try {
     const id = Number(route.query.id)
-    if (!id) return
+    if (!id) { error.value = new Error('缺少记录编号，请从列表重新进入'); return }
     const res = await getLeaveById(id)
     if (res.success) leave.value = res.leave
-  } catch (_) {}
-  finally { loading.value = false }
-})
+    else error.value = new Error('请假记录加载失败')
+  } catch (e) {
+    error.value = e
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(load)
 
 async function handleCancel() {
-  if (!leave.value || !confirm('确定要销假吗？')) return
+  if (!leave.value) return
+  const ok = await showConfirm('销假', '确认销假这次请假？', {
+    confirmText: '确认销假',
+    danger: true,
+    hint: '销假后本次请假立即失效，如需再休要重新申请',
+  })
+  if (!ok) return
   try {
     const res = await cancelLeave(leave.value.id)
     if (res.success) {
       showToast('已销假')
       leave.value.is_cancelled = true
     } else {
-      showToast(res.message || '销假失败', 'error')
+      showToast(res.message || '销假失败，请稍后重试', 'error')
     }
-  } catch (_) {
-    showToast('销假失败', 'error')
+  } catch (e) {
+    toastIfNotNotified(e, '销假失败，请稍后重试')
   }
 }
 
@@ -58,10 +75,15 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
   <div class="detail-page">
     <NavBar title="请假详情" show-back />
 
-    <div v-if="loading" class="loading-state">加载中...</div>
-    <div v-else-if="!leave" class="empty-state">记录不存在</div>
-
-    <div v-else class="content">
+    <StateView
+      :loading="loading"
+      :error="error"
+      :empty="!leave"
+      empty-title="记录不存在"
+      empty-description="该请假记录可能已被删除，或链接已失效"
+      @retry="load"
+    >
+    <div v-if="leave" class="content">
       <div class="status-bar">
         <span :class="['big-badge', statusClass(leave!.status)]">
           {{ leave!.is_cancelled ? '已销假' : statusLabel(leave!.status) }}
@@ -101,10 +123,11 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
         <img :src="mediaUrl(viewing)" class="viewer-img" @click.stop />
       </div>
     </div>
+    </StateView>
   </div>
 </template>
 <style scoped>
-.detail-page { padding-bottom: 80px; }
+.detail-page { padding-bottom: var(--spacing-lg); }
 .loading-state, .empty-state { text-align: center; padding: 48px 16px; font-size: 14px; color: var(--color-text-3); }
 .content { padding: 20px 16px; }
 .status-bar { text-align: center; margin-bottom: 20px; }
@@ -113,7 +136,7 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
   border-radius: var(--radius-md);
 }
 .big-badge.pending { background: var(--color-warning-bg); color: var(--color-warning); }
-.big-badge.approved { background: #dcfce7; color: #16a34a; }
+.big-badge.approved { background: var(--color-success-bg); color: var(--color-success); }
 .big-badge.rejected { background: var(--color-error-bg); color: var(--color-error); }
 .info-card {
   background: var(--color-surface); border-radius: var(--radius-md);

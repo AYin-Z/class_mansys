@@ -26,7 +26,7 @@ export function buildMcpConfigJson(endpoint: string, token: string): string {
   )
 }
 
-export function buildMcpStdioConfig(token: string, serverPath = '/home/ayin/Current_Works/class_mansys/backend/mcp/server.js'): string {
+export function buildMcpStdioConfig(token: string, serverPath = '<你的部署目录>/backend/mcp/server.js'): string {
   return JSON.stringify(
     { mcpServers: { 'class-mansys': { command: 'node', args: [serverPath], env: { CM_API_TOKEN: token || 'cm_你的令牌' } } } },
     null,

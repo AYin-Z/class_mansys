@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import NavBar from '@/components/ui/NavBar.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import { showToast } from '@/utils/ui'
 import { apiUrl, getToken } from '@/utils/request'
 import { renderMarkdown } from '@/utils/markdown'
@@ -33,7 +34,22 @@ import {
 } from '@/api/agent'
 
 const MAX_ATTACHMENTS = 6
-const SUGGESTIONS = ['我的请假记录', '我要请假', '怎么请假？', '今天中队出勤怎么样', '给个建议：']
+/** 确认卡片有效期（与手册承诺的 5 分钟一致） */
+const PENDING_TTL_MS = 5 * 60 * 1000
+/**
+ * 示例问题（2026-09 B5）：
+ *  - 原来固定 5 条且含残句「给个建议：」，点了等于空发；
+ *  - 「今天中队出勤怎么样」只有干部有 VIEW_COMPANY 权限，学员点了会被拒，
+ *    会让人以为助手坏了 → 现在按权限过滤，并且首条消息后自动收起。
+ */
+const ALL_SUGGESTIONS: { text: string; perm?: string }[] = [
+  { text: '我的请假记录' },
+  { text: '我要请明天的早操假' },
+  { text: '怎么请假？' },
+  { text: '我想提个建议' },
+  { text: '今天中队出勤怎么样', perm: 'VIEW_COMPANY' },
+  { text: '这个月班费还剩多少' },
+]
 
 type UiMessage = AgentMessage & { attachments?: AgentAttachment[] }
 
@@ -43,6 +59,22 @@ const sending = ref(false)
 const uploading = ref(false)
 const conversationId = ref<number | undefined>(undefined)
 const pending = ref<AgentPendingAction | null>(null)
+/** 确认卡片下发时间：用于显示剩余有效期（此前卡片没有过期信息，过期点确认只报错） */
+const pendingAt = ref(0)
+const nowTick = ref(Date.now())
+setInterval(() => { nowTick.value = Date.now() }, 1000)
+const pendingExpired = computed(() => !!pending.value && nowTick.value - pendingAt.value > PENDING_TTL_MS)
+const pendingLeftText = computed(() => {
+  const left = Math.max(0, PENDING_TTL_MS - (nowTick.value - pendingAt.value))
+  const s = Math.ceil(left / 1000)
+  return s >= 60 ? `${Math.floor(s / 60)} 分 ${s % 60} 秒` : `${s} 秒`
+})
+/** 首条消息后收起示例问题，避免一直挂着占屏 */
+const suggestedUsed = ref(false)
+const suggestions = computed(() =>
+  ALL_SUGGESTIONS.filter((x) => !x.perm || userStore.hasPermission(x.perm as any)).map((x) => x.text),
+)
+const showSuggestions = computed(() => !suggestedUsed.value && messages.value.length <= 1)
 const modules = ref<AgentToolModule[]>([])
 const sheet = ref<'tools' | 'access' | null>(null)
 const scroller = ref<HTMLElement | null>(null)
@@ -84,11 +116,22 @@ const mcpPrompt = computed(() =>
 )
 let bindTimer: any = null
 
-onMounted(async () => {
+const toolsError = ref<unknown>(null)
+
+async function loadTools() {
+  toolsError.value = null
   try {
     const res = await getAgentTools()
     if (res?.success) modules.value = res.data?.modules || []
-  } catch (_) { /* 无权限时仍可对话 */ }
+    else toolsError.value = new Error('能力清单加载失败')
+  } catch (e) {
+    // 之前是静默 catch，抽屉里显示「我能办哪些事（0 个模块）」，用户以为助手什么都不能办
+    toolsError.value = e
+  }
+}
+
+onMounted(async () => {
+  await loadTools()
   messages.value.push({
     role: 'assistant',
     content:
@@ -176,6 +219,7 @@ async function chatStreaming(content: string, atts: AgentAttachment[] = []): Pro
 }
 
 async function send(text?: string) {
+  suggestedUsed.value = true
   const content = (text ?? input.value).trim()
   const atts = attachments.value.slice()
   if ((!content && !atts.length) || sending.value) return
@@ -190,11 +234,13 @@ async function send(text?: string) {
     if (streamed) {
       if (streamed.conversationId) conversationId.value = streamed.conversationId
       pending.value = streamed.pendingAction || null
+      if (pending.value) pendingAt.value = Date.now()
     } else {
       const res = await agentChat(content, conversationId.value, atts)
       if (res?.conversationId) conversationId.value = res.conversationId
       if (res?.reply) messages.value.push({ role: 'assistant', content: res.reply })
       pending.value = res?.pendingAction || null
+      if (pending.value) pendingAt.value = Date.now()
     }
   } catch (e: any) {
     showToast(e?.message || '助手暂时不可用', 'error')
@@ -466,27 +512,33 @@ function stopBotPolling() {
         </div>
       </div>
 
-      <div v-if="pending" class="confirm-card">
-        <div class="confirm-title">待确认操作</div>
+      <div v-if="pending" class="confirm-card" :class="{ expired: pendingExpired }">
+        <div class="confirm-title">
+          待确认操作
+          <span class="confirm-ttl">{{ pendingExpired ? '已过期' : `剩余 ${pendingLeftText}` }}</span>
+        </div>
         <div class="confirm-body">{{ pending.label }}</div>
         <div class="confirm-preview">{{ pending.preview }}</div>
+        <div v-if="pendingExpired" class="confirm-expired-hint">
+          确认卡片有效期 5 分钟，已过期。请重新对助手说一遍你要办的事。
+        </div>
         <div class="confirm-actions">
           <button class="btn-ghost" :disabled="sending" @click="cancelAction">取消</button>
-          <button class="btn-primary" :disabled="sending" @click="confirmAction">确认执行</button>
+          <button class="btn-primary" :disabled="sending || pendingExpired" @click="confirmAction">确认执行</button>
         </div>
       </div>
 
       <div v-if="sending" class="row assistant"><div class="bubble typing">正在处理…</div></div>
     </div>
 
-    <div class="quick">
-      <span v-for="s in SUGGESTIONS" :key="s" class="chip" @click="send(s)">{{ s }}</span>
+    <div v-if="showSuggestions" class="quick">
+      <button v-for="s in suggestions" :key="s" class="chip" type="button" @click="send(s)">{{ s }}</button>
     </div>
 
     <div v-if="attachments.length" class="attach-row">
       <div v-for="(a, i) in attachments" :key="i" class="attach-item">
         <img :src="mediaUrl(a.url)" :alt="a.name || '图片'" />
-        <span class="attach-x" @click="removeAttachment(i)">✕</span>
+        <span class="attach-x" @click="removeAttachment(i)"><AppIcon name="close" :size="12" /></span>
       </div>
     </div>
 
@@ -507,11 +559,11 @@ function stopBotPolling() {
 
     <div class="action-bar">
       <button class="action-btn" @click="sheet = 'tools'">
-        <span class="action-icon">🧰</span>
+        <AppIcon name="grid" :size="16" />
         <span>能力清单</span>
       </button>
       <button class="action-btn" @click="sheet = 'access'">
-        <span class="action-icon">🔗</span>
+        <AppIcon name="link" :size="16" />
         <span>微信 / MCP 接入</span>
       </button>
     </div>
@@ -525,6 +577,13 @@ function stopBotPolling() {
         </div>
 
         <div v-if="sheet === 'tools'" class="sheet-body">
+          <div v-if="toolsError" class="tools-error">
+            <p>能力清单加载失败，可能是网络问题。</p>
+            <button class="btn-ghost" type="button" @click="loadTools">重新加载</button>
+          </div>
+          <div v-else-if="modules.length === 0" class="tools-error">
+            <p>暂无可用能力（可能尚未配置）。你仍然可以直接对话。</p>
+          </div>
           <div v-for="m in modules" :key="m.name" class="tool-item">
             <div class="tool-name">{{ m.label }}</div>
             <div class="tool-desc">{{ m.description }}</div>
@@ -673,6 +732,16 @@ function stopBotPolling() {
 </template>
 
 <style scoped>
+.confirm-ttl { float: right; font-size: var(--font-size-2xs); font-weight: 500; color: var(--color-text-3); }
+.confirm-card.expired { border-color: var(--color-error); }
+.confirm-card.expired .confirm-ttl { color: var(--color-error); }
+.confirm-expired-hint {
+  margin-top: 8px; font-size: var(--font-size-xs); line-height: 1.5;
+  color: var(--color-error);
+}
+.tools-error { padding: 16px 4px; text-align: center; color: var(--color-text-3); font-size: var(--font-size-sm); }
+.tools-error p { margin-bottom: 10px; }
+
 /* 页面固定高度：聊天区自己滚动，底部输入区永远可见（TabBar 高度已扣除） */
 .agent-page {
   display: flex;
@@ -707,7 +776,7 @@ function stopBotPolling() {
 .bubble.md :deep(th), .bubble.md :deep(td) { border: 1px solid var(--color-border); padding: 4px 6px; }
 
 .confirm-card {
-  margin: 8px 0 14px; padding: 12px 14px; border-radius: 12px;
+  margin: 8px 0 14px; padding: 12px 14px; border-radius: var(--radius-md);
   background: var(--color-surface); box-shadow: var(--shadow-card); border-left: 3px solid var(--color-warning);
 }
 .confirm-title { font-size: 13px; font-weight: 600; color: var(--color-warning); margin-bottom: 6px; }
@@ -717,15 +786,18 @@ function stopBotPolling() {
 
 .quick { display: flex; gap: 6px; overflow-x: auto; padding: 6px 12px; flex: 0 0 auto; }
 .chip {
-  flex: 0 0 auto; font-size: 12px; padding: 5px 10px; border-radius: 12px;
+  flex: 0 0 auto; min-height: 36px; display: inline-flex; align-items: center;
+  font-size: var(--font-size-xs); padding: 8px 12px; border-radius: var(--radius-full);
+  border: none; font-family: inherit;
   background: var(--color-accent-bg); color: var(--color-accent); cursor: pointer; white-space: nowrap;
 }
+.chip:active { opacity: 0.85; }
 .attach-row { display: flex; gap: 8px; padding: 6px 12px 0; overflow-x: auto; flex: 0 0 auto; }
 .attach-item { position: relative; flex: 0 0 auto; }
 .attach-item img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; }
 .attach-x {
   position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 9px;
-  background: var(--color-danger, #e5484d); color: #fff; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer;
+  background: var(--color-danger, var(--color-error)); color: #fff; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer;
 }
 .composer { display: flex; gap: 6px; padding: 8px 12px; align-items: flex-end; flex: 0 0 auto; }
 .composer textarea {
@@ -794,7 +866,7 @@ function stopBotPolling() {
 }
 .code-block .btn-ghost { margin-top: 6px; }
 .acc-details summary { cursor: pointer; margin-bottom: 8px; }
-.acc-hint.bad { color: var(--color-danger, #e5484d); }
+.acc-hint.bad { color: var(--color-danger, var(--color-error)); }
 .acc-hint.warn { color: var(--color-warning); }
 .btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
 .tag { display: inline-block; padding: 0 5px; border-radius: 6px; background: var(--color-surface-hover); color: var(--color-text-3); }

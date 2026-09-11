@@ -1,4 +1,4 @@
-import { get, post, put, del } from '../utils/request'
+import { get, post, put, del, uploadFile } from '../utils/request'
 
 export interface HomeworkItem {
   id: number
@@ -49,6 +49,14 @@ export interface HomeworkSubmitParams {
 export interface HomeworkGradeParams {
   score: number
   feedback?: string
+}
+
+/**
+ * 上传作业附件（docx / pdf / 图片 / zip ≤100MB）
+ * 后端 POST /api/homework/upload，与班费凭证同一套 multer 配置
+ */
+export function uploadHomeworkAttachment(file: File): Promise<{ success: boolean; url: string; filename: string; size: number }> {
+  return uploadFile('/api/homework/upload', file)
 }
 
 export function getHomeworks(): Promise<{ success: boolean; homeworks: HomeworkItem[] }> {

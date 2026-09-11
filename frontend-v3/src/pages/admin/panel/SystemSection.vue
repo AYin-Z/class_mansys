@@ -3,11 +3,22 @@
  * 系统状态（运维面板）
  * 自包含：自行拉取 /api/admin/system/status，展示服务状态 / 数据库 / 系统开关 /
  * 备份 / 近 24h 错误 / 数据导出 / 定时任务 / 每日汇总文件。
+ *
+ * 2026-09 修复：
+ *  - 加载失败改为 StateView 错误态 + 「重试」（此前是一段纯文案，没有恢复入口）
+ *  - emoji 图标 → AppIcon；✅/❌ → BaseBadge；按钮 → BaseButton
+ *  - 立即备份：showConfirm 说明后果（对象 + 动作 + 后果），执行中防重
+ *  - 导出全部走 downloadFile（带鉴权）并各自带 loading / 失败提示
  */
 import { computed, onMounted, ref } from 'vue'
 import { getSystemStatus, runBackup } from '@/api/admin'
 import { downloadFile } from '@/utils/request'
-import { showToast } from '@/utils/ui'
+import { showConfirm, showToast } from '@/utils/ui'
+import { toastIfNotNotified } from '@/utils/request'
+import StateView from '@/components/ui/StateView.vue'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseBadge from '@/components/ui/BaseBadge.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import type { SystemStatus } from '@/api/admin'
 
 interface BackupFile {
@@ -38,23 +49,25 @@ const MAX_BACKUPS = 10
 
 const status = ref<SystemStatus | null>(null)
 const loading = ref(true)
-const error = ref('')
+/** 错误对象：有值即渲染错误态 + 重试 */
+const error = ref<unknown>(null)
 
 const backupRunning = ref(false)
 const backupOutput = ref('')
 const backupError = ref('')
+const exportingKind = ref<'xlsx' | 'csv' | null>(null)
 
 // ========== 取数 ==========
 async function load() {
   loading.value = true
-  error.value = ''
+  error.value = null
   try {
     const res = await getSystemStatus()
     status.value = res?.data || null
-    if (!status.value) error.value = '未获取到系统状态数据'
+    if (!status.value) error.value = new Error('未获取到系统状态数据，请稍后重试')
   } catch (e) {
     status.value = null
-    error.value = e instanceof Error ? e.message : '系统状态加载失败，请稍后重试'
+    error.value = e
   } finally {
     loading.value = false
   }
@@ -132,15 +145,22 @@ function formatTime(value: string): string {
 // ========== 备份 ==========
 async function doBackup() {
   if (backupRunning.value) return
+  const ok = await showConfirm('立即备份数据库', '确定现在执行一次数据库备份？', {
+    confirmText: '开始备份',
+    hint: '会在服务器上生成一份新的备份文件；备份期间服务可能短暂变慢，完成后可在下方列表查看。'
+  })
+  if (!ok) return
   backupRunning.value = true
   backupError.value = ''
   try {
     const res = await runBackup()
     backupOutput.value = res?.data?.output || res?.message || '备份已完成'
+    showToast('备份已完成', 'success')
     await load()
-  } catch (e) {
+  } catch (e: any) {
     backupOutput.value = ''
-    backupError.value = e instanceof Error ? e.message : '备份失败，请稍后重试'
+    backupError.value = e?.message || '备份失败，请稍后重试'
+    toastIfNotNotified(e, '备份失败，请稍后重试')
   } finally {
     backupRunning.value = false
   }
@@ -148,12 +168,17 @@ async function doBackup() {
 
 // ========== 导出 ==========
 async function exportRoster(kind: 'xlsx' | 'csv') {
+  if (exportingKind.value) return
+  exportingKind.value = kind
   // 带鉴权下载：window.open 不带 Authorization，后端只认 header（此前必然 401）
   try {
     if (kind === 'xlsx') await downloadFile('/api/admin/export/roster.xlsx', 'roster.xlsx')
     else await downloadFile('/api/admin/export/roster.csv', 'roster.csv')
+    showToast('导出已开始', 'success')
   } catch (e: any) {
-    showToast(e?.message || '导出失败', 'error')
+    showToast(e?.message || '导出失败，请稍后重试', 'error')
+  } finally {
+    exportingKind.value = null
   }
 }
 
@@ -163,13 +188,12 @@ defineExpose({ refresh: load })
 <template>
   <section>
     <h2>系统状态</h2>
-    <div v-if="loading" class="loading">加载中...</div>
-    <div v-else-if="error" class="error-box">{{ error }}</div>
-    <template v-else>
+
+    <StateView :loading="loading" :error="error" loading-text="正在加载系统状态…" @retry="load">
       <div class="sys-grid">
         <!-- 1. 服务状态 -->
         <div class="sys-card">
-          <div class="card-title">🖥️ 服务状态</div>
+          <div class="card-title"><AppIcon name="dashboard" :size="15" /><span>服务状态</span></div>
           <div class="kv-list">
             <div class="kv-row">
               <span class="kv-key">运行时长</span>
@@ -198,9 +222,9 @@ defineExpose({ refresh: load })
             <div class="kv-row">
               <span class="kv-key">systemd 状态</span>
               <span class="kv-value">
-                <span :class="['badge', serviceInfo.ok ? 'badge-ok' : 'badge-bad']">
-                  {{ serviceInfo.ok ? '✅ 运行中' : '❌ 异常' }}
-                </span>
+                <BaseBadge :variant="serviceInfo.ok ? 'success' : 'danger'" dot>
+                  {{ serviceInfo.ok ? '运行中' : '异常' }}
+                </BaseBadge>
               </span>
             </div>
           </div>
@@ -211,7 +235,7 @@ defineExpose({ refresh: load })
 
         <!-- 2. 数据库 -->
         <div class="sys-card">
-          <div class="card-title">🗄️ 数据库</div>
+          <div class="card-title"><AppIcon name="grid" :size="15" /><span>数据库</span></div>
           <div class="kv-list">
             <div class="kv-row">
               <span class="kv-key">库名</span>
@@ -240,7 +264,7 @@ defineExpose({ refresh: load })
 
         <!-- 3. 系统开关 -->
         <div class="sys-card">
-          <div class="card-title">🎛️ 系统开关</div>
+          <div class="card-title"><AppIcon name="settings" :size="15" /><span>系统开关</span></div>
           <div v-if="flagEntries.length === 0" class="empty-msg">暂无开关配置</div>
           <div v-else class="kv-list">
             <div v-for="item in flagEntries" :key="item.key" class="kv-row">
@@ -250,9 +274,9 @@ defineExpose({ refresh: load })
               </span>
               <span class="kv-value">
                 <template v-if="typeof item.value === 'boolean'">
-                  <span :class="['badge', item.value ? 'badge-ok' : 'badge-bad']">
-                    {{ item.value ? '✅' : '❌' }}
-                  </span>
+                  <BaseBadge :variant="item.value ? 'success' : 'danger'" dot>
+                    {{ item.value ? '已开启' : '未开启' }}
+                  </BaseBadge>
                 </template>
                 <template v-else>{{ item.value || '—' }}</template>
               </span>
@@ -262,13 +286,13 @@ defineExpose({ refresh: load })
 
         <!-- 4. 备份 -->
         <div class="sys-card">
-          <div class="card-title">💾 备份</div>
+          <div class="card-title"><AppIcon name="folder" :size="15" /><span>备份</span></div>
           <div class="card-actions">
-            <button class="btn-primary" :disabled="backupRunning" @click="doBackup">
-              {{ backupRunning ? '备份中…' : '立即备份' }}
-            </button>
+            <BaseButton size="sm" :loading="backupRunning" @click="doBackup">立即备份</BaseButton>
           </div>
-          <div v-if="backups.length === 0" class="empty-msg">暂无备份文件</div>
+          <div v-if="backups.length === 0" class="empty-msg">
+            还没有备份文件；点「立即备份」生成第一份，再下载到本地保存。
+          </div>
           <div v-else class="kv-list">
             <div v-for="file in backups" :key="file.name" class="kv-row">
               <span class="kv-key mono">{{ file.name }}</span>
@@ -284,7 +308,8 @@ defineExpose({ refresh: load })
         <!-- 5. 近 24h 错误 -->
         <div class="sys-card wide">
           <div class="card-title">
-            ⚠️ 近 24h 错误
+            <AppIcon name="alert-triangle" :size="15" />
+            <span>近 24h 错误</span>
             <span class="count-badge">{{ errorStats.count24h }}</span>
           </div>
           <div v-if="errorStats.byPath.length === 0" class="empty-msg">近 24 小时无 5xx 错误</div>
@@ -310,24 +335,39 @@ defineExpose({ refresh: load })
 
         <!-- 6. 数据导出 -->
         <div class="sys-card">
-          <div class="card-title">📤 数据导出</div>
+          <div class="card-title"><AppIcon name="download" :size="15" /><span>数据导出</span></div>
           <div class="card-actions">
-            <button class="btn-primary" @click="exportRoster('xlsx')">导出名册 Excel</button>
-            <button class="btn-ghost" @click="exportRoster('csv')">导出名册 CSV</button>
+            <BaseButton
+              size="sm"
+              :loading="exportingKind === 'xlsx'"
+              :disabled="exportingKind === 'csv'"
+              @click="exportRoster('xlsx')"
+            >
+              导出名册 Excel
+            </BaseButton>
+            <BaseButton
+              variant="secondary"
+              size="sm"
+              :loading="exportingKind === 'csv'"
+              :disabled="exportingKind === 'xlsx'"
+              @click="exportRoster('csv')"
+            >
+              导出名册 CSV
+            </BaseButton>
           </div>
-          <div class="hint">导出链接已携带访问令牌，将直接开始下载。</div>
+          <div class="hint">导出请求会携带登录令牌，点击后浏览器直接开始下载；失败会给出提示。</div>
         </div>
 
         <!-- 7. 定时任务 -->
         <div class="sys-card">
-          <div class="card-title">⏰ 定时任务</div>
+          <div class="card-title"><AppIcon name="clock" :size="15" /><span>定时任务</span></div>
           <div v-if="timers.length === 0" class="empty-msg">暂无定时任务</div>
           <pre v-else class="pre-box">{{ timers.join('\n') }}</pre>
         </div>
 
         <!-- 8. 每日汇总文件 -->
         <div class="sys-card">
-          <div class="card-title">📄 每日汇总文件</div>
+          <div class="card-title"><AppIcon name="file" :size="15" /><span>每日汇总文件</span></div>
           <div v-if="digests.length === 0" class="empty-msg">暂无每日汇总文件</div>
           <div v-else class="kv-list">
             <div v-for="file in digests" :key="file.name" class="kv-row">
@@ -340,13 +380,13 @@ defineExpose({ refresh: load })
           </div>
         </div>
       </div>
-    </template>
+    </StateView>
   </section>
 </template>
 
 <style scoped>
 h2 {
-  font-size: 20px;
+  font-size: var(--font-size-title);
   font-weight: 600;
   color: var(--color-text);
   margin: 0 0 16px;
@@ -361,7 +401,7 @@ h2 {
 .sys-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md, 12px);
+  border-radius: var(--radius-md);
   padding: 14px 16px;
   box-shadow: var(--shadow-card);
   min-width: 0;
@@ -370,7 +410,7 @@ h2 {
   grid-column: 1 / -1;
 }
 .card-title {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text);
   margin-bottom: 10px;
@@ -379,12 +419,12 @@ h2 {
   gap: 6px;
 }
 .count-badge {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   padding: 1px 7px;
   border-radius: 9px;
-  background: var(--color-accent-bg);
-  color: var(--color-accent);
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 /* ========== 键值行 ========== */
@@ -398,7 +438,7 @@ h2 {
   justify-content: space-between;
   gap: 10px;
   padding: 6px 0;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   border-bottom: 1px solid var(--color-border);
 }
 .kv-row:last-child {
@@ -419,39 +459,22 @@ h2 {
 }
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--font-size-xs);
 }
 .flag-key {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--font-size-xs);
   color: var(--color-text);
   background: var(--color-surface-hover);
   border-radius: 4px;
   padding: 1px 5px;
 }
 .flag-desc {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-3);
 }
 .muted {
   color: var(--color-text-3);
-}
-
-/* ========== 标记 ========== */
-.badge {
-  display: inline-block;
-  font-size: 12px;
-  padding: 1px 8px;
-  border-radius: 9px;
-  white-space: nowrap;
-}
-.badge-ok {
-  background: var(--color-accent-bg);
-  color: var(--color-accent);
-}
-.badge-bad {
-  background: var(--color-surface-hover);
-  color: var(--color-warning);
 }
 
 /* ========== 按钮 ========== */
@@ -461,49 +484,17 @@ h2 {
   gap: 8px;
   margin-bottom: 10px;
 }
-.btn-primary,
-.btn-ghost {
-  font-size: 13px;
-  font-weight: 500;
-  padding: 7px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition:
-    opacity 0.1s,
-    background 0.1s;
-}
-.btn-primary {
-  border: none;
-  background: var(--color-accent);
-  color: #fff;
-}
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.88;
-}
-.btn-primary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.btn-ghost {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-}
-.btn-ghost:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
 .hint {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-3);
+  line-height: 1.5;
 }
 
 /* ========== 表格 ========== */
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: var(--font-size-xs);
 }
 .data-table th {
   text-align: left;
@@ -513,7 +504,7 @@ h2 {
   border-bottom: 1px solid var(--color-border);
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
 }
 .data-table td {
   padding: 7px 8px;
@@ -532,7 +523,7 @@ h2 {
   text-align: right;
 }
 .method-tag {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   color: var(--color-accent);
   background: var(--color-accent-bg);
@@ -546,9 +537,9 @@ h2 {
   padding: 10px 12px;
   background: var(--color-surface-hover);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   line-height: 1.5;
   color: var(--color-text-2);
   white-space: pre-wrap;
@@ -556,38 +547,33 @@ h2 {
   max-height: 220px;
   overflow: auto;
 }
-.loading {
-  padding: 40px;
-  text-align: center;
-  color: var(--color-text-2);
-  font-size: 14px;
-}
 .empty-msg {
   padding: 14px 0;
   text-align: center;
   color: var(--color-text-3);
-  font-size: 12px;
+  font-size: var(--font-size-xs);
+  line-height: 1.6;
 }
 .error-box {
   padding: 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  color: var(--color-warning);
-  font-size: 13px;
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
   text-align: center;
 }
 .error-box.inline {
   margin-top: 8px;
   padding: 10px;
   text-align: left;
-  font-size: 12px;
+  font-size: var(--font-size-xs);
 }
 
 /* ========== Responsive ========== */
 @media (max-width: 768px) {
   h2 {
-    font-size: 18px;
+    font-size: var(--font-size-lg);
     margin-bottom: 12px;
   }
   .sys-grid {
@@ -607,6 +593,13 @@ h2 {
   }
   .col-count {
     text-align: left;
+  }
+  .card-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .card-actions :deep(.btn) {
+    width: 100%;
   }
 }
 </style>
