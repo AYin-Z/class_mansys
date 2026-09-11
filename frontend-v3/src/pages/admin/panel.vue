@@ -1,187 +1,98 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { USER_ROLES } from '@/types/roles'
-import { listMembers, getMemberDetail, updateMemberRole, getAdminLeaveConfig, updateLeaveConfig, getRecentOperations } from '@/api/admin'
-import type { AdminMember, MemberDetailResult } from '@/api/admin'
+import { getAdminLeaveConfig, updateLeaveConfig } from '@/api/admin'
 import type { LeaveTypeConfig } from '@/api/leave-config'
-import { getAllLeaves } from '@/api/leave'
-import { getSummary } from '@/api/fee'
-import { getLeaveTypes } from '@/api/leave-config'
-import OverviewSection, { type OverviewData } from './panel/OverviewSection.vue'
+import OverviewSection from './panel/OverviewSection.vue'
 import MembersSection from './panel/MembersSection.vue'
-import MemberDetailModal from './panel/MemberDetailModal.vue'
+import RosterImportSection from './panel/RosterImportSection.vue'
+import ClassesSection from './panel/ClassesSection.vue'
 import LeaveConfigSection from './panel/LeaveConfigSection.vue'
+import TodosSection from './panel/TodosSection.vue'
+import AuditSection from './panel/AuditSection.vue'
+import AgentOpsSection from './panel/AgentOpsSection.vue'
+import SystemSection from './panel/SystemSection.vue'
+import PermissionsSection from './panel/PermissionsSection.vue'
+import { showToast } from '@/utils/ui'
 
 const router = useRouter()
 const userStore = useUserStore()
 
-// 当前面板 tab
-type PanelTab = 'overview' | 'members' | 'leave-config'
-const activeTab = ref<PanelTab>('overview')
+type TabKey = 'overview' | 'todos' | 'members' | 'roster' | 'classes' | 'leave' | 'audit' | 'agent' | 'system' | 'permissions'
 
-// 登出
-async function doLogout() {
-  await userStore.logout()
-  router.replace('/admin/login')
+interface TabDef {
+  key: TabKey
+  label: string
+  icon: string
+  /** 需要的权限键（任一即可见） */
+  perms: string[]
+  group: string
 }
 
-// ========== 概览数据 ==========
-const overview = ref<OverviewData>({
-  members: 0, admins: 0, students: 0,
-  activeLeaves: 0, pendingLeaves: 0,
-  pendingFeeApprovals: 0, feeBalance: '0',
-  leaveConfigCount: 0, enabledConfigCount: 0,
-  classes: [] as { name: string; count: number }[],
-  roleDist: [] as { label: string; count: number }[],
-  recentOps: [],
+const TABS: TabDef[] = [
+  { key: 'overview', label: '总览', icon: '📊', perms: ['VIEW_ROSTER'], group: '运行' },
+  { key: 'todos', label: '内容与待办', icon: '✅', perms: ['VIEW_ROSTER'], group: '运行' },
+  { key: 'members', label: '成员管理', icon: '👥', perms: ['VIEW_ROSTER'], group: '组织' },
+  { key: 'roster', label: '名册导入', icon: '📥', perms: ['MANAGE_MEMBERS'], group: '组织' },
+  { key: 'classes', label: '区队与中队', icon: '🏢', perms: ['VIEW_ROSTER'], group: '组织' },
+  { key: 'leave', label: '请假配置', icon: '🏥', perms: ['MANAGE_LEAVE_CONFIG'], group: '组织' },
+  { key: 'audit', label: '审计日志', icon: '📜', perms: ['VIEW_SYSTEM'], group: '系统' },
+  { key: 'agent', label: '助手与渠道', icon: '🤖', perms: ['VIEW_SYSTEM'], group: '系统' },
+  { key: 'system', label: '系统运维', icon: '🛠️', perms: ['VIEW_SYSTEM'], group: '系统' },
+  { key: 'permissions', label: '权限矩阵', icon: '🔐', perms: ['MANAGE_PERMISSIONS'], group: '系统' }
+]
+
+const visibleTabs = computed(() => TABS.filter((t) => t.perms.some((p) => userStore.hasPermission(p as never))))
+const groups = computed(() => {
+  const map = new Map<string, TabDef[]>()
+  for (const t of visibleTabs.value) {
+    if (!map.has(t.group)) map.set(t.group, [])
+    map.get(t.group)!.push(t)
+  }
+  return Array.from(map.entries()).map(([name, items]) => ({ name, items }))
 })
-const overviewLoading = ref(true)
+
+const activeTab = ref<TabKey>('overview')
+
+function canEnter(): boolean {
+  return visibleTabs.value.length > 0
+}
 
 onMounted(async () => {
   await userStore.refresh()
-  if (userStore.role !== USER_ROLES.SUPER_ADMIN) {
+  if (!canEnter()) {
     router.replace('/admin/login')
     return
   }
-  loadOverview()
+  if (!visibleTabs.value.some((t) => t.key === activeTab.value)) {
+    activeTab.value = visibleTabs.value[0].key
+  }
+  if (visibleTabs.value.some((t) => t.key === 'leave')) loadLeaveConfig()
 })
 
-async function loadOverview() {
-  overviewLoading.value = true
-  try {
-    const [membersRes, leavesRes, feeRes, configRes, opsRes] = await Promise.all([
-      listMembers({ pageSize: 200 }),
-      getAllLeaves().catch(() => null),
-      getSummary().catch(() => null),
-      getLeaveTypes().catch(() => null),
-      getRecentOperations({ limit: 10 }).catch(() => null),
-    ])
-    const members = membersRes?.members || []
-    overview.value.members = membersRes?.total || members.length
-    // 在编学员 = member_type=student（含班干部）；班干部 = role 1-7
-    overview.value.admins = members.filter(m => m.role >= 1 && m.role <= 7).length
-    overview.value.students = members.filter(m => (m.member_type || 'student') === 'student').length
-    overview.value.activeLeaves = members.reduce((s, m) => s + (m.active_leave_count || 0), 0)
-
-    // 班级分布
-    const classMap: Record<string, number> = {}
-    members.forEach(m => {
-      const cn = m.class_name || m.class_id || '未知'
-      classMap[cn] = (classMap[cn] || 0) + 1
-    })
-    overview.value.classes = Object.entries(classMap).map(([name, count]) => ({ name, count }))
-
-    // 角色分布
-    const roleMap: Record<string, number> = {}
-    members.forEach(m => {
-      const label = ROLE_LABELS[m.role] || `角色${m.role}`
-      roleMap[label] = (roleMap[label] || 0) + 1
-    })
-    overview.value.roleDist = Object.entries(roleMap).map(([label, count]) => ({ label, count }))
-
-    // 请假
-    if (leavesRes?.leaves) {
-      overview.value.pendingLeaves = leavesRes.leaves.filter(l => l.status === 0 && !l.is_cancelled).length
-    }
-
-    // 班费
-    if (feeRes?.success) {
-      const data = (feeRes as any).data || feeRes
-      const s = data?.summary || data
-      overview.value.pendingFeeApprovals = Number(s?.pending_small || 0) + Number(s?.pending_medium || 0) + Number(s?.pending_large || 0)
-      overview.value.feeBalance = Number(s?.balance || 0).toFixed(2)
-    }
-
-    // 请假配置
-    if (configRes?.data) {
-      overview.value.leaveConfigCount = configRes.data.length
-      overview.value.enabledConfigCount = configRes.data.filter(c => c.enabled).length
-    }
-
-    // 近期操作
-    if (opsRes?.operations) {
-      overview.value.recentOps = opsRes.operations.slice(0, 10)
-    }
-  } catch (_) { /* ignore */ }
-  finally { overviewLoading.value = false }
-}
-
-// ========== 成员管理 ==========
-const members = ref<AdminMember[]>([])
-const memberSearch = ref('')
-const memberLoading = ref(false)
-
-async function loadMembers() {
-  memberLoading.value = true
-  try {
-    const res = await listMembers({ keyword: memberSearch.value || undefined, pageSize: 200 })
-    members.value = res?.members || []
-  } finally {
-    memberLoading.value = false
-  }
-}
-
-// 成员详情弹窗
-const selectedMember = ref<AdminMember | null>(null)
-const memberDetail = ref<MemberDetailResult | null>(null)
-const detailLoading = ref(false)
-const roleChanging = ref(false)
-
-async function openMemberDetail(member: AdminMember) {
-  selectedMember.value = member
-  detailLoading.value = true
-  memberDetail.value = null
-  try {
-    memberDetail.value = await getMemberDetail(member.id)
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-function closeMemberDetail() {
-  selectedMember.value = null
-  memberDetail.value = null
-}
-
-async function changeRole(memberId: number, newRole: number) {
-  roleChanging.value = true
-  try {
-    await updateMemberRole(memberId, newRole)
-    // 刷新详情和列表
-    if (selectedMember.value) {
-      const detail = await getMemberDetail(memberId)
-      memberDetail.value = detail
-      selectedMember.value.role = newRole
-    }
-    await loadMembers()
-  } catch (e: any) {
-    alert(e?.message || '修改失败')
-  } finally {
-    roleChanging.value = false
-  }
-}
-
-// ========== 请假配置 ==========
+// ---- 请假配置（LeaveConfigSection 需要 props） ----
 const leaveConfigs = ref<LeaveTypeConfig[]>([])
-const configLoading = ref(false)
-const configSaving = ref(false)
+const leaveLoading = ref(false)
+const leaveSaving = ref(false)
 
 async function loadLeaveConfig() {
-  configLoading.value = true
+  leaveLoading.value = true
   try {
     const res = await getAdminLeaveConfig()
-    leaveConfigs.value = res?.data || []
+    if (res?.success) leaveConfigs.value = res.data || []
+  } catch (e: any) {
+    showToast(e?.message || '加载请假配置失败', 'error')
   } finally {
-    configLoading.value = false
+    leaveLoading.value = false
   }
 }
 
-async function saveConfig(config: LeaveTypeConfig) {
-  configSaving.value = true
+async function saveLeaveConfig(config: LeaveTypeConfig) {
+  leaveSaving.value = true
   try {
     await updateLeaveConfig(config.id, {
+      type_name: config.type_name,
       start_time: config.start_time,
       end_time: config.end_time,
       is_fixed: config.is_fixed,
@@ -189,224 +100,113 @@ async function saveConfig(config: LeaveTypeConfig) {
       enabled: config.enabled,
       sort_order: config.sort_order
     })
-    alert('保存成功')
+    showToast('已保存')
+    await loadLeaveConfig()
   } catch (e: any) {
-    alert(e?.message || '保存失败')
+    showToast(e?.message || '保存失败', 'error')
   } finally {
-    configSaving.value = false
+    leaveSaving.value = false
   }
 }
 
-function switchTab(tab: PanelTab) {
-  activeTab.value = tab
-  if (tab === 'members') loadMembers()
-  if (tab === 'leave-config') loadLeaveConfig()
-}
-
-function navigate(path: string) {
-  router.push(path)
-}
-
-// 角色标签
-const ROLE_LABELS: Record<number, string> = {
-  0: '学员', 1: '区队长', 2: '生活副区', 3: '学习副区', 4: '心理副区',
-  5: '团支书', 6: '组织委员', 7: '宣传委员', 8: '系统管理员', 9: '辅导员'
+async function doLogout() {
+  await userStore.logout()
+  router.replace('/admin/login')
 }
 </script>
 
 <template>
-  <div class="admin-panel">
-    <!-- 移动端顶部导航 -->
-    <header class="top-nav">
-      <div class="top-nav-header">
-        <span class="top-brand">🛡️ 超管后台</span>
-        <button class="top-logout" @click="doLogout">退出</button>
-      </div>
-      <div class="top-tabs">
-        <button :class="{ active: activeTab === 'overview' }" @click="switchTab('overview')">📊</button>
-        <button :class="{ active: activeTab === 'members' }" @click="switchTab('members')">👥</button>
-        <button :class="{ active: activeTab === 'leave-config' }" @click="switchTab('leave-config')">📋</button>
+  <div class="admin-console">
+    <header class="top">
+      <div class="brand">🛡️ 中队管理后台</div>
+      <div class="top-right">
+        <span class="who">{{ userStore.displayName }} · {{ userStore.roleLabel }}</span>
+        <button class="t-btn" @click="router.push('/pages/index/index')">返回前台</button>
+        <button class="t-btn danger" @click="doLogout">退出登录</button>
       </div>
     </header>
 
-    <!-- 桌面端侧边栏 -->
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <span class="brand-icon">🛡️</span>
-        <span class="brand-text">超管后台</span>
-      </div>
-      <nav class="sidebar-nav">
-        <button
-          :class="{ active: activeTab === 'overview' }"
-          @click="switchTab('overview')"
-        >📊 系统概览</button>
-        <button
-          :class="{ active: activeTab === 'members' }"
-          @click="switchTab('members')"
-        >👥 成员管理</button>
-        <button
-          :class="{ active: activeTab === 'leave-config' }"
-          @click="switchTab('leave-config')"
-        >📋 请假配置</button>
+    <div class="body">
+      <nav class="side">
+        <template v-for="g in groups" :key="g.name">
+          <div class="group-label">{{ g.name }}</div>
+          <button
+            v-for="t in g.items"
+            :key="t.key"
+            class="nav-item"
+            :class="{ active: activeTab === t.key }"
+            @click="activeTab = t.key"
+          >
+            <span class="nav-icon">{{ t.icon }}</span>{{ t.label }}
+          </button>
+        </template>
       </nav>
-      <div class="sidebar-footer">
-        <div class="user-info">
-          <span class="user-name">{{ userStore.displayName }}</span>
-          <span class="user-role">系统管理员</span>
-        </div>
-        <button class="btn-logout" @click="doLogout">退出登录</button>
-      </div>
-    </aside>
 
-    <!-- 主内容区 -->
-    <main class="main-content">
-      <OverviewSection
-        v-if="activeTab === 'overview'"
-        :loading="overviewLoading"
-        :data="overview"
-        @switch-tab="switchTab"
-        @navigate="navigate"
-      />
-      <MembersSection
-        v-if="activeTab === 'members'"
-        :members="members"
-        :loading="memberLoading"
-        :search="memberSearch"
-        @update:search="memberSearch = $event"
-        @search="loadMembers"
-        @open-detail="openMemberDetail"
-      />
-      <LeaveConfigSection
-        v-if="activeTab === 'leave-config'"
-        :configs="leaveConfigs"
-        :loading="configLoading"
-        :saving="configSaving"
-        @save="saveConfig"
-      />
-      <MemberDetailModal
-        v-if="selectedMember && activeTab === 'members'"
-        :member="selectedMember"
-        :detail="memberDetail"
-        :loading="detailLoading"
-        :role-changing="roleChanging"
-        @close="closeMemberDetail"
-        @change-role="changeRole"
-      />
-    </main>
+      <main class="content">
+        <OverviewSection
+          v-if="activeTab === 'overview'"
+          @switch-tab="(tab: string) => (activeTab = tab as TabKey)"
+          @navigate="(path: string) => router.push(path)"
+        />
+        <TodosSection v-else-if="activeTab === 'todos'" @navigate="(path: string) => router.push(path)" />
+        <MembersSection v-else-if="activeTab === 'members'" />
+        <RosterImportSection v-else-if="activeTab === 'roster'" />
+        <ClassesSection v-else-if="activeTab === 'classes'" />
+        <LeaveConfigSection
+          v-else-if="activeTab === 'leave'"
+          :configs="leaveConfigs"
+          :loading="leaveLoading"
+          :saving="leaveSaving"
+          @save="saveLeaveConfig"
+        />
+        <AuditSection v-else-if="activeTab === 'audit'" />
+        <AgentOpsSection v-else-if="activeTab === 'agent'" />
+        <SystemSection v-else-if="activeTab === 'system'" />
+        <PermissionsSection v-else-if="activeTab === 'permissions'" />
+      </main>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* ========== Layout ========== */
-.admin-panel {
-  display: flex;
-  min-height: 100vh;
-  background: var(--color-bg);
+.admin-console { min-height: 100vh; background: var(--color-bg); display: flex; flex-direction: column; }
+.top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 18px; background: var(--color-surface); border-bottom: 1px solid var(--color-border);
+  position: sticky; top: 0; z-index: 30;
 }
+.brand { font-size: 16px; font-weight: 700; color: var(--color-text); }
+.top-right { display: flex; align-items: center; gap: 8px; }
+.who { font-size: 12px; color: var(--color-text-3); }
+.t-btn {
+  font-size: 12px; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-2);
+}
+.t-btn.danger { color: #e5484d; border-color: rgba(229, 72, 77, .4); }
+.body { display: flex; flex: 1; min-height: 0; align-items: flex-start; }
+.side {
+  width: 190px; flex: 0 0 190px; padding: 12px 10px; border-right: 1px solid var(--color-border);
+  background: var(--color-surface); position: sticky; top: 57px; max-height: calc(100vh - 57px); overflow-y: auto;
+}
+.group-label { font-size: 11px; color: var(--color-text-3); padding: 10px 8px 4px; }
+.nav-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 10px; margin-bottom: 2px;
+  font-size: 13px; text-align: left; cursor: pointer; border: none; border-radius: 8px;
+  background: transparent; color: var(--color-text-2);
+}
+.nav-item:hover { background: var(--color-surface-hover); }
+.nav-item.active { background: var(--color-accent-bg); color: var(--color-accent); font-weight: 600; }
+.nav-icon { font-size: 14px; }
+.content { flex: 1; min-width: 0; padding: 18px 20px 60px; }
 
-/* ========== Top Nav (Mobile) ========== */
-.top-nav {
-  display: none;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  padding: 8px 12px;
-}
-.top-nav-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.top-brand { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 15px; color: var(--color-text); }
-.top-tabs {
-  display: flex; gap: 4px; margin-top: 8px; overflow-x: auto;
-}
-.top-tabs button {
-  flex-shrink: 0; padding: 6px 14px; border: none; border-radius: 6px;
-  background: var(--color-surface-2); color: var(--color-text-2);
-  font-size: 13px; cursor: pointer; white-space: nowrap;
-}
-.top-tabs button.active { background: var(--color-accent-bg); color: var(--color-accent); font-weight: 600; }
-.top-logout {
-  background: none; border: 1px solid var(--color-border);
-  border-radius: 4px; padding: 4px 8px; font-size: 12px;
-  color: var(--color-text-2); cursor: pointer;
-}
-
-/* ========== Sidebar (Desktop) ========== */
-.sidebar {
-  width: 200px;
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  padding: 16px 0;
-}
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 16px 16px;
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: 8px;
-}
-.brand-icon { font-size: 24px; }
-.brand-text { font-size: 16px; font-weight: 600; color: var(--color-text); }
-.sidebar-nav {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 0 8px;
-}
-.sidebar-nav button {
-  text-align: left;
-  padding: 10px 12px;
-  border: none;
-  background: none;
-  font-size: 14px;
-  color: var(--color-text-2);
-  border-radius: 6px;
-  cursor: pointer;
-  margin-bottom: 2px;
-}
-.sidebar-nav button:hover { background: var(--color-surface-2); color: var(--color-text); }
-.sidebar-nav button.active { background: var(--color-accent-bg); color: var(--color-accent); font-weight: 500; }
-.sidebar-footer {
-  padding: 16px;
-  border-top: 1px solid var(--color-border);
-}
-.user-info {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 8px;
-}
-.user-name { font-size: 14px; font-weight: 500; color: var(--color-text); }
-.user-role { font-size: 12px; color: var(--color-text-3); }
-.btn-logout {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-surface);
-  color: var(--color-text-2);
-  font-size: 13px;
-  cursor: pointer;
-}
-.btn-logout:hover { color: var(--color-error); border-color: var(--color-error); }
-
-/* ========== Main ========== */
-.main-content {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-  min-width: 0;
-}
-
-/* ========== Responsive ========== */
-@media (max-width: 768px) {
-  .sidebar { display: none; }
-  .top-nav { display: block; }
-  .admin-panel { flex-direction: column; }
-  .main-content { padding: 16px; }
+@media (max-width: 860px) {
+  .body { flex-direction: column; }
+  .side {
+    width: 100%; flex: none; position: static; max-height: none; border-right: none; border-bottom: 1px solid var(--color-border);
+    display: flex; gap: 6px; overflow-x: auto; padding: 8px;
+  }
+  .group-label { display: none; }
+  .nav-item { width: auto; white-space: nowrap; margin-bottom: 0; }
+  .content { padding: 14px 12px 50px; }
 }
 </style>

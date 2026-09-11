@@ -127,6 +127,42 @@ const schemas = {
     allowWrite: z.boolean().optional()
   }),
 
+  // ---------- 超管后台 ----------
+  adminMemberCreate: passthrough({
+    name: z.string().trim().min(1, '姓名不能为空').max(20),
+    student_id: z.string().trim().min(1, '学号不能为空').max(20),
+    class_id: z.string().trim().max(20).optional(),
+    role: z.number().int().min(0).max(9).optional(),
+    duty_note: z.string().trim().max(50).nullable().optional(),
+    member_type: z.enum(['student', 'staff', 'system']).optional(),
+    password: z.string().min(6).max(32).optional()
+  }),
+  adminMemberUpdate: passthrough({
+    name: z.string().trim().min(1).max(20).optional(),
+    student_id: z.string().trim().min(1).max(20).optional(),
+    class_id: z.string().trim().max(20).optional(),
+    role: z.number().int().min(0).max(9).optional(),
+    duty_note: z.string().trim().max(50).nullable().optional(),
+    member_type: z.enum(['student', 'staff', 'system', 'left']).optional()
+  }),
+  adminMemberStatus: passthrough({ status: z.enum(['left', 'student']) }),
+  adminMemberResetPassword: passthrough({ password: z.string().min(6).max(32).optional() }),
+  adminMemberBulk: passthrough({
+    ids: z.array(idLike).min(1).max(200),
+    action: z.enum(['set_class', 'set_role', 'set_duty_note', 'move_out', 'restore', 'reset_password']),
+    value: z.union([z.string(), z.number()]).optional()
+  }),
+  adminClassCreate: passthrough({
+    id: z.string().trim().min(1).max(20),
+    name: z.string().trim().min(1).max(50),
+    company_id: z.string().trim().max(20).optional()
+  }),
+  adminClassUpdate: passthrough({
+    name: z.string().trim().min(1).max(50).optional(),
+    company_id: z.string().trim().max(20).optional()
+  }),
+  adminPermissionUpdate: passthrough({ roles: z.array(z.number().int().min(0).max(9)).max(12) }),
+
   // ---------- 管理 ----------
   leaveConfigUpdate: passthrough({
     type_name: z.string().optional(),

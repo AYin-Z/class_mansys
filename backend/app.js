@@ -175,6 +175,25 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // 仅在直接运行时监听端口（被 require/测试导入时不监听）
+/** 加载可配置权限矩阵（表为空/不存在时静默回落到代码默认矩阵） */
+async function initPermissions() {
+  try {
+    const { loadPermissions, seedPermissionsFromDefaults } = require('./shared/permissions');
+    const loaded = await loadPermissions();
+    if (!loaded) {
+      const seeded = await seedPermissionsFromDefaults();
+      logger.info({ seeded }, seeded ? '权限矩阵已初始化为默认值' : '权限矩阵使用代码默认值');
+    }
+  } catch (e) {
+    logger.warn({ err: e.message }, '权限矩阵加载失败，使用默认值');
+  }
+}
+initPermissions();
+// 权限矩阵每 30 秒与数据库对一次（防止多进程/外部改动导致缓存过期）；unref 不阻塞进程退出
+setInterval(() => {
+  require('./shared/permissions').loadPermissions().catch(() => {});
+}, 30000).unref();
+
 if (require.main === module) {
   app.listen(PORT, () => {
     logger.info({ port: PORT }, '服务器已启动');

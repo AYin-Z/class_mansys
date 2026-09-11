@@ -44,6 +44,8 @@ export interface LoginResult {
 
 export interface UserInfoResult {
   success: boolean
+  /** 服务端权限快照（权限矩阵可在超管后台配置） */
+  permissions?: Record<string, boolean>
   user: {
     id: number
     name: string

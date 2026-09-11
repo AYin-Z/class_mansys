@@ -26,9 +26,13 @@ export interface UserProfile {
   avatarUrl?: string;
 }
 
+const PERM_STORAGE_KEY = 'user_permissions';
+
 export const useUserStore = defineStore('user', () => {
   const profile = ref<UserProfile | null>(null);
   const _hydrated = ref(false);
+  /** 服务端下发的权限快照（权限矩阵可在超管后台配置，因此以服务端为准） */
+  const permissions = ref<Record<string, boolean> | null>(null);
 
   const isAuthenticated = computed(() => !!getToken() && !!profile.value);
   const role = computed<number>(() => profile.value?.role ?? -1);
@@ -44,6 +48,8 @@ export const useUserStore = defineStore('user', () => {
       if (raw) {
         profile.value = typeof raw === 'string' ? JSON.parse(raw) : raw;
       }
+      const perms = localStorage.getItem(PERM_STORAGE_KEY);
+      if (perms) permissions.value = JSON.parse(perms);
     } catch (e) {
       console.warn('[user store] hydrate failed:', e);
       profile.value = null;
@@ -54,6 +60,12 @@ export const useUserStore = defineStore('user', () => {
   function setProfile(p: UserProfile) {
     profile.value = p;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+  }
+
+  function setPermissions(next: Record<string, boolean> | null | undefined) {
+    if (!next) return;
+    permissions.value = next;
+    try { localStorage.setItem(PERM_STORAGE_KEY, JSON.stringify(next)); } catch (_) { /* ignore */ }
   }
 
   function setTokenAndProfile(token: string, p: UserProfile) {
@@ -79,6 +91,7 @@ export const useUserStore = defineStore('user', () => {
           avatarUrl: res.user.avatarUrl
         };
         setProfile(next);
+        setPermissions(res.permissions as Record<string, boolean> | undefined);
         return next;
       }
     } catch (e) {
@@ -94,9 +107,13 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem('userInfo');     // 清旧 key
     localStorage.removeItem('isRegistered');
+    localStorage.removeItem(PERM_STORAGE_KEY);
+    permissions.value = null;
   }
 
   function hasPermission(perm: PermissionKey): boolean {
+    // 服务端快照优先（后台可改权限矩阵）；无快照时回落到前端镜像
+    if (permissions.value && perm in permissions.value) return !!permissions.value[perm];
     return hasPerm(role.value, perm);
   }
 
@@ -106,6 +123,8 @@ export const useUserStore = defineStore('user', () => {
 
   return {
     profile,
+    permissions,
+    setPermissions,
     isAuthenticated,
     role,
     isAdmin,

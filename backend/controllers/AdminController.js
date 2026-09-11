@@ -36,9 +36,16 @@ class AdminController {
           params.push(...scope.classIds);
         }
       }
-      // 已离开数据中队的人员（member_type=left）保留历史但不进名册
-      where.push("u.member_type <> 'left'");
+      // 默认名册不含已离开人员；超管后台可显式查询（member_type=left|all）
+      const memberType = String(req.query.member_type || '').trim();
+      if (memberType === 'left') where.push("u.member_type = 'left'");
+      else if (memberType === 'all') { /* 不过滤 */ }
+      else where.push("u.member_type <> 'left'");
       if (class_id) { where.push('u.class_id = ?'); params.push(class_id); }
+      if (req.query.role !== undefined && req.query.role !== '') {
+        where.push('u.role = ?');
+        params.push(Number(req.query.role));
+      }
       if (keyword) {
         where.push('(u.name LIKE ? OR u.student_id LIKE ? OR u.phone LIKE ?)');
         const kw = `%${keyword}%`;

@@ -1,208 +1,234 @@
-<script lang="ts">
-import type { OperationItem } from '@/api/admin'
-
-export interface OverviewData {
-  members: number
-  admins: number
-  students: number
-  activeLeaves: number
-  pendingLeaves: number
-  pendingFeeApprovals: number
-  feeBalance: string
-  leaveConfigCount: number
-  enabledConfigCount: number
-  classes: { name: string; count: number }[]
-  roleDist: { label: string; count: number }[]
-  recentOps: OperationItem[]
-}
-</script>
-
 <script setup lang="ts">
-defineProps<{
-  loading: boolean
-  data: OverviewData
-}>()
+import { computed, onMounted, ref } from 'vue'
+import { getConsoleOverview, getConsoleTodos, type ConsoleOverview } from '@/api/admin'
+import { ROLE_LABELS } from '@/types/roles'
+import { showToast } from '@/utils/ui'
+
+const loading = ref(true)
+const data = ref<ConsoleOverview | null>(null)
+const todos = ref<{ key: string; label: string; count: number; path: string }[]>([])
 
 const emit = defineEmits<{
-  (e: 'switch-tab', tab: 'members' | 'leave-config'): void
+  (e: 'switch-tab', tab: string): void
   (e: 'navigate', path: string): void
 }>()
+
+const maxTrend = computed(() => Math.max(1, ...(data.value?.trend || []).map((t) => t.count)))
+
+function fmtTime(v: string | Date | undefined): string {
+  if (!v) return '—'
+  return String(v).replace('T', ' ').slice(0, 19)
+}
+
+async function load() {
+  loading.value = true
+  try {
+    const [ov, td] = await Promise.all([getConsoleOverview(), getConsoleTodos().catch(() => null)])
+    if (ov?.success) data.value = ov.data
+    if (td?.success) todos.value = td.data.items || []
+  } catch (e: any) {
+    showToast(e?.message || '加载概览失败', 'error')
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(load)
+defineExpose({ reload: load })
 </script>
 
 <template>
-  <section>
-    <h2>系统概览</h2>
-    <div v-if="loading" class="loading">加载中...</div>
-    <template v-else>
-      <!-- 核心指标 -->
-      <div class="overview-section">
-        <div class="section-label">核心指标</div>
-        <div class="stats-grid">
-          <div class="stat-card clickable" @click="emit('switch-tab', 'members')">
-            <div class="stat-icon">👥</div>
-            <div class="stat-value">{{ data.members }}</div>
-            <div class="stat-label">总成员</div>
-            <div class="stat-sub">在编学员 {{ data.students }} · 班干部 {{ data.admins }}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">🏥</div>
-            <div class="stat-value">{{ data.activeLeaves }}</div>
-            <div class="stat-label">请假中</div>
-            <div class="stat-sub">待审批 {{ data.pendingLeaves }} 条</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">💰</div>
-            <div class="stat-value">¥{{ data.feeBalance }}</div>
-            <div class="stat-label">班费余额</div>
-            <div class="stat-sub">待审批 {{ data.pendingFeeApprovals }} 笔</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">📋</div>
-            <div class="stat-value">{{ data.enabledConfigCount }}<span class="stat-unit">/{{ data.leaveConfigCount }}</span></div>
-            <div class="stat-label">请假类型</div>
-            <div class="stat-sub">已启用 / 总数</div>
-          </div>
+  <section class="overview">
+    <div class="sec-head">
+      <h2>总览</h2>
+      <button class="btn-sm" @click="load">刷新</button>
+    </div>
+
+    <div v-if="loading" class="loading">加载中…</div>
+    <template v-else-if="data">
+      <div class="section-label">中队规模</div>
+      <div class="stats-grid">
+        <div class="stat-card clickable" @click="emit('switch-tab', 'classes')">
+          <div class="stat-icon">🏢</div>
+          <div class="stat-value">{{ data.scale.classes }}</div>
+          <div class="stat-label">区队</div>
+          <div class="stat-sub">{{ data.scale.companies }} 个中队</div>
+        </div>
+        <div class="stat-card clickable" @click="emit('switch-tab', 'members')">
+          <div class="stat-icon">👥</div>
+          <div class="stat-value">{{ data.scale.students }}</div>
+          <div class="stat-label">在队学员</div>
+          <div class="stat-sub">账号共 {{ data.scale.users }} 个</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🎖️</div>
+          <div class="stat-value">{{ data.scale.cadres }}</div>
+          <div class="stat-label">班干部</div>
+          <div class="stat-sub">超管 {{ data.scale.admins }} · 老师 {{ data.scale.staff }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🚪</div>
+          <div class="stat-value">{{ data.scale.left }}</div>
+          <div class="stat-label">已移出统计</div>
+          <div class="stat-sub">历史数据保留</div>
         </div>
       </div>
 
-      <!-- 班级分布 -->
-      <div class="overview-section">
-        <div class="section-label">班级分布</div>
-        <div class="overview-card">
-          <div class="bar-list">
-            <div v-for="c in data.classes" :key="c.name" class="bar-item">
-              <span class="bar-label">{{ c.name }}</span>
-              <span class="bar-count">{{ c.count }} 人</span>
-              <div class="bar-track"><div class="bar-fill" :style="{ width: (c.count / data.members * 100) + '%' }"></div></div>
+      <div class="section-label">今日情况（{{ data.today.date }}）</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">🏥</div>
+          <div class="stat-value">{{ data.today.onLeave }}</div>
+          <div class="stat-label">当前在假</div>
+          <div class="stat-sub">待审批 {{ data.today.pendingLeaves }} 条</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value">{{ Math.max(0, data.scale.students - data.today.onLeave) }}</div>
+          <div class="stat-label">在队</div>
+          <div class="stat-sub">应到 {{ data.scale.students }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🧾</div>
+          <div class="stat-value">{{ data.todos.pendingFee }}</div>
+          <div class="stat-label">待审批报销</div>
+          <div class="stat-sub">建议 {{ data.todos.unhandledSuggestion }} · 心理 {{ data.todos.pendingPsych }}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🩺</div>
+          <div class="stat-value">{{ data.health.errors24h }}</div>
+          <div class="stat-label">24h 服务端错误</div>
+          <div class="stat-sub">数据库 {{ data.health.dbSizeMb }} MB · {{ data.health.tables }} 表</div>
+        </div>
+      </div>
+
+      <div class="section-label">待办入口</div>
+      <div class="todo-row">
+        <button
+          v-for="t in todos"
+          :key="t.key"
+          class="todo-chip"
+          :class="{ hot: t.count > 0 }"
+          @click="emit('navigate', t.path)"
+        >
+          {{ t.label }}
+          <span class="todo-count">{{ t.count }}</span>
+        </button>
+      </div>
+
+      <div class="section-label">区队分布</div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>区队</th><th>在队</th><th>干部</th><th>已离开</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="c in data.classes" :key="c.class_id">
+              <td>{{ c.class_name }}</td>
+              <td>{{ c.students }}</td>
+              <td>{{ c.cadres }}</td>
+              <td>{{ c.left || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="two-col">
+        <div>
+          <div class="section-label">近 7 日请假申请</div>
+          <div class="trend">
+            <div v-for="t in data.trend" :key="t.day" class="trend-row">
+              <span class="trend-day">{{ String(t.day).slice(5) }}</span>
+              <span class="trend-bar"><i :style="{ width: (t.count / maxTrend) * 100 + '%' }"></i></span>
+              <span class="trend-num">{{ t.count }}</span>
+            </div>
+            <div v-if="!data.trend.length" class="empty">近 7 日无请假申请</div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label">职务分布</div>
+          <div class="role-list">
+            <div v-for="r in data.roleDist" :key="r.role" class="role-row">
+              <span>{{ ROLE_LABELS[r.role as keyof typeof ROLE_LABELS] || ('角色' + r.role) }}</span>
+              <b>{{ r.count }}</b>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 角色分布 + 近期操作 -->
-      <div class="overview-row">
-        <div class="overview-section flex-1">
-          <div class="section-label">角色分布</div>
-          <div class="overview-card">
-            <div class="bar-list">
-              <div v-for="r in data.roleDist" :key="r.label" class="bar-item">
-                <span class="bar-label">{{ r.label }}</span>
-                <span class="bar-count">{{ r.count }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="overview-section flex-1">
-          <div class="section-label">近期操作</div>
-          <div class="overview-card">
-            <div v-if="data.recentOps.length === 0" class="empty-msg">暂无操作记录</div>
-            <div v-for="op in data.recentOps.slice(0, 8)" :key="op.id" class="op-item">
-              <span class="op-action">{{ op.action || op.method }}</span>
-              <span class="op-path">{{ op.path || op.resource_type }}</span>
-              <span class="op-time">{{ (op.created_at || '').slice(0, 16).replace('T', ' ') }}</span>
-            </div>
-          </div>
-        </div>
+      <div class="section-label">办事助手 / 渠道</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-value">{{ data.agent.messages7d }}</div><div class="stat-label">近 7 日消息</div></div>
+        <div class="stat-card"><div class="stat-value">{{ data.agent.users }}</div><div class="stat-label">使用过助手的用户</div></div>
+        <div class="stat-card"><div class="stat-value">{{ data.agent.activeTokens }}</div><div class="stat-label">MCP 令牌（有效）</div></div>
+        <div class="stat-card"><div class="stat-value">{{ data.agent.wechatBindings }}</div><div class="stat-label">微信绑定</div></div>
       </div>
 
-      <!-- 快捷入口 -->
-      <div class="overview-section">
-        <div class="section-label">快捷入口</div>
-        <div class="quick-links">
-          <div class="quick-link" @click="emit('switch-tab', 'members')">👥 成员管理</div>
-          <div class="quick-link" @click="emit('switch-tab', 'leave-config')">📋 请假配置</div>
-          <div class="quick-link" @click="emit('navigate', '/pages/leave/approvals')">🏥 请假审批</div>
-          <div class="quick-link" @click="emit('navigate', '/pages/fee/approvals')">💰 班费审批</div>
-        </div>
+      <div class="section-label">最近操作</div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>时间</th><th>用户</th><th>方法</th><th>路径</th><th>状态</th></tr></thead>
+          <tbody>
+            <tr v-for="o in data.recentOps" :key="o.id">
+              <td>{{ fmtTime(o.created_at) }}</td>
+              <td>{{ o.user_name || '—' }}</td>
+              <td>{{ o.method }}</td>
+              <td class="mono">{{ o.path }}</td>
+              <td>
+                <span class="code-tag" :class="o.status_code >= 500 ? 'bad' : o.status_code >= 400 ? 'warn' : 'ok'">{{ o.status_code }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </template>
+    <div v-else class="empty">暂无数据</div>
   </section>
 </template>
 
 <style scoped>
-h2 {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 16px;
-}
-
-/* ========== Overview ========== */
-.overview-section { margin-bottom: 24px; }
-.section-label {
-  font-size: 12px; font-weight: 600; color: var(--color-text-3);
-  text-transform: uppercase; letter-spacing: 0.5px;
-  margin-bottom: 8px;
-}
-.overview-row { display: flex; gap: 16px; }
-.overview-row .overview-section { flex: 1; min-width: 0; }
-.overview-card {
-  background: var(--color-surface);
-  border-radius: 10px;
-  padding: 14px 16px;
-  box-shadow: var(--shadow-card);
-}
-.flex-1 { flex: 1; min-width: 0; }
-
-/* ========== Stats ========== */
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.sec-head { display: flex; align-items: center; justify-content: space-between; }
+h2 { font-size: 18px; margin: 0 0 12px; color: var(--color-text); }
+.section-label { font-size: 13px; font-weight: 600; color: var(--color-text-2); margin: 16px 0 8px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
 .stat-card {
-  background: var(--color-surface);
-  border-radius: 10px;
-  padding: 16px;
-  box-shadow: var(--shadow-card);
-  cursor: default;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md, 12px);
+  padding: 12px 14px; box-shadow: var(--shadow-card);
 }
-.stat-card.clickable { cursor: pointer; transition: transform 0.1s; }
-.stat-card.clickable:hover { transform: translateY(-1px); }
-.stat-icon { font-size: 22px; margin-bottom: 4px; }
-.stat-value { font-size: 26px; font-weight: 700; color: var(--color-primary); }
-.stat-unit { font-size: 14px; font-weight: 400; color: var(--color-text-3); }
-.stat-label { font-size: 12px; color: var(--color-text-2); margin-top: 2px; }
+.stat-card.clickable { cursor: pointer; }
+.stat-card.clickable:active { background: var(--color-surface-hover); }
+.stat-icon { font-size: 16px; }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--color-text); margin-top: 2px; }
+.stat-label { font-size: 13px; color: var(--color-text-2); }
 .stat-sub { font-size: 11px; color: var(--color-text-3); margin-top: 2px; }
-
-/* bar chart */
-.bar-list { display: flex; flex-direction: column; gap: 8px; }
-.bar-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.bar-label { width: 70px; flex-shrink: 0; color: var(--color-text); text-align: right; }
-.bar-count { width: 36px; flex-shrink: 0; color: var(--color-text-2); font-size: 12px; }
-.bar-track { flex: 1; height: 6px; background: var(--color-surface-2); border-radius: 3px; overflow: hidden; }
-.bar-fill { height: 100%; background: var(--color-accent); border-radius: 3px; min-width: 2px; }
-
-/* ops */
-.op-item {
-  display: flex; align-items: center; gap: 8px; padding: 6px 0;
-  font-size: 12px; border-bottom: 1px solid var(--color-border);
+.todo-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.todo-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 999px; color: var(--color-text-2);
 }
-.op-item:last-child { border-bottom: none; }
-.op-action { color: var(--color-accent); font-weight: 500; min-width: 40px; }
-.op-path { flex: 1; color: var(--color-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.op-time { color: var(--color-text-3); white-space: nowrap; }
-.empty-msg { text-align: center; padding: 20px; color: var(--color-text-3); font-size: 13px; }
-
-/* quick links */
-.quick-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
-.quick-link {
-  background: var(--color-surface);
-  border-radius: 8px;
-  padding: 12px 14px;
-  font-size: 13px; font-weight: 500;
-  color: var(--color-text);
-  cursor: pointer;
-  box-shadow: var(--shadow-card);
-  transition: background 0.1s;
-}
-.quick-link:hover { background: var(--color-accent-bg); color: var(--color-accent); }
-
-.loading { padding: 40px; text-align: center; color: var(--color-text-2); font-size: 14px; }
-
-/* ========== Responsive ========== */
-@media (max-width: 768px) {
-  h2 { font-size: 18px; margin-bottom: 12px; }
-  .stats-grid { gap: 8px; grid-template-columns: repeat(2, 1fr); }
-  .stat-card { padding: 14px; }
-  .stat-value { font-size: 22px; }
-  .overview-row { flex-direction: column; gap: 12px; }
-  .quick-links { grid-template-columns: repeat(2, 1fr); }
+.todo-chip.hot { border-color: var(--color-accent); color: var(--color-accent); background: var(--color-accent-bg); }
+.todo-count { font-weight: 700; }
+.table-wrap { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--color-surface); border-radius: var(--radius-md, 12px); }
+.data-table th, .data-table td { border-bottom: 1px solid var(--color-border); padding: 8px 10px; text-align: left; color: var(--color-text-2); white-space: nowrap; }
+.data-table th { color: var(--color-text-3); font-weight: 600; font-size: 12px; }
+.mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.code-tag { padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.code-tag.ok { background: rgba(46, 160, 67, 0.12); color: #2ea043; }
+.code-tag.warn { background: rgba(255, 170, 0, 0.15); color: var(--color-warning); }
+.code-tag.bad { background: rgba(229, 72, 77, 0.12); color: #e5484d; }
+.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.trend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; color: var(--color-text-3); }
+.trend-day { width: 42px; }
+.trend-bar { flex: 1; height: 10px; background: var(--color-surface-hover); border-radius: 5px; overflow: hidden; }
+.trend-bar i { display: block; height: 100%; background: var(--color-accent); }
+.trend-num { width: 26px; text-align: right; color: var(--color-text-2); }
+.role-list { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md, 12px); padding: 6px 12px; }
+.role-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--color-text-2); padding: 6px 0; border-bottom: 1px solid var(--color-border); }
+.role-row:last-child { border-bottom: none; }
+.loading, .empty { color: var(--color-text-3); font-size: 13px; padding: 12px 0; }
+.btn-sm {
+  font-size: 12px; padding: 5px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-2);
 }
 </style>

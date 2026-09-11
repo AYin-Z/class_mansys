@@ -23,7 +23,7 @@ router.get('/expenses', authenticateToken, requirePermission('VIEW_ROSTER'), Fee
 router.get('/expenses/:id', authenticateToken, FeeController.getExpenseDetail);
 
 // === 审批 ===
-router.get('/approvals/pending', authenticateToken, FeeController.getPendingApprovals);
+router.get('/approvals/pending', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.getPendingApprovals);
 router.post('/approvals/:id', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.approveExpense);
 router.post('/approvals/:id/reject', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.rejectExpense);
 router.post('/approvals/:id/vote', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.castVote);

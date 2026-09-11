@@ -102,9 +102,9 @@ CM_API_TOKEN=cm_xxx CM_ALLOW_WRITE=1 node backend/mcp/server.js   # stdio，由 
 ## 7. 质量门禁（CI 与本机一致）
 
 ```bash
-# 后端：lint + 单测（111 项，含 MCP 工具映射 / iLink 协议构造 / 令牌哈希）
+# 后端：lint + 单测（143 项，含 MCP 工具映射 / iLink 协议构造 / 令牌 / 权限矩阵 / 超管接口）
 cd backend && npm run lint && npm test
-# 前端：lint + 类型 + 单测（39 项，含 API 拆包契约与用户手册渲染）+ 构建
+# 前端：lint + 类型 + 单测（45 项，含 API 拆包契约 / 用户手册 / MCP 文案）+ 构建
 cd frontend-v3 && npm run lint && npm run typecheck && npm test && npm run build
 # 端到端（独立测试库 + 独立端口，101 项）
 cd backend && node tests/setup-test-db.js class_manage_sys_test && \

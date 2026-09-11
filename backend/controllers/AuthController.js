@@ -316,7 +316,9 @@ class AuthController {
           email: user.email,
           avatarUrl: user.avatarUrl,
           nickName: user.nickName
-        }
+        },
+        // 权限快照：前端据此显示/隐藏入口（服务端仍会再校验一次）
+        permissions: require('../shared/permissions').permissionsFor(user.role)
       });
     } catch (error) {
       res.status(500).json({ success: false, error: '获取用户信息失败' });
