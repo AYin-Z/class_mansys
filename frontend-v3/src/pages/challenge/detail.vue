@@ -3,7 +3,7 @@ import { mediaUrl, openMedia } from '@/utils/media'
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  getChallengeDetail, applyChallenge, judgeApplication,
+  getChallengeDetail, applyChallenge, judgeApplication, getMyChallengeApplications,
   CHALLENGE_APP_STATUS_LABEL,
 } from '@/api/challenge'
 import { uploadFile } from '@/utils/request'
@@ -27,8 +27,18 @@ const uploadingProof = ref(false)
 
 // 裁判
 const judging = ref<number | null>(null)
+// 我的申请（学员视角）：审计修复——提交后没有任何地方能看到审批进度
+const myApplications = ref<ChallengeApplication[]>([])
+async function loadMyApplications() {
+  try {
+    const res = await getMyChallengeApplications()
+    if (res?.success) myApplications.value = res.applications || []
+  } catch (_) { /* 忽略 */ }
+}
 // 裁判申请需要 JUDGE_CHALLENGE 权限（矩阵可在超管后台配置，故以服务端权限快照为准）
 const canJudgeChallenge = computed(() => userStore.hasPermission('JUDGE_CHALLENGE'))
+/** 本擂台下我自己的申请 */
+const myAppList = computed(() => myApplications.value.filter((a) => Number(a.challenge_id) === Number(challenge.value?.id)))
 
 function parseProofs(app: ChallengeApplication): string[] {
   try {
@@ -50,6 +60,7 @@ onMounted(async () => {
       applications.value = res.applications || []
     }
   } catch (_) {} finally { loading.value = false }
+  await loadMyApplications()
 })
 
 async function handleApply() {
@@ -168,6 +179,18 @@ function formatDate(t: string) {
           </button>
         </div>
         <input id="challenge-proof-input" type="file" accept="image/*" style="display:none" @change="handleProofChange" />
+      </div>
+
+      <!-- 我的申请（学员侧进度） -->
+      <div v-if="myAppList.length" class="section">
+        <h3>我的申请</h3>
+        <div v-for="app in myAppList" :key="app.id" class="app-card">
+          <div class="app-head">
+            <span>{{ String(app.created_at || '').slice(0, 16).replace('T', ' ') }}</span>
+            <span class="app-status">{{ CHALLENGE_APP_STATUS_LABEL[app.status] || app.status }}</span>
+          </div>
+          <p v-if="app.notes" class="app-notes">{{ app.notes }}</p>
+        </div>
       </div>
 
       <!-- 待裁判申请（需 JUDGE_CHALLENGE 权限） -->

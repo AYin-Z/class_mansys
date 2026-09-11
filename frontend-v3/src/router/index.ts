@@ -61,6 +61,7 @@ const VoteDetail = () => import('../pages/vote/detail.vue')
 
 // Psychological
 const Psychological = () => import('../pages/psychological/index.vue')
+const PsychologicalManage = () => import('../pages/psychological/manage.vue')
 
 // Challenge
 const ChallengeList = () => import('../pages/challenge/index.vue')
@@ -151,6 +152,7 @@ const routes: RouteRecordRaw[] = [
 
   // ===== 心理 =====
   { path: '/pages/psychological/index', name: 'psychological-index', component: Psychological },
+  { path: '/pages/psychological/manage', name: 'psychological-manage', component: PsychologicalManage, meta: { requiresAdmin: true, perm: 'HANDLE_PSYCHOLOGICAL' } },
 
   // ===== 擂台 =====
   { path: '/pages/challenge/index', name: 'challenge-index', component: ChallengeList },

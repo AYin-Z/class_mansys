@@ -185,7 +185,7 @@ class AdminConsole {
       { key: 'fee', label: '待审批报销', count: pendingFee, path: '/pages/fee/approvals' },
       { key: 'homework', label: '待批改作业', count: pendingHomework, path: '/pages/homework/index' },
       { key: 'suggestion', label: '待处理建议', count: unhandledSuggestion, path: '/pages/suggestion/inbox' },
-      { key: 'psych', label: '待处理心理申请', count: pendingPsych, path: '/pages/psychological/index' },
+      { key: 'psych', label: '待处理心理申请', count: pendingPsych, path: '/pages/psychological/manage' },
       { key: 'photo', label: '待审核照片', count: pendingPhoto, path: '/pages/album/index' }
     ];
   }

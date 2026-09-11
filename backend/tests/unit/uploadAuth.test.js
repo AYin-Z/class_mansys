@@ -97,6 +97,37 @@ describe('访问日志令牌脱敏（pino redact）', () => {
     expect(joined).not.toContain('SUPER_SECRET_JWT');
     expect(joined).not.toContain('HEADER_SECRET_JWT');
   });
+
+  it('express.static 的 301 重定向（Location 带令牌）也不落日志', async () => {
+    const express = require('express');
+    const pinoHttp = require('pino-http');
+    const request = require('supertest');
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const path = require('node:path');
+    const { Writable } = require('node:stream');
+    const { createLogger } = require('../../config/logger');
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'upload-log-'));
+    const lines = [];
+    const sink = new Writable({
+      write(chunk, _enc, cb) { lines.push(chunk.toString()); cb(); }
+    });
+
+    const app = express();
+    app.use(pinoHttp({ logger: createLogger(sink, 'info') }));
+    app.use('/uploads', express.static(dir));
+
+    try {
+      // /uploads 会 301 到 /uploads/ 并保留 ?token=，令牌会出现在响应 Location 头里
+      await request(app).get('/uploads?token=REDIRECT_SECRET_JWT');
+      const joined = lines.join('\n');
+      expect(joined).toContain('/uploads/?token=***');
+      expect(joined).not.toContain('REDIRECT_SECRET_JWT');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('requireUploadAccess + express.static 集成', () => {

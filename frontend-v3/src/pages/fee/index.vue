@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getMyExpenses, getSummary, getCollections, getPublications, createCollection, payCollection, closeCollection, exemptCollection, getCollectionRecords } from '@/api/fee'
+import { getMyExpenses, getSummary, getCollections, getPublications, createCollection, createPublication, payCollection, closeCollection, exemptCollection, getCollectionRecords } from '@/api/fee'
+import { showToast } from '@/utils/ui'
 import { useUserStore } from '@/stores/user'
 import type { FeeExpense, FeeCollection, FeePublication, FeeCollectionRecord } from '@/api/fee'
 import NavBar from '@/components/ui/NavBar.vue'
@@ -12,6 +13,24 @@ const isAdmin = userStore.isAdmin
 // 权限显隐统一走后端可配置权限矩阵（不再硬编码角色，避免矩阵改了前端不跟着变）
 const canManageCollection = computed(() => userStore.hasPermission('COLLECT_FEE'))
 const canApprove = computed(() => userStore.hasPermission('APPROVE_FEE_USE'))
+const canBookkeep = computed(() => userStore.hasPermission('BOOKKEEP_FEE'))
+
+// 发布公示（后端按本区队汇总并生成快照）
+const showPubModal = ref(false)
+const pubForm = ref({ title: '', period: '' })
+const pubSaving = ref(false)
+async function doPublish() {
+  if (!pubForm.value.title.trim()) { showToast('请填写公示标题', 'error'); return }
+  pubSaving.value = true
+  try {
+    await createPublication(pubForm.value.title.trim(), pubForm.value.period.trim())
+    showToast('公示已发布')
+    showPubModal.value = false
+    pubForm.value = { title: '', period: '' }
+    await loadData()
+  } catch (e: any) { showToast(e?.message || '发布失败', 'error') }
+  finally { pubSaving.value = false }
+}
 
 const expenses = ref<FeeExpense[]>([])
 const collections = ref<FeeCollection[]>([])
@@ -232,6 +251,9 @@ async function openRecords(c: FeeCollection) {
 
     <!-- 公示 -->
     <template v-if="tab === 'publication'">
+      <div v-if="canBookkeep" class="section-actions">
+        <button class="btn-accent" @click="showPubModal = true">+ 发布公示</button>
+      </div>
       <div v-if="publications.length === 0" class="empty-state">暂无公示</div>
       <div v-for="p in publications" :key="p.id" class="card" @click="goPublicationDetail(p.id)">
         <div class="card-row">
@@ -282,6 +304,20 @@ async function openRecords(c: FeeCollection) {
     </div>
 
     <!-- 明细弹窗 -->
+    <!-- 发布公示（按本区队汇总） -->
+    <div v-if="showPubModal" class="modal-overlay" @click.self="showPubModal = false">
+      <div class="modal">
+        <div class="modal-header"><h3>发布班费公示</h3><button class="btn-close" @click="showPubModal = false">✕</button></div>
+        <div class="form-group"><label>标题</label><input v-model="pubForm.title" placeholder="如：2026春季班费收支公示" /></div>
+        <div class="form-group"><label>周期（可选）</label><input v-model="pubForm.period" placeholder="如：2026-09" /></div>
+        <p class="form-hint">公示只会汇总<b>本区队</b>的收支（含已截止批次的实收金额），发布后学员可见。</p>
+        <div class="modal-actions">
+          <button class="btn-ghost" @click="showPubModal = false">取消</button>
+          <button class="btn-accent" :disabled="pubSaving" @click="doPublish">{{ pubSaving ? '发布中…' : '发布' }}</button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="showRecordsModal" class="modal-overlay" @click.self="showRecordsModal = false">
       <div class="modal-card modal-wide">
         <div class="modal-header"><h3>缴纳明细</h3><button class="btn-close" @click="showRecordsModal = false">✕</button></div>

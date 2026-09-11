@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { getPublicationDetail } from '@/api/fee'
 import type { FeePublication } from '@/api/fee'
@@ -8,6 +8,17 @@ import NavBar from '@/components/ui/NavBar.vue'
 const route = useRoute()
 const pub = ref<FeePublication | null>(null)
 const loading = ref(true)
+
+/** 明细快照（后端存的是 JSON 数组；解析失败则视为空） */
+const detailRows = computed<{ type?: string; purpose?: string; amount?: number; created_at?: string }[]>(() => {
+  const raw = (pub.value as any)?.details_json
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return Array.isArray(parsed) ? parsed : []
+  } catch (_) { return [] }
+})
 
 onMounted(async () => {
   const id = Number(route.query.id)
@@ -34,8 +45,18 @@ onMounted(async () => {
           <div class="sum-item"><span class="label">支出</span><span class="val red">-¥{{ Number(pub.total_expense).toFixed(2) }}</span></div>
           <div class="sum-item"><span class="label">结余</span><span class="val">¥{{ Number(pub.balance).toFixed(2) }}</span></div>
         </div>
-        <div v-if="pub.details_json" class="details-json">
-          <pre>{{ JSON.stringify(pub.details_json, null, 2) }}</pre>
+        <!-- 明细快照：结构化渲染，不再把原始 JSON（含内部字段）直接打给学员 -->
+        <div v-if="detailRows.length" class="details-json">
+          <div class="detail-title">收支明细（最近 {{ detailRows.length }} 条）</div>
+          <div v-for="(row, i) in detailRows" :key="i" class="detail-row">
+            <span class="d-type" :class="{ income: row.type === '收入' }">{{ row.type }}</span>
+            <span class="d-purpose">{{ row.purpose || '—' }}</span>
+            <span class="d-amount">¥{{ Number(row.amount || 0).toFixed(2) }}</span>
+            <span class="d-date">{{ String(row.created_at || '').slice(0, 10) }}</span>
+          </div>
+        </div>
+        <div v-else-if="pub.details_json" class="details-json">
+          <div class="detail-title">暂无明细</div>
         </div>
         <p class="footer">发布者：{{ pub.publisher_name || pub.published_by }} · {{ (pub.published_at || '').slice(0, 10) }}</p>
       </div>

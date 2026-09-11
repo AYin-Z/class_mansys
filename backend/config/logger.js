@@ -71,13 +71,15 @@ const loggerOptions = {
       // 序列化后的 req 还带一份解析好的 query（pino-std-serializers v8），
       // 只靠上面的 url 脱敏不够——?token= 会以 req.query.token 原样落盘
       'req.query',
-      '*.query'
+      '*.query',
+      // 301/302 的 Location 会保留 ?token=（如 express.static 把 /uploads 重定向到 /uploads/）
+      'res.headers.location'
     ],
-    // censor 用函数：url / query 做局部脱敏（保留可排查的路径与参数名），其余敏感字段整体替换。
+    // censor 用函数：url / location / query 做局部脱敏（保留可排查的路径与参数名），其余敏感字段整体替换。
     // 注意 pino 先跑 serializers 再跑 redact，所以这里拿到的是序列化后的值。
     censor: (value, path) => {
       const key = Array.isArray(path) && path.length > 0 ? path[path.length - 1] : '';
-      if (key === 'url' && typeof value === 'string') return sanitizeUrl(value);
+      if ((key === 'url' || key === 'location') && typeof value === 'string') return sanitizeUrl(value);
       if (key === 'query') return sanitizeQueryObject(value);
       return '[redacted]';
     }
