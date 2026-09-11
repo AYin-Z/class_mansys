@@ -9,6 +9,7 @@ export interface AdminMember {
   class_id: string
   class_name?: string
   role: number
+  duty_note?: string | null
   member_type?: string
   phone?: string
   email?: string

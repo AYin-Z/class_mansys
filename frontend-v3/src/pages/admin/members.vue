@@ -65,6 +65,7 @@ function formatDate(t: string) {
         <div class="card-meta">
           <span>{{ m.student_id }}</span>
           <span :class="['role-tag', roleClass(m.role)]">{{ roleLabel(m.role) }}</span>
+          <span v-if="m.duty_note" class="duty-tag">{{ m.duty_note }}</span>
           <span v-if="m.class_name">{{ m.class_name }}</span>
         </div>
       </div>
@@ -114,6 +115,10 @@ function formatDate(t: string) {
 .role-tag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; }
 .role-tag.cadre { background: var(--color-accent-bg); color: var(--color-accent); }
 .role-tag.student { background: var(--color-surface-hover); color: var(--color-text-3); }
+.duty-tag {
+  font-size: 10px; padding: 1px 6px; border-radius: 4px;
+  background: var(--color-accent-bg); color: var(--color-accent);
+}
 .card-stats { display: flex; gap: 4px; font-size: 14px; }
 .arrow { font-size: 20px; color: var(--color-text-3); flex-shrink: 0; }
 </style>

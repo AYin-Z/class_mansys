@@ -85,6 +85,7 @@ function formatDateTime(t: string) {
           <div class="meta">
             <span>{{ user.student_id }}</span>
             <span class="role-tag">{{ roleLabel(user.role) }}</span>
+            <span v-if="user.duty_note" class="duty-tag">{{ user.duty_note }}</span>
           </div>
           <div class="meta-sub">
             <span v-if="user.class_name">{{ user.class_name }}</span>
@@ -175,6 +176,7 @@ function formatDateTime(t: string) {
 .meta { font-size: 13px; color: var(--color-text-2); margin-top: 2px; display: flex; gap: 8px; align-items: center; }
 .meta-sub { font-size: 12px; color: var(--color-text-3); margin-top: 2px; display: flex; gap: 8px; }
 .role-tag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--color-accent-bg); color: var(--color-accent); }
+.duty-tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--color-surface-hover); color: var(--color-text-3); }
 
 .stats-row {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;

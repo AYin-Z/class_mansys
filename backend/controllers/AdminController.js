@@ -36,6 +36,8 @@ class AdminController {
           params.push(...scope.classIds);
         }
       }
+      // 已离开数据中队的人员（member_type=left）保留历史但不进名册
+      where.push("u.member_type <> 'left'");
       if (class_id) { where.push('u.class_id = ?'); params.push(class_id); }
       if (keyword) {
         where.push('(u.name LIKE ? OR u.student_id LIKE ? OR u.phone LIKE ?)');
@@ -47,7 +49,7 @@ class AdminController {
       const [rows] = await db.query(
         `SELECT
             u.id, u.name, u.nickName, u.student_id, u.class_id, c.name AS class_name,
-            u.role, u.phone, u.email, u.avatarUrl, u.gender, u.created_at,
+            u.role, u.duty_note, u.member_type, u.phone, u.email, u.avatarUrl, u.gender, u.created_at,
             (
               SELECT COUNT(*) FROM leaves l WHERE l.user_id = u.id
             ) AS leave_count,
@@ -96,7 +98,7 @@ class AdminController {
       }
       const [[user]] = await db.query(
         `SELECT u.id, u.name, u.nickName, u.student_id, u.class_id, c.name AS class_name,
-                u.role, u.phone, u.email, u.avatarUrl, u.gender, u.openid, u.created_at, u.updated_at
+                u.role, u.duty_note, u.member_type, u.phone, u.email, u.avatarUrl, u.gender, u.openid, u.created_at, u.updated_at
          FROM users u
          LEFT JOIN classes c ON c.id = u.class_id
          WHERE u.id = ?`,

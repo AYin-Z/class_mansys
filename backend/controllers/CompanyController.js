@@ -49,7 +49,8 @@ class CompanyController {
 
       const query = [
         'SELECT c.id AS class_id, c.name AS class_name,',
-        '  COUNT(u.id) AS total_members,',
+        // total_members 只统计在队学生（排除已离开/管理员/老师），与 member_count 同口径
+        "  COUNT(CASE WHEN u.member_type = 'student' THEN 1 END) AS total_members,",
         "  SUM(CASE WHEN u.member_type = 'student' THEN 1 ELSE 0 END) AS member_count,",
         '  (SELECT COUNT(DISTINCT l.user_id) FROM leaves l JOIN users ul ON l.user_id = ul.id',
         "    WHERE ul.class_id = c.id AND ul.member_type = 'student' AND l.status = 1 AND l.is_cancelled = 0",
