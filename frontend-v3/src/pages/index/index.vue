@@ -101,7 +101,7 @@ function goTo(path: string) {
     <!-- 置顶通知 + 公告 -->
     <div v-if="pinnedNotices.length > 0 || pinnedAnnouncements.length > 0" class="pinned-bar">
       <div class="pinned-inner">
-        <span class="pinned-icon">📌</span>
+        <span class="pinned-icon"><AppIcon name="bell" :size="14" /></span>
         <div class="pinned-scroll">
           <span
             v-for="item in pinnedNotices"
@@ -137,18 +137,18 @@ function goTo(path: string) {
 
     <!-- Quick Actions — 折叠式 -->
     <div class="quick-header">
-      <div class="section-title" style="padding: 0;">⚡ 快捷功能</div>
+      <div class="section-title" style="padding: 0;">快捷功能</div>
       <span class="more-btn" @click="goTo('/pages/features/index')">全部功能 ›</span>
     </div>
     <div class="actions-grid">
-      <div class="action-item" @click="goTo('/pages/leave/index')"><span class="icon">🏥</span><span class="label">请假</span></div>
-      <div class="action-item" @click="goTo('/pages/homework/index')"><span class="icon">📝</span><span class="label">作业</span></div>
-      <div class="action-item" @click="goTo('/pages/notice/index')"><span class="icon">📢</span><span class="label">通知</span></div>
-      <div class="action-item" @click="goTo('/pages/announcement/index')"><span class="icon">📋</span><span class="label">公告</span></div>
-      <div class="action-item" @click="goTo('/pages/fee/index')"><span class="icon">💰</span><span class="label">班费</span></div>
-      <div class="action-item" @click="goTo('/pages/fee/expense-apply')"><span class="icon">🧾</span><span class="label">报销</span></div>
-      <div class="action-item" @click="goTo('/pages/album/index')"><span class="icon">🖼️</span><span class="label">相册</span></div>
-      <div class="action-item" @click="goTo('/pages/features/index')"><span class="icon">📱</span><span class="label">更多</span></div>
+      <div class="action-item" @click="goTo('/pages/leave/index')"><AppIcon name="calendar" :size="22" /><span class="label">请假</span></div>
+      <div class="action-item" @click="goTo('/pages/homework/index')"><AppIcon name="book" :size="22" /><span class="label">作业</span></div>
+      <div class="action-item" @click="goTo('/pages/notice/index')"><AppIcon name="megaphone" :size="22" /><span class="label">通知</span></div>
+      <div class="action-item" @click="goTo('/pages/announcement/index')"><AppIcon name="clipboard" :size="22" /><span class="label">公告</span></div>
+      <div class="action-item" @click="goTo('/pages/fee/index')"><AppIcon name="money" :size="22" /><span class="label">班费</span></div>
+      <div class="action-item" @click="goTo('/pages/fee/expense-apply')"><AppIcon name="file" :size="22" /><span class="label">报销</span></div>
+      <div class="action-item" @click="goTo('/pages/album/index')"><AppIcon name="image" :size="22" /><span class="label">相册</span></div>
+      <div class="action-item" @click="goTo('/pages/features/index')"><AppIcon name="grid" :size="22" /><span class="label">更多</span></div>
     </div>
 
     <!-- Latest Notices -->

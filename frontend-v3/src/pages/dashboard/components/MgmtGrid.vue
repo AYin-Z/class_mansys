@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 interface MgmtItem {
   icon: string
@@ -26,7 +27,7 @@ const router = useRouter()
       <div class="mgmt-group-title">{{ group.name }}</div>
       <div class="mgmt-grid">
         <div v-for="item in group.items" :key="item.label" class="mgmt-card" @click="router.push(item.path)">
-          <div class="mgmt-icon">{{ item.icon }}</div>
+          <div class="mgmt-icon"><AppIcon :name="item.icon" :size="20" /></div>
           <div class="mgmt-info">
             <div class="mgmt-label">{{ item.label }}</div>
             <div class="mgmt-desc">{{ item.desc }}</div>
@@ -58,7 +59,7 @@ const router = useRouter()
   -webkit-tap-highlight-color: transparent;
 }
 .mgmt-card:active { background: var(--color-surface-hover); }
-.mgmt-icon { font-size: 22px; flex-shrink: 0; width: 36px; text-align: center; }
+.mgmt-icon { flex-shrink: 0; width: 36px; display: flex; align-items: center; justify-content: center; color: var(--color-accent); }
 .mgmt-info { flex: 1; min-width: 0; }
 .mgmt-label { font-size: 14px; font-weight: 600; color: var(--color-text); }
 .mgmt-desc { font-size: 11px; color: var(--color-text-3); margin-top: 2px; }

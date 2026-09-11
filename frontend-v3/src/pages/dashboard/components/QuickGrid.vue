@@ -1,5 +1,15 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import AppIcon from '@/components/ui/AppIcon.vue'
+
+const ITEMS = [
+  { icon: 'calendar', label: '请假', path: '/pages/leave/apply' },
+  { icon: 'file', label: '报销', path: '/pages/fee/expense-apply' },
+  { icon: 'book', label: '作业', path: '/pages/homework/index' },
+  { icon: 'image', label: '相册', path: '/pages/album/index' },
+  { icon: 'check-circle', label: '投票', path: '/pages/vote/index' },
+  { icon: 'grid', label: '更多', path: '/pages/features/index' },
+]
 
 const router = useRouter()
 </script>
@@ -7,12 +17,16 @@ const router = useRouter()
 <template>
   <div class="section-title">常用功能</div>
   <div class="quick-grid">
-    <div class="quick-item" @click="router.push('/pages/leave/apply')">🏥 请假</div>
-    <div class="quick-item" @click="router.push('/pages/fee/expense-apply')">🧾 报销</div>
-    <div class="quick-item" @click="router.push('/pages/homework/index')">📝 作业</div>
-    <div class="quick-item" @click="router.push('/pages/album/index')">🖼️ 相册</div>
-    <div class="quick-item" @click="router.push('/pages/vote/index')">🗳️ 投票</div>
-    <div class="quick-item" @click="router.push('/pages/features/index')">📱 更多</div>
+    <button
+      v-for="item in ITEMS"
+      :key="item.label"
+      class="quick-item"
+      type="button"
+      @click="router.push(item.path)"
+    >
+      <AppIcon :name="item.icon" :size="20" />
+      <span>{{ item.label }}</span>
+    </button>
   </div>
 </template>
 
@@ -24,8 +38,12 @@ const router = useRouter()
   padding: 0 12px;
 }
 .quick-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 64px;
   background: var(--color-surface); box-shadow: var(--shadow-card);
+  border: none; font-family: inherit;
   border-radius: var(--radius-md); padding: 14px 8px; text-align: center;
-  font-size: 13px; font-weight: 500; color: var(--color-text); cursor: pointer;
+  font-size: var(--font-size-sm); font-weight: 500; color: var(--color-text); cursor: pointer;
 }
+.quick-item:active { background: var(--color-surface-hover); }
 </style>

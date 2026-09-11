@@ -240,34 +240,34 @@ const mgmtGroups = computed<{ name: string; items: MgmtItem[] }[]>(() => [
   {
     name: '人事管理',
     items: [
-      { icon: '👥', label: '成员管理', path: '/pages/admin/members', desc: '查看所有成员信息' },
-      { icon: '🏥', label: '请假审批', path: '/pages/leave/approvals', desc: `${pendingLeaveCount.value} 条待审批`, badge: true },
-      { icon: '📢', label: '通知管理', path: '/pages/notice/admin', desc: `${unreadNoticeCount.value} 条待办` },
-      { icon: '💡', label: '建议箱', path: '/pages/suggestion/inbox', desc: `${pendingSuggestionCount.value} 条待处理` },
+      { icon: 'users', label: '成员管理', path: '/pages/admin/members', desc: '查看所有成员信息' },
+      { icon: 'calendar', label: '请假审批', path: '/pages/leave/approvals', desc: `${pendingLeaveCount.value} 条待审批`, badge: true },
+      { icon: 'megaphone', label: '通知管理', path: '/pages/notice/admin', desc: `${unreadNoticeCount.value} 条待办` },
+      { icon: 'info', label: '建议箱', path: '/pages/suggestion/inbox', desc: `${pendingSuggestionCount.value} 条待处理` },
     ]
   },
   {
     name: '财务与教务',
     items: [
-      { icon: '💰', label: '班费审批', path: '/pages/fee/approvals', desc: '待审批列表', badge: true },
-      { icon: '📒', label: '班费账本', path: '/pages/fee/index', desc: '收支记录与收缴' },
-      { icon: '📝', label: '作业管理', path: '/pages/homework/index', desc: '发布与批改' },
-      { icon: '⭐', label: '积分管理', path: '/pages/points/manage', desc: '积分规则与调整' },
+      { icon: 'money', label: '班费审批', path: '/pages/fee/approvals', desc: '待审批列表', badge: true },
+      { icon: 'wallet', label: '班费账本', path: '/pages/fee/index', desc: '收支记录与收缴' },
+      { icon: 'book', label: '作业管理', path: '/pages/homework/index', desc: '发布与批改' },
+      { icon: 'star', label: '积分管理', path: '/pages/points/manage', desc: '积分规则与调整' },
     ]
   },
   {
     name: '活动与互动',
     items: [
-      { icon: '🗳️', label: '投票管理', path: '/pages/vote/manage', desc: '创建与管理投票' },
-      { icon: '🏆', label: '擂台管理', path: '/pages/challenge/manage', desc: 'PK挑战管理' },
-      { icon: '🎰', label: '抽奖管理', path: '/pages/lottery/manage', desc: '抽奖活动配置' },
+      { icon: 'check-circle', label: '投票管理', path: '/pages/vote/manage', desc: '创建与管理投票' },
+      { icon: 'trophy', label: '擂台管理', path: '/pages/challenge/manage', desc: 'PK挑战管理' },
+      { icon: 'gift', label: '抽奖管理', path: '/pages/lottery/manage', desc: '抽奖活动配置' },
     ]
   },
   {
     name: '内容管理',
     items: [
-      { icon: '📣', label: '公告管理', path: '/pages/announcement/admin', desc: '公告与资源共享管理' },
-      { icon: '🖼️', label: '相册管理', path: '/pages/album/index', desc: '上传与管理照片' },
+      { icon: 'megaphone', label: '公告管理', path: '/pages/announcement/admin', desc: '公告与资源共享管理' },
+      { icon: 'image', label: '相册管理', path: '/pages/album/index', desc: '上传与管理照片' },
     ]
   },
 ])

@@ -192,3 +192,48 @@
 | **B6 设计系统与文案** | 按 §6.3 令牌表收敛颜色/字阶/间距/圆角/层级/动效；建 `components/ui` 基础组件（Button/Card/Modal/Badge/Empty/FormField）并回填 6 处主按钮 + 11 处自建弹窗 + 20 种空态；`--tabbar-h` 统一底部避让（39 处 80px vs 5 处 24px）；emoji 换矢量图标；`stylelint color-no-hex` 冻结硬编码；删死代码（`style.css`/`default.vue`/`HelloWorld.vue`/`useRequest.ts`/`placeholder.vue`）；统一「操作失败」类文案（27 处）；手册 8 处过期内容与写死路径修正 | 大 | 观感与可维护性；后续迭代不再各写一套 |
 
 > 说明：`B1/B2/B3` 属于「用户已经踩到」的问题，建议优先；`B6` 可跟随功能迭代逐步收敛。
+
+---
+
+## 8. 修复结果（2026-09-11 执行完毕）
+
+按第 7 节的 B1–B6 全批次推进，覆盖 60+ 页面、102 个文件。规范沉淀在 `FRONTEND_DESIGN_SYSTEM.md`。
+
+### 8.1 指标对比
+
+| 指标 | 修复前 | 修复后 |
+|---|---|---|
+| 静默 `catch (_) {}`（把失败渲染成空态） | 30 | **0** |
+| 原生 `alert/confirm/prompt` | 14（含 1 处 `prompt` 驳回） | **0** |
+| 有「失败可重试」的页面 | 0 / 23 | **48 个页面用 StateView 三态** |
+| 硬编码色值 | 330 处 / 55 文件 | 仅剩注释与 2 处渐变（已令牌化） |
+| `rpx` 单位（H5 非法） | 18 处（Toast/Confirm 全废） | **0** |
+| 手写底部避让 `padding-bottom: 80px` | 39 + 5 处漏写 | **0**（统一 `--tabbar-h`） |
+| emoji 当图标 | 112 处 | 页面内 **0**，全部 `AppIcon`（46 个页面） |
+| `components/ui` 组件数 | 2（NavBar / TabBar） | **9** |
+| 二次确认（写明后果） | 14 | **33 处 `showConfirm`** |
+| 用 `toastIfNotNotified` 避免覆盖后端原因的页面 | 0 | **111 处调用** |
+| 前端单测 | 45 | **74**（新增三态/Toast/超时/401/页面挂载冒烟） |
+
+### 8.2 各批次落地
+
+* **B1**：`utils/ui.ts` 重写（px + 令牌、Toast 去重叠放、Confirm 危险态/后果 hint/遮罩取消/ESC）；
+  令牌对比度修正（text-3 2.54:1→4.83:1、warning 1.93→4.51、accent 3.81→4.77），补齐 3 个未定义令牌，
+  新增字阶/间距/圆角/层级/尺寸/动效令牌。
+* **B2**：`request.ts` 加 15s 超时 + `AbortController`；401 区分 `needAuth` 并同步重置 Pinia；
+  英文错误中文化；`uploadFile` 纳入统一错误链；页面统一三态，金额/计数失败显示 `--`。
+* **B3**：投票在途锁 + 门槛进度条；免缴改为学号/姓名搜索 + 确认 + loading；
+  请假驳回弹窗化（不再 `prompt`）；删除类操作全部二次确认；缴费成功反馈；收缴字段级校验；金额分级提示。
+* **B4**：路由守卫真正校验 `meta.perm`；TabBar 矢量图标 + 路径高亮 + 角标 + `--tabbar-h`；
+  FAB 上移；NavBar 返回兜底；权限快照启动拉取。
+* **B5**：`badge` store + 首页提醒条 + TabBar 角标；学员待办中心恢复可达；
+  登录页补忘记密码/初始密码说明；「全部功能」无权限项不渲染并补齐入口；空态统一「为什么空 + 下一步」。
+* **B6**：新增 7 个基础组件与 `docs/FRONTEND_DESIGN_SYSTEM.md`；删除 Vite 模板残留等 6 个死文件；
+  `index.html` 补 favicon/theme-color/允许缩放；手册 8 处过期描述与写死路径对齐；后端补 `POST /api/homework/upload`。
+
+### 8.3 仍未做（留待后续）
+
+* `stylelint color-no-hex` 未接入（需新增 devDependency），目前靠评审与本文档约束。
+* 少数低频页面仍保留自己写的卡片/分隔样式，未全部换成 `BaseCard`。
+* `StateView`/`EmptyState` 的 variant 类型未抽共享类型。
+* 后端建议：`challenge` 我的申请支持 `?challenge_id=`、`lottery` 参与者改用 `participant_count`。
