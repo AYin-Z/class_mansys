@@ -8,9 +8,9 @@ const Company = require('../models/Company');
  * 北京时间 00:00-08:00 会把"今天"算成昨天（早操/早集合时段必现）。
  */
 function todayLocal() {
-  const now = new Date();
-  const cn = new Date(now.getTime() + (8 * 60 + now.getTimezoneOffset()) * 60 * 1000);
-  return cn.toISOString().slice(0, 10);
+  // 不能带 getTimezoneOffset()：宿主机时区恰好是东八区时会把偏移抵消掉，
+  // 结果仍返回 UTC 日期；这里直接以 UTC+8 计算，与宿主机时区无关。
+  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
 }
 const { resolveScope } = require('../shared/scope');
 

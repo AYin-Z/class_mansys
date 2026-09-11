@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { getAuditLog, auditExportUrl, listMembers } from '@/api/admin'
+import { getAuditLog, listMembers } from '@/api/admin'
+import { downloadFile } from '@/utils/request'
+import { showToast } from '@/utils/ui'
 import type { AuditRow } from '@/api/admin'
 
 type AuditQuery = Parameters<typeof getAuditLog>[0]
@@ -188,17 +190,19 @@ function formatTime(t: string | null | undefined): string {
 }
 
 /* ================= 导出 ================= */
-function exportCsv() {
-  const params = new URLSearchParams()
-  params.set('limit', '5000')
+async function exportCsv() {
+  const params: Record<string, string> = { limit: '5000' }
   const q = buildQuery()
   for (const [key, value] of Object.entries(q)) {
     if (value === undefined || value === null || value === '') continue
-    params.append(key, String(value))
+    params[key] = String(value)
   }
-  const url = auditExportUrl()
-  const sep = url.includes('?') ? '&' : '?'
-  window.open(`${url}${sep}${params.toString()}`, '_blank')
+  try {
+    // 必须带 Authorization 头下载：window.open 不会带令牌（此前导出 100% 401）
+    await downloadFile('/api/admin/audit/export', 'audit-log.csv', params)
+  } catch (e: any) {
+    showToast(e?.message || '导出失败', 'error')
+  }
 }
 </script>
 

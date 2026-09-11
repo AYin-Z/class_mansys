@@ -92,8 +92,24 @@ export const PERMISSIONS = {
   // 中队（跨区队）平行查看：各区队管理层均可查看本中队情况
   VIEW_COMPANY: ADMIN_ROLE_IDS,
 
-  // 微信机器人身份（系统级，仅超管）：扫码登录 / 连接状态
-  MANAGE_CHANNEL: [USER_ROLES.SUPER_ADMIN]
+  // 名册与内容管理（默认与后端 ADMIN_ROLE_IDS 一致）
+  MANAGE_NOTICE: ADMIN_ROLE_IDS,
+  MANAGE_ANNOUNCEMENT: ADMIN_ROLE_IDS,
+  GRADE_HOMEWORK: ADMIN_ROLE_IDS,
+  CLOSE_VOTE: ADMIN_ROLE_IDS,
+  DRAW_LOTTERY: ADMIN_ROLE_IDS,
+  JUDGE_CHALLENGE: ADMIN_ROLE_IDS,
+  MANAGE_POINTS: ADMIN_ROLE_IDS,
+  VIEW_ROSTER: ADMIN_ROLE_IDS,
+
+  // 系统级（仅超管）
+  MANAGE_MEMBER_ROLE: [USER_ROLES.SUPER_ADMIN],
+  MANAGE_LEAVE_CONFIG: [USER_ROLES.SUPER_ADMIN],
+  // 微信机器人身份：扫码登录 / 连接状态
+  MANAGE_CHANNEL: [USER_ROLES.SUPER_ADMIN],
+  MANAGE_PERMISSIONS: [USER_ROLES.SUPER_ADMIN],
+  MANAGE_MEMBERS: [USER_ROLES.SUPER_ADMIN],
+  VIEW_SYSTEM: [USER_ROLES.SUPER_ADMIN]
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
@@ -111,7 +127,10 @@ export function hasAnyRole(role: number | undefined | null, targets: readonly Us
 }
 
 export function hasPermission(role: number | undefined | null, perm: PermissionKey): boolean {
-  return hasAnyRole(role, PERMISSIONS[perm]);
+  // 权限矩阵可配置，前端镜像可能滞后于后端：未知键必须拒绝，而不是对 undefined 调 includes（会白屏）
+  const targets = (PERMISSIONS as Record<string, readonly UserRoleId[]>)[perm];
+  if (!targets) return false;
+  return hasAnyRole(role, targets);
 }
 
 export function getRoleLabel(role: number | undefined | null): string {

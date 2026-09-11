@@ -123,14 +123,14 @@ async function scrollToBottom() {
 /* ---------------- 对话 ---------------- */
 
 /** SSE 流式对话；失败自动回退到普通接口 */
-async function chatStreaming(content: string): Promise<{ reply: string; pendingAction?: AgentPendingAction | null; conversationId?: number } | null> {
+async function chatStreaming(content: string, atts: AgentAttachment[] = []): Promise<{ reply: string; pendingAction?: AgentPendingAction | null; conversationId?: number } | null> {
   const token = getToken()
   if (!token) return null
   try {
     const res = await fetch(apiUrl('/api/agent/chat/stream'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-      body: JSON.stringify({ message: content, conversationId: conversationId.value, attachments: attachments.value }),
+      body: JSON.stringify({ message: content, conversationId: conversationId.value, attachments: atts }),
     })
     if (!res.ok || !res.body) return null
 
@@ -185,7 +185,8 @@ async function send(text?: string) {
   sending.value = true
   await scrollToBottom()
   try {
-    const streamed = await chatStreaming(content)
+    // 注意：必须把附件快照传进去（attachments.value 在本函数前面已被清空）
+    const streamed = await chatStreaming(content, atts)
     if (streamed) {
       if (streamed.conversationId) conversationId.value = streamed.conversationId
       pending.value = streamed.pendingAction || null

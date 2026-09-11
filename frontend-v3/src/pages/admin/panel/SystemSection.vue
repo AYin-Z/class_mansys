@@ -5,7 +5,9 @@
  * 备份 / 近 24h 错误 / 数据导出 / 定时任务 / 每日汇总文件。
  */
 import { computed, onMounted, ref } from 'vue'
-import { getSystemStatus, runBackup, rosterCsvUrl, rosterXlsxUrl } from '@/api/admin'
+import { getSystemStatus, runBackup } from '@/api/admin'
+import { downloadFile } from '@/utils/request'
+import { showToast } from '@/utils/ui'
 import type { SystemStatus } from '@/api/admin'
 
 interface BackupFile {
@@ -145,9 +147,14 @@ async function doBackup() {
 }
 
 // ========== 导出 ==========
-function exportRoster(kind: 'xlsx' | 'csv') {
-  const url = kind === 'xlsx' ? rosterXlsxUrl() : rosterCsvUrl()
-  if (url) window.open(url, '_blank')
+async function exportRoster(kind: 'xlsx' | 'csv') {
+  // 带鉴权下载：window.open 不带 Authorization，后端只认 header（此前必然 401）
+  try {
+    if (kind === 'xlsx') await downloadFile('/api/admin/export/roster.xlsx', 'roster.xlsx')
+    else await downloadFile('/api/admin/export/roster.csv', 'roster.csv')
+  } catch (e: any) {
+    showToast(e?.message || '导出失败', 'error')
+  }
 }
 
 defineExpose({ refresh: load })
