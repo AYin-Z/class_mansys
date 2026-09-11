@@ -57,11 +57,30 @@ jobs:
           echo "VERSION_NAME=${versionName}" >> $GITHUB_OUTPUT
           echo "APK_FILENAME=${apkFileName}" >> $GITHUB_OUTPUT
 
-      - name: 📦 写入 Keystore
+      - name: 📦 准备 Keystore
         run: |
+          KEYSTORE=/home/ayin/android-key/class-mansys-release.keystore
           mkdir -p /home/ayin/android-key
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > /home/ayin/android-key/class-mansys-release.keystore
-          chmod 600 /home/ayin/android-key/class-mansys-release.keystore
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "从 secret KEYSTORE_BASE64 写入 keystore"
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$KEYSTORE"
+            chmod 600 "$KEYSTORE"
+          elif [ -s "$KEYSTORE" ]; then
+            echo "secret 未设置，沿用机器上已有的 keystore：$KEYSTORE"
+          else
+            echo "::error::缺少 release keystore：secret KEYSTORE_BASE64 为空且机器上没有 $KEYSTORE。请先运行 scripts/setup-github-secrets.sh 上传签名密钥。"
+            exit 1
+          fi
+
+      - name: 🔐 校验签名密钥
+        run: |
+          if [ -z "${{ secrets.KEYSTORE_PASSWORD }}" ] || [ -z "${{ secrets.KEY_ALIAS }}" ] || [ -z "${{ secrets.KEY_PASSWORD }}" ]; then
+            echo "::error::缺少签名 secrets（KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD）。"
+            echo "修复方式：在能访问 GitHub 的终端执行 scripts/setup-github-secrets.sh（会交互式读取 keystore 密码并上传 5 个 secret），然后重新运行本工作流。"
+            echo "注意：keystore 文件已在 /home/ayin/android-key/class-mansys-release.keystore，但密码只存在于密钥库本身，无法从 GitHub 读回。"
+            exit 1
+          fi
+          echo "签名 secrets 齐全，开始构建"
 
       - name: 📦 Install frontend dependencies
         run: npm ci
