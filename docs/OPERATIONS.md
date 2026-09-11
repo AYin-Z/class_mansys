@@ -188,3 +188,34 @@ push main → android-build.yml: 构建 APK → 复制到 /home/ayin/class-mansy
 * `/apk/<文件名>` 由 nginx 对外提供，`downloadUrl` 指向该路径。
 * 更新日志取提交标题行（`workflow_dispatch` 时可手动填 `changelog`）；
   传的是**原始文本**，JSON 转义由脚本负责，调用方不要再 `json.dumps`。
+
+## 9. 白屏事故复盘（2026-09-11 手机端打开纯白）
+
+**现象**：手机浏览器打开 H5 纯白无任何提示，桌面浏览器正常。
+
+**根因**：Vite 6 默认 `build.target = baseline-widely-available`（≈ Chrome 107+），
+产物里带 `??`（ES2020，需 Chrome 80+ / Safari 13.1+）等语法。
+手机上的旧内核浏览器（安卓 OEM 浏览器、部分内置 WebView、旧版 iOS）
+在**解析阶段**就抛 `SyntaxError`，Vue 从未挂载 → 纯白页面、控制台之外没有任何提示。
+
+**修复**（两处，缺一不可）：
+1. `frontend-v3/vite.config.ts` 显式 `build.target: ['es2019']` + `cssTarget`：
+   esbuild 把 `??`/`?.`/`||=` 等语法糖降级成等价写法（体积 +约 0.5KB gzip）。
+   **新增语法特性前请务必保留该配置**，否则会再次把老机型挡在门外。
+2. `frontend-v3/index.html` 增加启动兜底：
+   - 8 秒内未挂载 / 脚本资源加载失败 → 显示「页面没能正常加载」面板，
+     列出可能原因（浏览器过旧 / 网络不稳 / 缓存异常）+「重新加载」「清除缓存并重载」，
+     并把真实错误信息显示出来（便于用户截图反馈）；
+   - `nomodule` 分支给不支持 ES Module 的极旧浏览器一句明确提示；
+   - 应用挂载成功会调用 `window.__APP_BOOT_OK__()` 移除面板（见 `src/main.ts`）。
+
+**自检方式**（发布前可选）：
+```bash
+cd frontend-v3 && npm run build
+node -e "const a=require('acorn'),fs=require('fs');let bad=0;
+for(const f of fs.readdirSync('dist/assets').filter(x=>x.endsWith('.js'))){
+try{a.parse(fs.readFileSync('dist/assets/'+f,'utf8'),{ecmaVersion:2019,sourceType:'module'})}catch(e){
+if(!/import\.meta/.test(e.message)){bad++;console.log('❌',f,e.message)}}}
+console.log('ES2019 不通过的 chunk:',bad)"
+```
+（`import.meta` 属模块语法，任何支持 `<script type="module">` 的浏览器都支持，可忽略。）

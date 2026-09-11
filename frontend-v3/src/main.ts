@@ -38,6 +38,12 @@ router.afterEach(() => {
 
 app.mount('#app')
 
+// 通知 index.html 的启动兜底面板：应用已挂载，撤掉"加载失败"提示
+declare global {
+  interface Window { __APP_BOOT_OK__?: () => void }
+}
+window.__APP_BOOT_OK__?.()
+
 // 有 token 时拉一次服务端权限快照（后台改过权限矩阵也能生效）
 if (userStore.isAuthenticated) {
   void userStore.refreshPermissionsOnce()

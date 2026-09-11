@@ -16,9 +16,144 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" href="./favicon.svg" />
     <title>区队管理系统</title>
+    <style>
+      /* 启动兜底面板：应用挂载成功会被移除；未挂载则说明脚本没跑起来 */
+      #__boot_fallback__ {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        padding: 24px;
+        box-sizing: border-box;
+        font: 15px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+        color: #1f2937;
+        background: #f5f6f8;
+        overflow-y: auto;
+      }
+      #__boot_fallback__.show { display: block; }
+      #__boot_fallback__ h1 { font-size: 17px; margin: 0 0 12px; }
+      #__boot_fallback__ ul { margin: 0 0 16px; padding-left: 20px; }
+      #__boot_fallback__ li { margin-bottom: 6px; }
+      #__boot_fallback__ button {
+        min-height: 44px;
+        padding: 10px 18px;
+        margin: 0 8px 8px 0;
+        border: none;
+        border-radius: 10px;
+        background: #1d6fe0;
+        color: #fff;
+        font-size: 15px;
+        font-family: inherit;
+      }
+      #__boot_fallback__ button.ghost { background: #eef0f4; color: #4b5563; }
+      #__boot_fallback__ .err {
+        margin-top: 14px;
+        padding: 10px;
+        border-radius: 8px;
+        background: #fff;
+        color: #b91c1c;
+        font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
+        word-break: break-all;
+        white-space: pre-wrap;
+      }
+      #__boot_fallback__ .tip { color: #6b7280; font-size: 13px; }
+    </style>
   </head>
   <body>
     <div id="app"></div>
+
+    <!--
+      白屏兜底（2026-09 事故复盘）：
+      旧版浏览器引擎解析 ES2020 语法（?? / ?.）时会直接 SyntaxError，
+      Vue 从未挂载，用户只看到纯白页面、也拿不到任何错误信息。
+      下面这段检测「8 秒内应用没挂载成功」，给出可操作的原因与按钮。
+    -->
+    <div id="__boot_fallback__" role="alert">
+      <h1>页面没能正常加载</h1>
+      <p>可能是下面几种情况之一：</p>
+      <ul>
+        <li><b>浏览器版本过旧</b>：请升级到最新版 Chrome / Edge / 手机自带浏览器；微信内打开请点右上角「在浏览器打开」</li>
+        <li><b>网络不稳定</b>：切换 Wi-Fi / 移动网络后重试</li>
+        <li><b>缓存异常</b>：点下面的「清除缓存并重载」</li>
+      </ul>
+      <button type="button" onclick="location.reload()">重新加载</button>
+      <button type="button" class="ghost" onclick="window.__dshHardReload__ && window.__dshHardReload__()">
+        清除缓存并重载
+      </button>
+      <p class="tip">如果反复出现，请把下面的错误信息截图发给管理员。</p>
+      <div class="err" id="__boot_error__"></div>
+    </div>
+
+    <noscript>
+      <div style="padding:24px;font:15px/1.6 -apple-system,'PingFang SC',sans-serif">
+        本系统需要启用 JavaScript 才能使用，请在浏览器设置中开启后重试。
+      </div>
+    </noscript>
+
+    <script>
+      (function () {
+        var booted = false
+        var errors = []
+        var panel = document.getElementById('__boot_fallback__')
+        var errBox = document.getElementById('__boot_error__')
+
+        window.__APP_BOOT_OK__ = function () {
+          booted = true
+          if (panel && panel.parentNode) panel.parentNode.removeChild(panel)
+        }
+
+        function show(reason) {
+          if (booted || !panel) return
+          if (errors.length && errBox) errBox.textContent = errors.slice(0, 3).join('\n')
+          else if (reason && errBox) errBox.textContent = reason
+          panel.className = 'show'
+        }
+
+        window.__dshHardReload__ = function () {
+          try {
+            if (window.caches && caches.keys) {
+              caches.keys().then(function (keys) {
+                keys.forEach(function (k) { caches.delete(k) })
+              })
+            }
+            if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+              navigator.serviceWorker.getRegistrations().then(function (rs) {
+                rs.forEach(function (r) { r.unregister() })
+              })
+            }
+          } catch (e) { /* ignore */ }
+          setTimeout(function () { location.reload() }, 300)
+        }
+
+        window.addEventListener('error', function (e) {
+          var msg = e && e.message ? e.message : ''
+          var src = e && e.target && (e.target.src || e.target.href)
+          if (src) msg = '资源加载失败：' + src
+          if (msg) errors.push(msg)
+          // 脚本资源加载失败（例如旧缓存指向已不存在的 hash 文件）立即提示
+          if (src && !booted) show(msg)
+        }, true)
+
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e && e.reason
+          errors.push('Promise: ' + ((r && (r.message || r)) + ''))
+        })
+
+        // 应用挂载成功会移除面板；8 秒后仍未挂载就提示（不打断已经跑起来的页面）
+        setTimeout(function () { show('脚本未能在 8 秒内启动') }, 8000)
+      })()
+    </script>
+
+    <!-- 连 ES Module 都不支持的浏览器（很旧的安卓内核/国产浏览器）：直接给出可读原因，而不是白屏 -->
+    <script nomodule>
+      (function () {
+        var box = document.getElementById('__boot_error__')
+        if (box) box.textContent = '当前浏览器版本过旧：不支持 ES Module。请升级浏览器，或在微信里点右上角「在浏览器打开」。'
+        var panel = document.getElementById('__boot_fallback__')
+        if (panel) panel.className = 'show'
+      })()
+    </script>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
