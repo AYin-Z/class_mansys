@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { getNotices, getUnreadCount, createNotice, deleteNotice } from '@/api/notice'
 import type { NoticeItem, NoticeCreateParams } from '@/api/notice'
 import NavBar from '@/components/ui/NavBar.vue'
 import { showToast } from '@/utils/ui'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
+// 发布/删除通知需要 MANAGE_NOTICE 权限（矩阵可在超管后台配置，故以服务端权限快照为准）
+const canManageNotice = computed(() => userStore.hasPermission('MANAGE_NOTICE'))
 
 const notices = ref<NoticeItem[]>([])
 const unreadCount = ref(0)
@@ -135,6 +140,7 @@ function priorityClass(p: number) {
         </div>
       </div>
       <button
+        v-if="canManageNotice"
         class="delete-btn"
         :disabled="deleting === item.id"
         @click="handleDelete(item.id)"
@@ -144,7 +150,7 @@ function priorityClass(p: number) {
     </div>
 
     <!-- FAB 发布通知 -->
-    <button class="fab" @click="openForm">发布通知</button>
+    <button v-if="canManageNotice" class="fab" @click="openForm">发布通知</button>
 
     <!-- 发布通知弹窗 -->
     <div v-if="showForm" class="overlay" @click.self="showForm = false">

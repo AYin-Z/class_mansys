@@ -30,7 +30,8 @@ function getStatus(): 'active' | 'ended' | 'pending' {
 
 const isActive = computed(() => getStatus() === 'active')
 const hasJoined = computed(() => myRecord.value !== null)
-const isAdmin = computed(() => userStore.isAdmin)
+// 开奖需要 DRAW_LOTTERY 权限（矩阵可在超管后台配置，故以服务端权限快照为准）
+const canDraw = computed(() => userStore.hasPermission('DRAW_LOTTERY'))
 
 async function loadDetail() {
   const id = Number(route.query.id)
@@ -128,7 +129,7 @@ onMounted(loadDetail)
         </button>
         <div v-else-if="hasJoined && isActive" class="joined-badge">已参与</div>
         <button
-          v-if="isAdmin && isActive"
+          v-if="canDraw && isActive"
           class="action-btn danger"
           :disabled="drawing"
           @click="handleDraw"

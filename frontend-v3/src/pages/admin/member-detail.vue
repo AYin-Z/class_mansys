@@ -31,7 +31,8 @@ async function handleAddPoint() {
     })
     if (res.success) {
       showToast('积分已更新')
-      stats.value.total_points += pointScore.value
+      // SUM() 在 mysql2 里是字符串，直接 += 会变成拼接（15 + 5 = "155"）
+    stats.value.total_points = Number(stats.value.total_points || 0) + Number(pointScore.value || 0)
       pointScore.value = 0
       pointReason.value = ''
     }

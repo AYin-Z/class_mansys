@@ -6,6 +6,11 @@ const { env } = require('../config/env');
  * - 支持 Authorization: Bearer <token>（fetch / 下载）
  * - 支持 ?token=<token>（<img src> 无法带请求头，前端用 utils/media.ts 追加）
  * - 未认证 401；令牌无效 403
+ *
+ * ⚠️ 为什么不能长期停留在 compat：
+ * compat 分支对匿名请求一律放行，等于把全体用户的请假证明等隐私材料直接挂在公网上
+ * （审计已确认 127 份证明可匿名读取）。它只是给尚未携带令牌的旧 APK 留的灰度后路，
+ * 新版 APK 铺开后必须切回 strict（UPLOAD_AUTH_MODE=strict）。
  */
 let compatWarned = false;
 
@@ -29,6 +34,9 @@ function requireUploadAccess(req, res, next) {
     if (err) {
       return res.status(403).json({ success: false, error: '无效的认证令牌', code: 'FORBIDDEN' });
     }
+    // 资源属于个人隐私材料，且令牌随 URL 出现在代理/日志里：
+    // 只允许浏览器私有缓存，禁止 CDN 等共享缓存，并压低有效期。
+    res.set('Cache-Control', 'private, max-age=300');
     return next();
   });
 }

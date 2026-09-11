@@ -23,7 +23,7 @@ router.post('/logout', authenticateToken, AuthController.logout);
 // 获取用户信息
 router.get('/userinfo', authenticateToken, AuthController.getUserInfo);
 
-// 按学号查找用户（受认证保护）
+// 按学号查找用户（必须登录；响应只含脱敏信息，不含手机号/邮箱/openid）
 router.post('/find-by-student', authenticateToken, AuthController.findByStudent);
 
 // --- 新增认证方式 ---

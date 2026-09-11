@@ -1,7 +1,7 @@
 const path = require('path');
 const Announcement = require('../models/Announcement');
 const Resource = require('../models/Resource');
-const { resolveScope, filterByClassScope, canAccessClassRecord } = require('../shared/scope');
+const { resolveScope, filterByClassScope, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
 const { stampClassId } = require('../shared/classStamp');
 
 class AnnouncementController {
@@ -9,12 +9,13 @@ class AnnouncementController {
 
   static async createAnnouncement(req, res) {
     try {
-      const { title, content } = req.body || {};
+      const { title, content, is_pinned } = req.body || {};
       if (!title || !content) {
         return res.status(400).json({ success: false, error: '标题和内容必填' });
       }
       const scope = await resolveScope(req.user);
-      const id = await Announcement.create({ title, content, creator_id: req.user.id });
+      // 审计修复：原实现把 is_pinned 丢弃 → 首页「置顶公告」永远为空
+      const id = await Announcement.create({ title, content, creator_id: req.user.id, is_pinned: !!is_pinned });
       await stampClassId('announcements', id, scope.writeClassId);
       res.json({ success: true, id, message: '公告发布成功' });
     } catch (e) {
@@ -52,7 +53,7 @@ class AnnouncementController {
       const existing = await Announcement.findById(req.params.id);
       if (!existing) return res.status(404).json({ success: false, error: '公告不存在' });
       const scope = await resolveScope(req.user);
-      if (!canAccessClassRecord(existing, scope)) {
+      if (!canAccessOwnClassRecord(existing, scope)) {
         return res.status(403).json({ success: false, error: '无权删除该公告' });
       }
       const ok = await Announcement.delete(req.params.id);
@@ -136,7 +137,7 @@ class AnnouncementController {
       const existing = await Resource.findById(req.params.id);
       if (!existing) return res.status(404).json({ success: false, error: '资源不存在' });
       const scope = await resolveScope(req.user);
-      if (!canAccessClassRecord(existing, scope)) {
+      if (!canAccessOwnClassRecord(existing, scope)) {
         return res.status(403).json({ success: false, error: '无权删除该资源' });
       }
       const ok = await Resource.delete(req.params.id);

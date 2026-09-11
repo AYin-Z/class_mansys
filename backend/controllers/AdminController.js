@@ -131,7 +131,7 @@ class AdminController {
       const [[activeLeave]] = await db.query(
         `SELECT id, leave_type, start_time, end_time, reason, status, created_at
          FROM leaves
-         WHERE user_id = ? AND is_cancelled = 0 AND status = 1 AND end_time >= NOW()
+         WHERE user_id = ? AND is_cancelled = 0 AND status = 1 AND start_time <= NOW() AND end_time >= NOW()
          ORDER BY start_time ASC
          LIMIT 1`,
         [id]
@@ -147,7 +147,7 @@ class AdminController {
         `SELECT
             (SELECT COUNT(*) FROM leaves WHERE user_id = ?) AS leave_count,
             (SELECT COUNT(*) FROM leaves WHERE user_id = ? AND status = 1) AS approved_leave_count,
-            (SELECT COUNT(*) FROM leaves WHERE user_id = ? AND status = 0) AS pending_leave_count,
+            (SELECT COUNT(*) FROM leaves WHERE user_id = ? AND status = 0 AND is_cancelled = 0) AS pending_leave_count,
             (SELECT COALESCE(SUM(score), 0) FROM points WHERE user_id = ?) AS total_points`,
         [id, id, id, id]
       );

@@ -12,7 +12,7 @@ router.post('/collections', authenticateToken, requirePermission('COLLECT_FEE'),
 router.get('/collections', authenticateToken, FeeController.listCollections);
 router.get('/collections/:id', authenticateToken, FeeController.getCollectionDetail);
 router.get('/collections/:id/records', authenticateToken, requirePermission('VIEW_ROSTER'), FeeController.getCollectionRecords);
-router.post('/collections/:id/pay', authenticateToken, FeeController.payCollection);
+router.post('/collections/:id/pay', authenticateToken, validateBody(schemas.feePay), FeeController.payCollection);
 router.post('/collections/:id/exempt', authenticateToken, requirePermission('COLLECT_FEE'), FeeController.exemptCollection);
 router.post('/collections/:id/close', authenticateToken, requirePermission('COLLECT_FEE'), FeeController.closeCollection);
 
@@ -30,7 +30,7 @@ router.post('/approvals/:id/vote', authenticateToken, requirePermission('APPROVE
 router.get('/approvals/:id/votes', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.getVoteResult);
 
 // === 公示 ===
-router.post('/publications', authenticateToken, requirePermission('BOOKKEEP_FEE'), validateBody(schemas.feeCreatePublication), FeeController.createPublication);
+router.post('/publications', authenticateToken, requirePermission('BOOKKEEP_FEE'), validateBody(schemas.feePublicationCreate), FeeController.createPublication);
 router.get('/publications', authenticateToken, FeeController.listPublications);
 router.get('/publications/:id', authenticateToken, FeeController.getPublicationDetail);
 

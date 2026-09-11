@@ -4,18 +4,35 @@ const ExpenseApproval = require('./ExpenseApproval');
 class Fee {
   // === 原有方法（保持兼容）===
 
+  /**
+   * 提交报销：建单 + 建审批链 + 区队归属 **同一事务**
+   *
+   * 审计修复：原实现是三次独立写库，createChain 失败会留下"没有任何审批行"的报销
+   * （永远无法推进），stampClassId 失败会留下 class_id IS NULL 的记录（=全局可见且不进任何区队账目）。
+   */
   static async createExpense(expenseData) {
-    const { user_id, amount, type, purpose, proof_url, details, semester } = expenseData;
+    const { user_id, amount, type, purpose, proof_url, details, semester, class_id } = expenseData;
+    const ALLOWED_TYPES = ['支出', '收入'];
+    if (ALLOWED_TYPES.indexOf(type) === -1) throw new Error('费用类型不合法（仅支持 支出/收入）');
     const tier = amount <= 100 ? 'small' : (amount <= 500 ? 'medium' : 'large');
-    const [result] = await db.query(
-      `INSERT INTO expenses (user_id, amount, type, purpose, tier, proof_url, details, semester, approval_step)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [user_id, amount, type, purpose, tier, proof_url || null, details ? JSON.stringify(details) : null, semester || null]
-    );
-    const expenseId = result.insertId;
-    // 自动创建审批链
-    await ExpenseApproval.createChain(expenseId, amount);
-    return expenseId;
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      const [result] = await conn.query(
+        `INSERT INTO expenses (user_id, amount, type, purpose, tier, proof_url, details, semester, approval_step, class_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+        [user_id, amount, type, purpose, tier, proof_url || null, details ? JSON.stringify(details) : null, semester || null, class_id || null]
+      );
+      const expenseId = result.insertId;
+      await ExpenseApproval.createChain(expenseId, amount, conn);
+      await conn.commit();
+      return expenseId;
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
   }
 
   static async findExpenseById(id) {
@@ -68,9 +85,10 @@ class Fee {
     const [incomeRows] = await db.query('SELECT SUM(amount) as total FROM expenses WHERE type = ? AND status = 1' + filter, ['收入'].concat(baseParams));
     const [expenseRows] = await db.query('SELECT SUM(amount) as total FROM expenses WHERE type = ? AND status = 1' + filter, ['支出'].concat(baseParams));
     const [collectionRows] = await db.query('SELECT COALESCE(SUM(collected_amount), 0) as total FROM fee_collections WHERE status >= 1' + filter, baseParams);
-    const income = incomeRows[0].total || 0;
-    const expense = expenseRows[0].total || 0;
-    const collected = parseFloat(collectionRows[0].total) || 0;
+    // 审计修复：DECIMAL 的 SUM 在 mysql2 默认是字符串，原实现 income + collected 会变成字符串拼接
+    const income = Number(incomeRows[0].total || 0);
+    const expense = Number(expenseRows[0].total || 0);
+    const collected = Number(collectionRows[0].total || 0);
     const totalIncome = income + collected;
     return { balance: totalIncome - expense, totalIncome, totalExpense: expense, totalCollected: collected };
   }
@@ -97,8 +115,9 @@ class Fee {
     return {
       ...balance,
       ...pendingRows[0],
-      totalCollections: collectionRows[0].total_collections,
-      totalCollected: collectionRows[0].total_collected
+      totalCollections: Number(collectionRows[0].total_collections || 0),
+      // DECIMAL 的 SUM 是字符串，统一转数字（否则前端拼接/比较会出错）
+      totalCollected: Number(collectionRows[0].total_collected || 0)
     };
   }
   static async getExpenseWithApprovals(id) {

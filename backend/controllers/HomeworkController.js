@@ -1,7 +1,7 @@
 const Homework = require('../models/Homework');
 
 const { isAdmin } = require('../shared/constants');
-const { resolveScope, filterByClassScope, canAccessClassRecord } = require('../shared/scope');
+const { resolveScope, filterByClassScope, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
 const { stampClassId } = require('../shared/classStamp');
 
 class HomeworkController {
@@ -62,7 +62,7 @@ class HomeworkController {
       const hw = await Homework.findById(req.params.id);
       if (!hw) return res.status(404).json({ success: false, error: '作业不存在' });
       const submitScope = await resolveScope(req.user);
-      if (!canAccessClassRecord(hw, submitScope)) {
+      if (!canAccessOwnClassRecord(hw, submitScope)) {
         return res.status(403).json({ success: false, error: '无权提交该作业' });
       }
       const id = await Homework.submit({
@@ -93,7 +93,7 @@ class HomeworkController {
       const existing = await Homework.findById(req.params.id);
       if (!existing) return res.status(404).json({ success: false, error: '作业不存在' });
       const scope = await resolveScope(req.user);
-      if (!canAccessClassRecord(existing, scope)) {
+      if (!canAccessOwnClassRecord(existing, scope)) {
         return res.status(403).json({ success: false, error: '无权删除该作业' });
       }
       const ok = await Homework.delete(req.params.id);

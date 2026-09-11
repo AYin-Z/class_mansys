@@ -87,10 +87,8 @@ class Vote {
     try {
       await conn.beginTransaction();
 
-      // 单选：先清空旧记录，再写入新记录
-      if (type === 'single') {
-        await conn.query('DELETE FROM vote_records WHERE vote_id = ? AND user_id = ?', [vote_id, user_id]);
-      }
+      // 单选与多选都先清空旧记录：否则多选可以反复提交「累加」刷票
+      await conn.query('DELETE FROM vote_records WHERE vote_id = ? AND user_id = ?', [vote_id, user_id]);
       for (const optId of option_ids) {
         // INSERT IGNORE 避免多选场景下重复投同一个选项报错
         await conn.query(

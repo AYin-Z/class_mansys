@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { getAllPoints, addPointRecord } from '@/api/points'
 import { getAllUsers } from '@/api/user'
 import { post, del } from '@/utils/request'
@@ -8,8 +8,13 @@ import type { UserItem } from '@/api/user'
 import NavBar from '@/components/ui/NavBar.vue'
 import { showToast } from '@/utils/ui'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
+// 增删积分需要 MANAGE_POINTS 权限（矩阵可在超管后台配置，故以服务端权限快照为准）
+const canManagePoints = computed(() => userStore.hasPermission('MANAGE_POINTS'))
+
 const records = ref<PointRecord[]>([])
 const loading = ref(true)
 const showForm = ref(false)
@@ -54,6 +59,12 @@ async function searchUser() {
 
 async function handleCreate() {
   if (!form.value.foundUser) { showToast('请先查找用户'); return }
+  // 审计修复：查找后修改学号仍会把积分记到旧用户头上
+  if (String(form.value.foundUser.student_id || '').trim() !== form.value.studentId.trim()) {
+    showToast('学号已修改，请重新查找', 'error')
+    form.value.foundUser = null
+    return
+  }
   if (!form.value.score) { showToast('请输入分值'); return }
   if (!form.value.reason.trim()) { showToast('请输入原因'); return }
   submitting.value = true
@@ -113,10 +124,10 @@ function goMember(id: number) {
           <span>{{ formatDate(r.created_at) }}</span>
         </div>
       </div>
-      <button v-if="editing === r" class="del-btn" @click.stop="handleDelete(r.id)">删除</button>
+      <button v-if="canManagePoints && editing === r" class="del-btn" @click.stop="handleDelete(r.id)">删除</button>
     </div>
 
-    <button class="fab" @click="openForm">添加积分</button>
+    <button v-if="canManagePoints" class="fab" @click="openForm">添加积分</button>
 
     <!-- 添加积分弹窗 -->
     <div v-if="showForm" class="overlay" @click.self="showForm = false">

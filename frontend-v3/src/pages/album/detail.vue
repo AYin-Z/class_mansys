@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { mediaUrl, openMedia } from '@/utils/media'
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { getAlbumDetail } from '@/api/album'
+import { getAlbumDetail, approvePhoto, rejectPhoto } from '@/api/album'
 import { uploadFile } from '@/utils/request'
 import type { AlbumItem, PhotoItem } from '@/api/album'
 import NavBar from '@/components/ui/NavBar.vue'
 import { showToast } from '@/utils/ui'
+import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
+const userStore = useUserStore()
+// 照片审核需要 APPROVE_PHOTO 权限（矩阵可在超管后台配置，故以服务端权限快照为准）
+const canApprovePhoto = computed(() => userStore.hasPermission('APPROVE_PHOTO'))
+const reviewing = ref<number | null>(null)
 const album = ref<AlbumItem | null>(null)
 const photos = ref<PhotoItem[]>([])
 const loading = ref(true)
@@ -31,6 +36,7 @@ function downloadPhoto() {
 }
 
 // Batch upload
+// 批量上传不做 MANAGE_ALBUM 收敛：后端 /api/album/photos/upload 允许相册成员上传，非管理员上传后待审核
 const uploading = ref(false)
 const uploadProgress = ref({ done: 0, total: 0, failed: 0 })
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -98,10 +104,35 @@ async function handleFileChange(e: Event) {
   showToast(msgParts.join('，'))
 
   // 刷新照片列表
+  await reloadPhotos(albumId)
+}
+
+/** 重新拉取相册照片（审核后同步列表） */
+async function reloadPhotos(albumId = Number(route.query.id)) {
+  if (!albumId) return
   const res = await getAlbumDetail(albumId)
   if (res.success) {
     photos.value = res.photos || []
     if (album.value) album.value.photo_count = photos.value.length
+  }
+}
+
+/** 审核（通过/驳回）待审核照片，需 APPROVE_PHOTO 权限 */
+async function handleReviewPhoto(photo: PhotoItem, action: 'approve' | 'reject') {
+  if (reviewing.value !== null) return
+  reviewing.value = photo.id
+  try {
+    const res = action === 'approve' ? await approvePhoto(photo.id) : await rejectPhoto(photo.id)
+    if (res.success) {
+      showToast(action === 'approve' ? '已通过审核' : '已驳回')
+      await reloadPhotos()
+    } else {
+      showToast('操作失败', 'error')
+    }
+  } catch (e: any) {
+    showToast(e.message || '操作失败', 'error')
+  } finally {
+    reviewing.value = null
   }
 }
 
@@ -185,6 +216,11 @@ function formatDate(t: string): string {
           <div class="photo-meta">
             <span>{{ item.uploader_name || '' }}</span>
           </div>
+          <!-- 待审核照片：需 APPROVE_PHOTO 权限 -->
+          <div v-if="canApprovePhoto && !item.is_approved" class="photo-review">
+            <button class="review-btn ok" :disabled="reviewing === item.id" @click.stop="handleReviewPhoto(item, 'approve')">通过</button>
+            <button class="review-btn no" :disabled="reviewing === item.id" @click.stop="handleReviewPhoto(item, 'reject')">驳回</button>
+          </div>
         </div>
       </div>
     </template>
@@ -264,6 +300,14 @@ function formatDate(t: string): string {
 .photo-icon { font-size: 28px; opacity: 0.5; }
 .photo-desc { font-size: 12px; color: var(--color-text-2); padding: 6px 8px 2px; margin: 0; }
 .photo-meta { font-size: 10px; color: var(--color-text-3); padding: 0 8px 6px; }
+.photo-review { display: flex; gap: 6px; padding: 0 8px 8px; }
+.review-btn {
+  flex: 1; padding: 4px 0; border: none; border-radius: 4px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+}
+.review-btn.ok { background: var(--color-accent); color: #fff; }
+.review-btn.no { background: var(--color-surface-hover); color: var(--color-text-2); }
+.review-btn:disabled { opacity: 0.5; }
 
 /* ── Viewer ── */
 .viewer-overlay {

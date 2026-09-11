@@ -1,7 +1,7 @@
 const Challenge = require('../models/Challenge');
 
 const { isAdmin } = require('../shared/constants');
-const { resolveScope, filterByClassScope, canAccessClassRecord } = require('../shared/scope');
+const { resolveScope, filterByClassScope, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
 const { stampClassId } = require('../shared/classStamp');
 
 class ChallengeController {
@@ -64,7 +64,7 @@ class ChallengeController {
       const challenge = await Challenge.findById(req.params.id);
       if (!challenge) return res.status(404).json({ success: false, error: '擂台不存在' });
       const applyScope = await resolveScope(req.user);
-      if (!canAccessClassRecord(challenge, applyScope)) {
+      if (!canAccessOwnClassRecord(challenge, applyScope)) {
         return res.status(403).json({ success: false, error: '无权挑战该擂台的擂台' });
       }
       const { notes, proof_urls } = req.body || {};

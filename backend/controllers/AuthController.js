@@ -238,7 +238,7 @@ class AuthController {
       res.json({
         success: true,
         token,
-        user: AuthController._publicUser(user)
+        user: AuthController._publicUser(user, user.id)
       });
     } catch (error) {
       console.error('注册失败:', error);
@@ -246,21 +246,36 @@ class AuthController {
     }
   }
 
-  /** 把 DB user 转成对外 user 对象（去敏感字段） */
-  static _publicUser(u) {
+  /**
+   * 把 DB user 转成对外 user 对象。
+   * phone/email 属个人敏感信息：只有 viewerId 与被查询用户本人一致时才返回（仅本人可见）；
+   * 未传 viewerId（无明确身份上下文）时一律不返回。
+   */
+  static _publicUser(u, viewerId) {
     if (!u) return null;
-    return {
+    const isSelf = viewerId !== undefined && viewerId !== null && String(viewerId) === String(u.id);
+    const out = {
       id: u.id,
       name: u.name,
       nickName: u.nickName,
       student_id: u.student_id,
       class_id: u.class_id,
       role: u.role,
-      phone: u.phone,
-      email: u.email,
       avatarUrl: u.avatarUrl,
       gender: u.gender
     };
+    if (isSelf) {
+      out.phone = u.phone;
+      out.email = u.email;
+    }
+    return out;
+  }
+
+  /** 姓名脱敏：只保留首字，其余以 * 代替（如「张三」→「张*」） */
+  static _maskName(name) {
+    const s = String(name == null ? '' : name).trim();
+    if (!s) return '';
+    return s[0] + '*'.repeat(Math.max(1, s.length - 1));
   }
 
   static async refreshToken(req, res) {
@@ -284,14 +299,28 @@ class AuthController {
     res.json({ success: true, message: '登出成功' });
   }
 
-  /** 按学号查询用户 */
+  /**
+   * 按学号查询用户（需登录）
+   * 隐私收敛：只返回「是否存在该学号 + 姓名首字 + 班级」，不再返回手机号/邮箱/openid；
+   * 保留 id 供积分录入等已登录业务选人（学号本身即查询条件，非敏感字段）。
+   */
   static async findByStudent(req, res) {
     try {
       const { student_id } = req.body || {};
       if (!student_id) return res.status(400).json({ success: false, error: 'student_id 必填' });
       const user = await User.findByStudentId(student_id);
       if (!user) return res.status(404).json({ success: false, error: '未找到该学号' });
-      res.json({ success: true, user: AuthController._publicUser(user) });
+      res.json({
+        success: true,
+        exists: true,
+        user: {
+          id: user.id,
+          name: AuthController._maskName(user.name),
+          name_masked: true,
+          student_id: user.student_id,
+          class_id: user.class_id || ''
+        }
+      });
     } catch (e) {
       res.status(500).json({ success: false, error: '查询失败' });
     }
@@ -350,7 +379,7 @@ class AuthController {
       }
 
       const token = signToken(user);
-      res.json({ success: true, token, user: AuthController._publicUser(user) });
+      res.json({ success: true, token, user: AuthController._publicUser(user, user.id) });
     } catch (error) {
       console.error('学号密码登录失败:', error);
       res.status(500).json({ success: false, error: '登录失败' });
@@ -382,7 +411,7 @@ class AuthController {
       }
 
       const token = signToken(user);
-      res.json({ success: true, token, user: AuthController._publicUser(user) });
+      res.json({ success: true, token, user: AuthController._publicUser(user, user.id) });
     } catch (error) {
       console.error('手机号登录失败:', error);
       res.status(500).json({ success: false, error: '登录失败' });
@@ -414,7 +443,7 @@ class AuthController {
       }
 
       const token = signToken(user);
-      res.json({ success: true, token, user: AuthController._publicUser(user) });
+      res.json({ success: true, token, user: AuthController._publicUser(user, user.id) });
     } catch (error) {
       console.error('邮箱登录失败:', error);
       res.status(500).json({ success: false, error: '登录失败' });
@@ -506,7 +535,7 @@ class AuthController {
       let user = await User.findByPhone(phone);
       if (user) {
         const token = signToken(user);
-        return res.json({ success: true, token, user: AuthController._publicUser(user) });
+        return res.json({ success: true, token, user: AuthController._publicUser(user, user.id) });
       }
 
       const openid = `phone_${phone}_${Date.now()}`;
@@ -526,7 +555,7 @@ class AuthController {
       user = await User.findById(userId);
 
       const token = signToken(user);
-      res.json({ success: true, token, user: AuthController._publicUser(user) });
+      res.json({ success: true, token, user: AuthController._publicUser(user, user.id) });
     } catch (error) {
       console.error('手机号验证码登录失败:', error);
       res.status(500).json({ success: false, error: '登录失败' });
@@ -569,7 +598,7 @@ class AuthController {
       }
 
       const token = signToken(user);
-      res.json({ success: true, token, user: AuthController._publicUser(user) });
+      res.json({ success: true, token, user: AuthController._publicUser(user, user.id) });
     } catch (error) {
       console.error('邮箱验证码登录失败:', error);
       res.status(500).json({ success: false, error: '登录失败' });
@@ -609,7 +638,7 @@ class AuthController {
       await User.updatePassword(user.id, hash);
 
       const token = signToken(user);
-      res.json({ success: true, token, user: AuthController._publicUser(user) });
+      res.json({ success: true, token, user: AuthController._publicUser(user, user.id) });
     } catch (error) {
       console.error('设置密码失败:', error);
       res.status(500).json({ success: false, error: '设置密码失败' });
@@ -635,7 +664,7 @@ class AuthController {
       const hash = await hashPassword(newPassword);
       await User.updatePassword(user.id, hash);
       const token = signToken(user);
-      res.json({ success: true, token, user: AuthController._publicUser(user), message: '密码修改成功' });
+      res.json({ success: true, token, user: AuthController._publicUser(user, req.user.id), message: '密码修改成功' });
     } catch (error) {
       console.error('修改密码失败:', error);
       res.status(500).json({ success: false, error: '修改密码失败' });

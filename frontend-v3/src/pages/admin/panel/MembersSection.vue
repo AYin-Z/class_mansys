@@ -149,7 +149,7 @@ async function doReset(m: AdminMember) {
 }
 
 async function doStatus(m: AdminMember, status: 'left' | 'student') {
-  const word = status === 'left' ? '移出统计（历史保留）' : '恢复在队'
+  const word = status === 'left' ? '移出统计（历史保留；会同时清空职务与职务备注，恢复时不还原）' : '恢复在队'
   if (!confirm('确认将 ' + m.name + ' ' + word + '？')) return
   try {
     await setMemberStatus(m.id, status)

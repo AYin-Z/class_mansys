@@ -67,6 +67,11 @@ class Lottery {
   }
 
   static async draw(lottery_id, { winner_count, prize }) {
+    // 审计修复：原实现可对已关闭活动反复开奖
+    const [[lottery]] = await db.query('SELECT id, is_active, drawn_at FROM lotteries WHERE id = ?', [lottery_id]);
+    if (!lottery) throw new Error('抽奖活动不存在');
+    if (Number(lottery.is_active) !== 1) throw new Error('该抽奖已结束');
+    if (lottery.drawn_at) throw new Error('该抽奖已开过奖');
     const [pool] = await db.query(
       'SELECT id FROM lottery_participants WHERE lottery_id = ? AND is_winner = false',
       [lottery_id]
@@ -80,6 +85,7 @@ class Lottery {
       `UPDATE lottery_participants SET is_winner = true, prize = ? WHERE id IN (${ids.map(() => '?').join(',')})`,
       [prize || '神秘奖品', ...ids]
     );
+    await db.query('UPDATE lotteries SET drawn_at = NOW() WHERE id = ? AND drawn_at IS NULL', [lottery_id]);
     return ids;
   }
 

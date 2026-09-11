@@ -19,7 +19,8 @@ const submitting = ref(false)
 const closing = ref(false)
 const hasVoted = computed(() => myChoices.value.length > 0)
 const isSingle = computed(() => vote.value ? isVoteSingle(vote.value) : true)
-const isAdmin = computed(() => userStore.isAdmin)
+// 结束投票需要 CLOSE_VOTE 权限（矩阵可在超管后台配置，故以服务端权限快照为准）
+const canCloseVote = computed(() => userStore.hasPermission('CLOSE_VOTE'))
 
 const statusText = computed(() => {
   if (!vote.value) return ''
@@ -228,7 +229,7 @@ function formatTime(t: string): string {
 
       <!-- Admin: Close Vote -->
       <button
-        v-if="isAdmin && statusText === '进行中'"
+        v-if="canCloseVote && statusText === '进行中'"
         class="close-btn"
         :disabled="closing"
         @click="handleCloseVote"

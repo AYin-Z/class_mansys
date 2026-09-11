@@ -39,9 +39,11 @@ function categoryLabel(cat: string): string {
   return CATEGORY_LABEL[cat] || cat
 }
 
+// 权威三态（与后端 SuggestionController / inbox 页一致）
 const STATUS_LABEL: Record<number, string> = {
   0: '待处理',
-  1: '已处理',
+  1: '处理中',
+  2: '已处理',
 }
 
 onMounted(async () => {
@@ -320,6 +322,9 @@ function formatDate(dateStr: string): string {
   color: #e65100;
 }
 
+.status-badge.status-2 {
+  background: var(--color-accent-bg); color: var(--color-accent);
+}
 .status-badge.status-1 {
   background: #e8f5e9;
   color: #2e7d32;

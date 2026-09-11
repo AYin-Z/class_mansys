@@ -2,7 +2,7 @@ const Album = require('../models/Album');
 const Photo = require('../models/Photo');
 
 const { isAdmin } = require('../shared/constants');
-const { resolveScope, filterByClassScope, canAccessClassRecord } = require('../shared/scope');
+const { resolveScope, filterByClassScope, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
 const { stampClassId } = require('../shared/classStamp');
 
 class AlbumController {
@@ -61,7 +61,7 @@ class AlbumController {
       const existing = await Album.findById(req.params.id);
       if (!existing) return res.status(404).json({ success: false, error: '相册不存在' });
       const scope = await resolveScope(req.user);
-      if (!canAccessClassRecord(existing, scope)) {
+      if (!canAccessOwnClassRecord(existing, scope)) {
         return res.status(403).json({ success: false, error: '无权删除该相册' });
       }
       const ok = await Album.delete(req.params.id);
@@ -83,7 +83,7 @@ class AlbumController {
       const album = await Album.findById(album_id);
       if (!album) return res.status(404).json({ success: false, error: '相册不存在' });
       const uploadScope = await resolveScope(req.user);
-      if (!canAccessClassRecord(album, uploadScope)) {
+      if (!canAccessOwnClassRecord(album, uploadScope)) {
         return res.status(403).json({ success: false, error: '无权向该相册上传' });
       }
 
@@ -127,7 +127,7 @@ class AlbumController {
         return res.status(404).json({ success: false, error: '相册不存在' });
       }
       const fileScope = await resolveScope(req.user);
-      if (!canAccessClassRecord(album, fileScope)) {
+      if (!canAccessOwnClassRecord(album, fileScope)) {
         return res.status(403).json({ success: false, error: '无权向该相册上传' });
       }
 

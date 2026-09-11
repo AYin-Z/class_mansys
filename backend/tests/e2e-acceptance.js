@@ -85,8 +85,10 @@ const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
   check('学员删积分被拒', p1.status === 403, 'status=' + p1.status);
 
   section('P0-4 请假 user_id 越权');
-  // 早操的允许时段为 07:00-08:00（生产配置），测试必须落在窗口内，否则会被业务规则拦下
-  const ap = await req('POST', '/api/leave/apply', { token: student6Token, body: { type: '早操', start_time: today + ' 07:15:00', end_time: today + ' 07:45:00', reason: 'E2E越权用例', user_id: me7.id } });
+  // 早操允许时段 07:00-08:00 且必须同一天、结束时间要晚于现在
+  // → 用「明天早操」，避免测试在 08:00 之后运行时被业务规则正确拦下
+  const tomorrow = new Date(Date.now() + 8 * 3600 * 1000 + 86400000).toISOString().slice(0, 10);
+  const ap = await req('POST', '/api/leave/apply', { token: student6Token, body: { type: '早操', start_time: tomorrow + ' 07:15:00', end_time: tomorrow + ' 07:45:00', reason: 'E2E越权用例', user_id: me7.id } });
   const mine6 = (await req('GET', '/api/leave/my', { token: student6Token })).data.leaves || [];
   const created = mine6.find(function (l) { return l.reason === 'E2E越权用例'; });
   check('请假创建成功', !!created, JSON.stringify(ap.data));
@@ -147,10 +149,20 @@ const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
   check('请假列表含 7 区队（平行）', allLeaves.some(function (l) { return String(l.class_id) === '7'; }));
 
   section('请假审批作用域（本区队）');
-  const my7b = (await req('GET', '/api/leave/my', { token: student7bToken })).data.leaves || [];
-  const pending7 = my7b.find(function (l) { return l.reason === '七区待审批用例'; });
-  const my6b = (await req('GET', '/api/leave/my', { token: student6Token })).data.leaves || [];
-  const pending6 = my6b.find(function (l) { return l.reason === '六区待审批用例'; });
+  // 待审批用例：优先用夹具数据；若上一次运行已把它们审批掉，则现场重建（保证可重复运行）
+  async function ensurePending(token, reason, dateStr) {
+    const mine = (await req('GET', '/api/leave/my', { token: token })).data.leaves || [];
+    const hit = mine.find(function (l) { return l.reason === reason; });
+    if (hit && Number(hit.status) === 0 && !hit.is_cancelled) return hit;
+    const created = await req('POST', '/api/leave/apply', {
+      token: token,
+      body: { type: '早操', start_time: dateStr + ' 07:15:00', end_time: dateStr + ' 07:45:00', reason: reason }
+    });
+    const after = (await req('GET', '/api/leave/my', { token: token })).data.leaves || [];
+    return after.find(function (l) { return l.reason === reason; }) || (created.data && created.data.id ? { id: created.data.id } : null);
+  }
+  const pending7 = await ensurePending(student7bToken, '七区待审批用例', tomorrow);
+  const pending6 = await ensurePending(student6Token, '六区待审批用例', tomorrow);
   if (pending7 && pending6) {
     const cross = await req('PUT', '/api/leave/approve', { token: leader6Token, body: { id: pending7.id, status: 1 } });
     check('6区队长不能审批7区请假', cross.status === 403, 'status=' + cross.status);
@@ -204,12 +216,15 @@ const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
   const ch6 = (await req('GET', '/api/challenge', { token: student6Token })).data.challenges || [];
   check('6区能看到6区擂台', ch6.some(function (c) { return c.name === 'E2E擂台'; }));
 
-  const feeCreate = await req('POST', '/api/fee/collections', { token: leader6Token, body: { title: 'E2E班费', amount_per_person: 1, semester: 'E2E' } });
+  const feeCreate = await req('POST', '/api/fee/collections', { token: leader6Token, body: { title: 'E2E班费' + Date.now().toString().slice(-6), amount_per_person: 1, semester: 'E2E' } });
   check('6区队长可发起本区收缴', feeCreate.status === 200, 'status=' + feeCreate.status);
   const feeC6 = (await req('GET', '/api/fee/collections', { token: leader6Token })).data.collections || [];
   const feeC7 = (await req('GET', '/api/fee/collections', { token: leader7Token })).data.collections || [];
-  check('6区队长可见本区班费收缴', feeC6.some(function (c) { return c.title === 'E2E班费'; }), 'count=' + feeC6.length);
-  check('7区队长看不到6区班费收缴', !feeC7.some(function (c) { return c.title === 'E2E班费'; }), 'count=' + feeC7.length);
+  const feeTitle = feeCreate.data && feeCreate.data.id ? 'E2E班费' : 'E2E班费';
+  void feeTitle;
+  const isE2eFee = function (c) { return String(c.title || '').indexOf('E2E班费') === 0; };
+  check('6区队长可见本区班费收缴', feeC6.some(isE2eFee), 'count=' + feeC6.length);
+  check('7区队长看不到6区班费收缴', !feeC7.some(isE2eFee), 'count=' + feeC7.length);
   const sum7 = (await req('GET', '/api/fee/summary', { token: leader7Token })).data.summary || {};
   check('7区班费汇总相互独立', Number(sum7.totalCollections || 0) === 0, JSON.stringify(sum7).slice(0, 120));
 

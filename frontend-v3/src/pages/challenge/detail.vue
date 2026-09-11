@@ -27,6 +27,8 @@ const uploadingProof = ref(false)
 
 // 裁判
 const judging = ref<number | null>(null)
+// 裁判申请需要 JUDGE_CHALLENGE 权限（矩阵可在超管后台配置，故以服务端权限快照为准）
+const canJudgeChallenge = computed(() => userStore.hasPermission('JUDGE_CHALLENGE'))
 
 function parseProofs(app: ChallengeApplication): string[] {
   try {
@@ -168,8 +170,8 @@ function formatDate(t: string) {
         <input id="challenge-proof-input" type="file" accept="image/*" style="display:none" @change="handleProofChange" />
       </div>
 
-      <!-- 待裁判申请（管理员） -->
-      <div v-if="userStore.isAdmin && applications.length > 0" class="section">
+      <!-- 待裁判申请（需 JUDGE_CHALLENGE 权限） -->
+      <div v-if="canJudgeChallenge && applications.length > 0" class="section">
         <h3>待裁判申请</h3>
         <div v-for="app in applications" :key="app.id" class="app-card">
           <div class="app-header">

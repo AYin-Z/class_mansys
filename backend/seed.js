@@ -32,25 +32,51 @@ async function seed() {
   console.log('🌱 开始播种数据...\n');
 
   // ========== 清理旧数据 ==========
+  // 表清单按 FK 依赖排序（子表在前），并补齐 agent_* / api_tokens / notice_completions
+  // 等引用 users 的外键表——历史上漏删这些表会让 DELETE users 直接失败。
+  // 说明：fee_summary / user_stats 是视图，不能 DELETE，已从清单移除；
+  //       role_permissions / leave_config / schema_migrations 属配置与迁移记录，保留不清。
   const tables = [
+    'agent_messages', 'agent_actions', 'agent_conversations',
+    'notice_completions', 'notice_reads',
+    'api_tokens', 'agent_channel_bindings', 'agent_bind_codes', 'channel_state',
     'expense_approval_votes', 'expense_approvals', 'expenses',
-    'fee_collection_records', 'fee_collections', 'fee_publications', 'fee_summary',
+    'fee_collection_records', 'fee_collections', 'fee_publications',
     'vote_records', 'vote_options', 'votes',
     'lottery_participants', 'lotteries',
     'challenge_records', 'challenge_applications', 'challenges',
     'homework_submissions', 'homeworks',
     'suggestions', 'messages', 'operation_logs',
-    'notice_reads', 'notices',
-    'psychological_applications',
-    'points', 'photos', 'resources', 'announcements',
-    'leaves', 'albums', 'user_stats',
+    'notices', 'announcements', 'resources', 'photos', 'albums',
+    'psychological_applications', 'points', 'leaves',
     'users', 'classes'
   ];
-  for (const t of tables) {
-    try { await db.query(`DELETE FROM \`${t}\``); } catch(e) {}
-    try { await db.query(`ALTER TABLE \`${t}\` AUTO_INCREMENT = 1`); } catch(e) {}
+
+  // 清理阶段放在单事务里：任一条 DELETE 失败即整体回滚，避免"删一半"的半清空状态。
+  // 注意：ALTER TABLE ... AUTO_INCREMENT 会隐式提交，因此自增复位放在事务提交之后单独执行。
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    for (const t of tables) {
+      try {
+        await conn.query(`DELETE FROM \`${t}\``);
+      } catch (e) {
+        throw new Error('DELETE FROM `' + t + '` 失败: ' + e.message, { cause: e });
+      }
+    }
+    await conn.commit();
+  } catch (e) {
+    try { await conn.rollback(); } catch (_) { /* 连接已断开时忽略 */ }
+    conn.release();
+    console.error('❌ 清理旧数据失败（已整体回滚，未进入写入阶段）:', e.message);
+    throw e;
   }
-  console.log('  已清理旧数据\n');
+  // 自增 ID 复位：尽力而为（视图/无自增列的表会报错，忽略即可）
+  for (const t of tables) {
+    try { await conn.query(`ALTER TABLE \`${t}\` AUTO_INCREMENT = 1`); } catch (_) { /* 忽略 */ }
+  }
+  conn.release();
+  console.log('  已清理旧数据（' + tables.length + ' 张表，单事务提交）\n');
 
   // ========== 班级 ==========
   await db.query('INSERT INTO classes (id, name) VALUES (6, "数据警务技术六区队")');
@@ -91,16 +117,16 @@ async function seed() {
     const displayName = cadreInfo ? cadreInfo.name : name;
     const phone = `1380000${String(101 + i).slice(1)}`;
     await db.query(
-      'INSERT INTO users (name, student_id, password_hash, role, phone, class_id, openid, nickName, avatarUrl, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [displayName, sid, defaultPw, role, phone, 6, `seed_${sid}`, displayName, '', `${sid}@qq.com`]
+      'INSERT INTO users (name, student_id, password_hash, role, member_type, phone, class_id, openid, nickName, avatarUrl, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [displayName, sid, defaultPw, role, 'student', phone, 6, `seed_${sid}`, displayName, '', `${sid}@qq.com`]
     );
     if (cadreInfo) cadreCount++; else studentCount++;
   }
 
-  // 系统管理员
+  // 系统管理员：member_type='system'（系统账号，不计入区队出勤/花名册分母）
   await db.query(
-    'INSERT INTO users (name, student_id, password_hash, role, phone, class_id, openid, nickName, avatarUrl, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    ['系统管理员', 'admin001', defaultPw, 8, '13800000000', 6, 'seed_admin001', '系统管理员', '', 'admin001@qq.com']
+    'INSERT INTO users (name, student_id, password_hash, role, member_type, phone, class_id, openid, nickName, avatarUrl, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    ['系统管理员', 'admin001', defaultPw, 8, 'system', '13800000000', 6, 'seed_admin001', '系统管理员', '', 'admin001@qq.com']
   );
   console.log(`  ✓ 用户: ${cadreCount} 名干部 + ${studentCount} 名学生 + 管理员（初始密码: 123456）`);
 

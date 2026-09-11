@@ -39,10 +39,18 @@ const schemas = {
   }),
 
   // ---------- 请假 ----------
+  leaveApprove: passthrough({
+    id: idLike,
+    status: z.union([z.number(), z.string()]),
+    approval_notes: z.string().max(500).optional().nullable()
+  }),
   leaveApply: passthrough({
     type: z.string().min(1, '请选择请假类型'),
     start_time: z.string().min(1, '开始时间不能为空'),
-    end_time: z.string().min(1, '结束时间不能为空')
+    end_time: z.string().min(1, '结束时间不能为空'),
+    // 审计修复：reason 是 DB NOT NULL 列，原来不在 schema 里，漏传直接 500
+    reason: z.string().trim().min(1, '请填写请假原因').max(200),
+    attachments: z.any().optional()
   }),
 
   // ---------- 内容类 ----------
@@ -103,9 +111,22 @@ const schemas = {
     title: z.string().min(1),
     amount_per_person: z.union([z.number(), z.string()])
   }),
+  feePay: passthrough({
+    amount: z.union([z.number(), z.string()]).optional()
+  }),
+  feePublicationCreate: passthrough({
+    title: z.string().trim().min(1).max(100),
+    period: z.string().trim().max(7).optional(),
+    class_id: z.string().trim().max(20).optional()
+  }),
   feeCreateExpense: passthrough({
     amount: z.union([z.number(), z.string()]),
-    purpose: z.string().optional()
+    // 审计修复：type 收敛为枚举、purpose 必填（DB 列 NOT NULL，原来缺省会 500）
+    type: z.enum(['支出', '收入']).optional(),
+    purpose: z.string().trim().min(1, '请填写用途说明').max(500),
+    proof_url: z.string().max(500).optional(),
+    details: z.any().optional(),
+    semester: z.string().max(20).optional()
   }),
   feeCreatePublication: passthrough({ title: z.string().min(1) }),
 

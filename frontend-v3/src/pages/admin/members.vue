@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { listMembers } from '@/api/admin'
 import type { AdminMember } from '@/api/admin'
@@ -11,11 +11,19 @@ const members = ref<AdminMember[]>([])
 const loading = ref(true)
 const keyword = ref('')
 const total = ref(0)
+// 分页：此前未传 page/pageSize，后端默认只返回前 50 人
+const page = ref(1)
+const pageSize = ref(50)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
 async function loadData() {
   loading.value = true
   try {
-    const res = await listMembers({ keyword: keyword.value || undefined })
+    const res = await listMembers({
+      keyword: keyword.value || undefined,
+      page: page.value,
+      pageSize: pageSize.value,
+    })
     if (res.success) {
       members.value = res.members || []
       total.value = res.total
@@ -30,8 +38,15 @@ function goDetail(id: number) {
   router.push({ path: '/pages/admin/member-detail', query: { id: String(id) } })
 }
 
-function doSearch() { loadData() }
-function clearSearch() { keyword.value = ''; loadData() }
+function doSearch() { page.value = 1; loadData() }
+function clearSearch() { keyword.value = ''; page.value = 1; loadData() }
+
+function changePage(delta: number) {
+  const next = page.value + delta
+  if (next < 1 || next > totalPages.value) return
+  page.value = next
+  loadData()
+}
 
 function roleLabel(r: number) { return ROLE_LABELS[r] || '学员' }
 function roleClass(r: number) { return r > 0 ? 'cadre' : 'student' }
@@ -74,6 +89,13 @@ function formatDate(t: string) {
         <div v-if="m.last_action_at" class="stat active">🟢</div>
       </div>
       <span class="arrow">›</span>
+    </div>
+
+    <!-- 分页 -->
+    <div v-if="!loading && total > 0" class="pager">
+      <button class="page-btn" :disabled="page <= 1" @click="changePage(-1)">上一页</button>
+      <span>第 {{ page }} / {{ totalPages }} 页</span>
+      <button class="page-btn" :disabled="page >= totalPages" @click="changePage(1)">下一页</button>
     </div>
   </div>
 </template>
@@ -121,4 +143,15 @@ function formatDate(t: string) {
 }
 .card-stats { display: flex; gap: 4px; font-size: 14px; }
 .arrow { font-size: 20px; color: var(--color-text-3); flex-shrink: 0; }
+
+.pager {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-top: 12px; font-size: 13px; color: var(--color-text-3);
+}
+.page-btn {
+  padding: 6px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface); color: var(--color-text-2); font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

@@ -77,7 +77,9 @@ class NoticeController {
 
   static async getUnreadCount(req, res) {
     try {
-      const count = await Notice.getUnreadCount(req.user.id);
+      const scope = await resolveScope(req.user);
+      const classId = scope.classId || (Array.isArray(scope.classIds) ? scope.classIds[0] : null);
+      const count = await Notice.getUnreadCount(req.user.id, classId);
       res.json({ success: true, count });
     } catch (error) {
       res.status(500).json({ success: false, error: '获取未读通知数失败' });
@@ -99,7 +101,9 @@ class NoticeController {
 
   static async getTodoCount(req, res) {
     try {
-      const count = await Notice.getTodoCount(req.user.id);
+      const scope = await resolveScope(req.user);
+      const classId = scope.classId || (Array.isArray(scope.classIds) ? scope.classIds[0] : null);
+      const count = await Notice.getTodoCount(req.user.id, classId);
       res.json({ success: true, count });
     } catch (error) {
       res.status(500).json({ success: false, error: '获取待办数失败' });
@@ -140,7 +144,7 @@ class NoticeController {
         return res.status(404).json({ success: false, error: '通知不存在' });
       }
       const scope = await resolveScope(req.user);
-      if (!canAccessClassRecord(existing, scope)) {
+      if (!canAccessOwnClassRecord(existing, scope)) {
         return res.status(403).json({ success: false, error: '无权修改该通知' });
       }
 
@@ -162,7 +166,7 @@ class NoticeController {
       const existing = await Notice.findById(req.params.id);
       if (!existing) return res.status(404).json({ success: false, error: '通知不存在' });
       const scope = await resolveScope(req.user);
-      if (!canAccessClassRecord(existing, scope)) {
+      if (!canAccessOwnClassRecord(existing, scope)) {
         return res.status(403).json({ success: false, error: '无权删除该通知' });
       }
       const ok = await Notice.delete(req.params.id);

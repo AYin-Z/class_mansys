@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import {
   getAnnouncements, createAnnouncement, deleteAnnouncement,
   getResources, deleteResource,
@@ -8,6 +8,13 @@ import { uploadFile } from '@/utils/request'
 import type { AnnouncementItem, ResourceItem } from '@/api/announcement'
 import NavBar from '@/components/ui/NavBar.vue'
 import { showToast } from '@/utils/ui'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
+// 公告发布/删除需要 PUBLISH_ANNOUNCEMENT 权限（矩阵可在超管后台配置，故以服务端权限快照为准）
+const canPublishAnnouncement = computed(() => userStore.hasPermission('PUBLISH_ANNOUNCEMENT'))
+// 共享资源上传/删除需要 UPLOAD_RESOURCE 权限
+const canUploadResource = computed(() => userStore.hasPermission('UPLOAD_RESOURCE'))
 
 const activeTab = ref<'announcement' | 'resource'>('announcement')
 
@@ -164,12 +171,12 @@ function formatSize(bytes: number): string {
             <span>{{ formatDate(a.created_at) }}</span>
           </div>
         </div>
-        <button class="delete-btn" :disabled="deletingA === a.id" @click="handleDeleteAnnouncement(a.id)">
+        <button v-if="canPublishAnnouncement" class="delete-btn" :disabled="deletingA === a.id" @click="handleDeleteAnnouncement(a.id)">
           {{ deletingA === a.id ? '…' : '删除' }}
         </button>
       </div>
 
-      <button class="fab" @click="openAnnouncementForm">发布</button>
+      <button v-if="canPublishAnnouncement" class="fab" @click="openAnnouncementForm">发布</button>
     </div>
 
     <!-- ===== 资源列表 ===== -->
@@ -188,12 +195,12 @@ function formatSize(bytes: number): string {
             <span>{{ formatDate(r.created_at) }}</span>
           </div>
         </div>
-        <button class="delete-btn" :disabled="deletingR === r.id" @click="handleDeleteResource(r.id)">
+        <button v-if="canUploadResource" class="delete-btn" :disabled="deletingR === r.id" @click="handleDeleteResource(r.id)">
           {{ deletingR === r.id ? '…' : '删除' }}
         </button>
       </div>
 
-      <button class="fab" @click="openResourceForm">添加</button>
+      <button v-if="canUploadResource" class="fab" @click="openResourceForm">添加</button>
     </div>
 
     <!-- ===== 发布公告弹窗 ===== -->

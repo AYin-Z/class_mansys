@@ -37,9 +37,10 @@ describe('validateBody 中间件', () => {
 describe('关键 schema 约束', () => {
   const run = (schema, body) => schema.safeParse(body);
 
-  it('请假申请要求 type/start_time/end_time', () => {
+  it('请假申请要求 type/start_time/end_time/reason', () => {
     expect(run(schemas.leaveApply, { type: '早操' }).success).toBe(false);
-    expect(run(schemas.leaveApply, { type: '早操', start_time: 'a', end_time: 'b' }).success).toBe(true);
+    expect(run(schemas.leaveApply, { type: '早操', start_time: 'a', end_time: 'b' }).success).toBe(false); // reason 必填
+    expect(run(schemas.leaveApply, { type: '早操', start_time: 'a', end_time: 'b', reason: '病假' }).success).toBe(true);
   });
 
   it('投票至少两个选项', () => {

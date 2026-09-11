@@ -1,6 +1,6 @@
 const Lottery = require('../models/Lottery');
 
-const { resolveScope, filterByClassScope, canAccessClassRecord } = require('../shared/scope');
+const { resolveScope, filterByClassScope, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
 const { stampClassId } = require('../shared/classStamp');
 
 class LotteryController {
@@ -54,7 +54,7 @@ class LotteryController {
       const lottery = await Lottery.findById(req.params.id);
       if (!lottery) return res.status(404).json({ success: false, error: '抽奖不存在' });
       const joinScope = await resolveScope(req.user);
-      if (!canAccessClassRecord(lottery, joinScope)) {
+      if (!canAccessOwnClassRecord(lottery, joinScope)) {
         return res.status(403).json({ success: false, error: '无权参与该抽奖' });
       }
       if (!lottery.is_active) return res.status(400).json({ success: false, error: '抽奖已结束' });

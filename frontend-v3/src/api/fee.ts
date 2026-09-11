@@ -18,8 +18,11 @@ export interface FeeCollection {
   status: number           // 0=收集中 1=已截止 2=已结清
   created_by: number
   creator_name?: string
-  paid_count?: number      // 已缴纳人数
-  total_count?: number     // 总人数
+  paid_count?: number      // 已缴纳人数（不含免缴）
+  exempt_count?: number    // 免缴人数
+  total_count?: number     // 总人数（本区队在编学员）
+  my_paid_amount?: number | null   // 我缴了多少（未缴为 null）
+  my_exempt?: number | null        // 我是否免缴
   created_at: string
 }
 

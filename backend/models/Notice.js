@@ -65,13 +65,19 @@ class Notice {
     return result.affectedRows > 0;
   }
 
-  static async getUnreadCount(user_id) {
+  /**
+   * 未读数：与列表同口径（本区队 + 全局，且排除自己发布的）
+   * 审计修复：原实现不带区队条件，红点数恒大于列表条数。
+   */
+  static async getUnreadCount(user_id, classId) {
+    const scopeSql = classId ? ' AND (n.class_id IS NULL OR n.class_id = ?)' : '';
+    const params = classId ? [user_id, user_id, classId] : [user_id, user_id];
     const [rows] = await db.query(
       `SELECT COUNT(*) AS count
        FROM notices n
        LEFT JOIN notice_reads nr ON n.id = nr.notice_id AND nr.user_id = ?
-       WHERE nr.id IS NULL`,
-      [user_id]
+       WHERE nr.id IS NULL AND n.creator_id <> ?${scopeSql}`,
+      params
     );
     return rows[0].count;
   }
@@ -123,30 +129,40 @@ class Notice {
     return result.affectedRows > 0;
   }
 
-  static async getTodoCount(user_id) {
+  static async getTodoCount(user_id, classId) {
+    const scopeSql = classId ? ' AND (n.class_id IS NULL OR n.class_id = ?)' : '';
+    const params = classId ? [user_id, classId] : [user_id];
     const [rows] = await db.query(
-      'SELECT COUNT(*) as cnt FROM notices n LEFT JOIN notice_completions nc ON n.id = nc.notice_id AND nc.user_id = ? WHERE n.is_todo = true AND nc.id IS NULL',
-      [user_id]
+      'SELECT COUNT(*) as cnt FROM notices n LEFT JOIN notice_completions nc ON n.id = nc.notice_id AND nc.user_id = ? WHERE n.is_todo = true AND nc.id IS NULL' + scopeSql,
+      params
     );
     return rows[0].cnt;
   }
 
   /** 获取指定待办通知的完成状态 */
   static async getTodoCompletionStatus(notice_id) {
+    // 审计修复：名单原来取"全库学员"，任何区队干部都能拿到全中队姓名+学号，分母也全错。
+    // 现在按通知自身的区队过滤（class_id 为 NULL 表示面向全中队）
+    const [[notice]] = await db.query('SELECT class_id FROM notices WHERE id = ?', [notice_id]);
+    const classId = notice && notice.class_id ? String(notice.class_id) : null;
+    const scopeSql = classId ? ' AND u.class_id = ?' : '';
+    const classParams = classId ? [classId] : [];
+
     const [completed] = await db.query(
       `SELECT u.id, u.name, u.student_id, nc.completed_at
        FROM notice_completions nc
        JOIN users u ON nc.user_id = u.id
-       WHERE nc.notice_id = ?
+       WHERE nc.notice_id = ?${scopeSql}
        ORDER BY nc.completed_at`,
-      [notice_id]
+      [notice_id].concat(classParams)
     );
     const [allUsers] = await db.query(
-      "SELECT id, name, student_id FROM users WHERE member_type = 'student' ORDER BY student_id"
+      "SELECT u.id, u.name, u.student_id FROM users u WHERE u.member_type = 'student'" + scopeSql + ' ORDER BY u.student_id',
+      classParams
     );
     const completedIds = new Set(completed.map(c => c.id));
     const pending = allUsers.filter(u => !completedIds.has(u.id));
-    return { completed, pending, total: allUsers.length };
+    return { completed, pending, total: allUsers.length, class_id: classId };
   }
 }
 

@@ -84,7 +84,9 @@ const uploadingProof = ref(false)
 const proofInput = ref<HTMLInputElement | null>(null)
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
+  // 本地日期（原实现用 UTC：北京时间凌晨 0-8 点会把下限放到昨天）
+  const d = new Date(Date.now() + 8 * 3600 * 1000)
+  return d.toISOString().slice(0, 10)
 }
 
 function buildStartEnd(): { start: string; end: string } | null {

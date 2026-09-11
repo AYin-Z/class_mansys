@@ -48,11 +48,13 @@ class AdminConsole {
       "SUM(member_type = 'student' AND role BETWEEN 1 AND 7) AS cadres, SUM(role = 8) AS admins, SUM(member_type = 'staff') AS staffs " +
       'FROM users'
     );
+    // 口径统一：只看在编学员（member_type='student'）且未撤销的请假，
+    // 否则控制台「当前在假/待审批」会混入辅导员、系统账号与已离开人员，与中队页对不上。
     const [[leaves]] = await db.query(
-      'SELECT SUM(status = 0 AND is_cancelled = 0) AS pending, ' +
-      'SUM(status = 1 AND is_cancelled = 0 AND start_time <= NOW() AND end_time >= NOW()) AS ongoing, ' +
-      'SUM(status = 0 AND is_cancelled = 0 AND start_time < NOW()) AS overdue ' +
-      'FROM leaves'
+      "SELECT SUM(l.status = 0 AND l.is_cancelled = 0) AS pending, " +
+      "SUM(l.status = 1 AND l.is_cancelled = 0 AND l.start_time <= NOW() AND l.end_time >= NOW()) AS ongoing, " +
+      "SUM(l.status = 0 AND l.is_cancelled = 0 AND l.start_time < NOW()) AS overdue " +
+      "FROM leaves l JOIN users u ON u.id = l.user_id WHERE u.member_type = 'student'"
     );
 
     const [trend] = await db.query(
@@ -169,8 +171,8 @@ class AdminConsole {
       try { const [[row]] = await db.query(sql); return Number(Object.values(row)[0] || 0); } catch (e) { return fallback; }
     };
     const [pendingLeaves, ongoingLeaves, pendingFee, pendingHomework, unhandledSuggestion, pendingPsych, pendingPhoto] = await Promise.all([
-      q('SELECT COUNT(*) AS c FROM leaves WHERE status = 0 AND is_cancelled = 0'),
-      q('SELECT COUNT(*) AS c FROM leaves WHERE status = 1 AND is_cancelled = 0 AND start_time <= NOW() AND end_time >= NOW()'),
+      q("SELECT COUNT(*) AS c FROM leaves l JOIN users u ON u.id = l.user_id WHERE u.member_type = 'student' AND l.status = 0 AND l.is_cancelled = 0"),
+      q("SELECT COUNT(*) AS c FROM leaves l JOIN users u ON u.id = l.user_id WHERE u.member_type = 'student' AND l.status = 1 AND l.is_cancelled = 0 AND l.start_time <= NOW() AND l.end_time >= NOW()"),
       q('SELECT COUNT(*) AS c FROM expenses WHERE status = 0'),
       q('SELECT COUNT(*) AS c FROM homework_submissions WHERE status = 0'),
       q('SELECT COUNT(*) AS c FROM suggestions WHERE status = 0'),

@@ -106,7 +106,7 @@ const routes: RouteRecordRaw[] = [
   // ===== 通知 =====
   { path: '/pages/notice/index', name: 'notice-index', component: NoticeList },
   { path: '/pages/notice/detail', name: 'notice-detail', component: NoticeDetail },
-  { path: '/pages/notice/admin', name: 'notice-admin', component: NoticeAdmin, meta: { requiresAdmin: true } },
+  { path: '/pages/notice/admin', name: 'notice-admin', component: NoticeAdmin, meta: { requiresAdmin: true, perm: 'MANAGE_NOTICE' } },
 
   // ===== 仪表盘 =====
   { path: '/pages/dashboard/index', name: 'dashboard-index', component: Dashboard, meta: { requiresAdmin: true } },
@@ -128,7 +128,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/pages/fee/index', name: 'fee-index', component: FeeIndex },
   { path: '/pages/fee/expense-apply', name: 'fee-expense-apply', component: FeeExpenseApply },
   { path: '/pages/fee/expense-detail', name: 'fee-expense-detail', component: FeeExpenseDetail },
-  { path: '/pages/fee/approvals', name: 'fee-approvals', component: FeeApprovals },
+  { path: '/pages/fee/approvals', name: 'fee-approvals', component: FeeApprovals, meta: { requiresAdmin: true, perm: 'APPROVE_FEE_USE' } },
   { path: '/pages/fee/publication-detail', name: 'fee-publication-detail', component: FeePublicationDetail },
 
   // ===== 个人中心 =====
@@ -139,7 +139,7 @@ const routes: RouteRecordRaw[] = [
   // ===== 公告 =====
   { path: '/pages/announcement/index', name: 'announcement-index', component: AnnouncementList },
   { path: '/pages/announcement/detail', name: 'announcement-detail', component: AnnouncementDetail },
-  { path: '/pages/announcement/admin', name: 'announcement-admin', component: AnnouncementAdmin, meta: { requiresAdmin: true } },
+  { path: '/pages/announcement/admin', name: 'announcement-admin', component: AnnouncementAdmin, meta: { requiresAdmin: true, perm: 'PUBLISH_ANNOUNCEMENT' } },
 
   // ===== 区队相册 =====
   { path: '/pages/album/index', name: 'album-index', component: AlbumList },
@@ -168,14 +168,14 @@ const routes: RouteRecordRaw[] = [
   { path: '/pages/points/index', name: 'points-index', component: PointsIndex },
 
   // ===== 管理员 =====
-  { path: '/pages/admin/members', name: 'admin-members', component: AdminMembers, meta: { requiresAdmin: true } },
-  { path: '/pages/admin/member-detail', name: 'admin-member-detail', component: AdminMemberDetail, meta: { requiresAdmin: true } },
+  { path: '/pages/admin/members', name: 'admin-members', component: AdminMembers, meta: { requiresAdmin: true, perm: 'VIEW_ROSTER' } },
+  { path: '/pages/admin/member-detail', name: 'admin-member-detail', component: AdminMemberDetail, meta: { requiresAdmin: true, perm: 'VIEW_ROSTER' } },
 
   // ===== 管理后台 =====
-  { path: '/pages/points/manage', name: 'points-manage', component: PointsManage, meta: { requiresAdmin: true } },
-  { path: '/pages/vote/manage', name: 'vote-manage', component: VoteManage, meta: { requiresAdmin: true } },
-  { path: '/pages/challenge/manage', name: 'challenge-manage', component: ChallengeManage, meta: { requiresAdmin: true } },
-  { path: '/pages/lottery/manage', name: 'lottery-manage', component: LotteryManage, meta: { requiresAdmin: true } },
+  { path: '/pages/points/manage', name: 'points-manage', component: PointsManage, meta: { requiresAdmin: true, perm: 'MANAGE_POINTS' } },
+  { path: '/pages/vote/manage', name: 'vote-manage', component: VoteManage, meta: { requiresAdmin: true, perm: 'CREATE_VOTE' } },
+  { path: '/pages/challenge/manage', name: 'challenge-manage', component: ChallengeManage, meta: { requiresAdmin: true, perm: 'JUDGE_CHALLENGE' } },
+  { path: '/pages/lottery/manage', name: 'lottery-manage', component: LotteryManage, meta: { requiresAdmin: true, perm: 'CREATE_LOTTERY' } },
 
   // ===== 超管后台（独立入口） =====
   { path: '/admin/login', name: 'admin-login', component: AdminLogin, meta: { public: true } },

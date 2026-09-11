@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const LeaveController = require('../controllers/LeaveController');
-const { authenticateToken, authorizeAdmin } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
+const { requirePermission } = require('../shared/permissions');
 const { validateBody } = require('../shared/validate');
 const { schemas } = require('../shared/schemas');
 const { uploadLeaveProof } = require('../config/multer');
@@ -19,13 +20,14 @@ router.post('/apply', authenticateToken, validateBody(schemas.leaveApply), Leave
 router.get('/my', authenticateToken, LeaveController.getMyLeaves);
 
 // 获取所有请假记录（管理员）
-router.get('/all', authenticateToken, authorizeAdmin, LeaveController.getAllLeaves);
+router.get('/all', authenticateToken, requirePermission('VIEW_ROSTER'), LeaveController.getAllLeaves);
 
 // 单条请假详情（本人或管理员）
 router.get('/:id', authenticateToken, LeaveController.getLeaveById);
 
 // 审批请假
-router.put('/approve', authenticateToken, authorizeAdmin, LeaveController.approveLeave);
+// 审批改为走权限矩阵（APPROVE_LEAVE），并补上唯一缺失的入参校验
+router.put('/approve', authenticateToken, requirePermission('APPROVE_LEAVE'), validateBody(schemas.leaveApprove), LeaveController.approveLeave);
 
 // 销假
 router.put('/cancel/:id', authenticateToken, LeaveController.cancelLeave);

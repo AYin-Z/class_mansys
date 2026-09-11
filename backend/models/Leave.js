@@ -104,30 +104,46 @@ class Leave {
     const [rows] = await db.query(query, [id]);
     return rows[0] || null;
   }
+  /**
+   * 审批：只有「待审批且未撤销」的记录能被处理（幂等）
+   * 审计修复：原实现 WHERE 只有 id，重复审批会覆盖 approver/时间，也能"通过"已销假的记录。
+   */
   static async updateStatus(id, status, approver_id, approval_notes) {
     const [result] = await db.query(
-      'UPDATE leaves SET status = ?, approver_id = ?, approval_time = NOW(), approval_notes = ? WHERE id = ?',
+      'UPDATE leaves SET status = ?, approver_id = ?, approval_time = NOW(), approval_notes = ? WHERE id = ? AND status = 0 AND is_cancelled = 0',
       [status, approver_id, approval_notes, id]
     );
-    
     return result.affectedRows > 0;
   }
 
+  /** 销假（幂等：已销假/已撤销的不再处理） */
   static async cancel(id, cancelled_time) {
     const [result] = await db.query(
-      'UPDATE leaves SET is_cancelled = true, cancelled_time = ? WHERE id = ?',
+      'UPDATE leaves SET is_cancelled = true, cancelled_time = ? WHERE id = ? AND is_cancelled = 0',
       [cancelled_time, id]
     );
-    
     return result.affectedRows > 0;
   }
 
-  /** 自动销假：已过结束时间且未销假的标记为已销假 */
-  static async autoCancelExpired() {
+  /** 撤销待审批（申请人撤回）：置为已撤销，避免"幽灵待审批" */
+  static async withdraw(id, userId, when) {
     const [result] = await db.query(
-      'UPDATE leaves SET is_cancelled = true, cancelled_time = NOW() WHERE status = 1 AND is_cancelled = 0 AND end_time < NOW()'
+      'UPDATE leaves SET is_cancelled = true, status = 3, cancelled_time = ? WHERE id = ? AND user_id = ? AND status = 0 AND is_cancelled = 0',
+      [when || new Date(), id, userId]
     );
-    return result.affectedRows;
+    return result.affectedRows > 0;
+  }
+
+  /**
+   * 逾期未销假口径：已通过、未销假、且已过结束时间
+   * 不再复用 is_cancelled —— 原 autoCancelExpired 会把它们全标成"已销假"，
+   * 导致「未销假」指标恒为 0，还伪造了销假时间。
+   */
+  static async countOverdue() {
+    const [[row]] = await db.query(
+      'SELECT COUNT(*) AS c FROM leaves WHERE status = 1 AND is_cancelled = 0 AND end_time < NOW()'
+    );
+    return Number(row.c || 0);
   }
 }
 

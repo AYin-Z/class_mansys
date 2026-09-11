@@ -46,18 +46,25 @@ class Homework {
   }
 
   // ---- 提交 ----
+  /**
+   * 提交作业
+   * 审计修复：已批改（status=1）的提交不允许再覆盖，否则分数与评语会被清空
+   */
   static async submit({ homework_id, user_id, file_url, file_name }) {
-    // 同一用户重复提交：覆盖
     const [exist] = await db.query(
-      'SELECT id FROM homework_submissions WHERE homework_id = ? AND user_id = ?',
+      'SELECT id, status FROM homework_submissions WHERE homework_id = ? AND user_id = ?',
       [homework_id, user_id]
     );
     if (exist[0]) {
+      if (Number(exist[0].status) === 1) {
+        const err = new Error('该作业已批改，不能再覆盖提交');
+        err.code = 'ALREADY_GRADED';
+        throw err;
+      }
       await db.query(
         `UPDATE homework_submissions
-         SET file_url = ?, file_name = ?, status = 0, score = NULL, feedback = NULL,
-             submitted_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
+         SET file_url = ?, file_name = ?, status = 0, submitted_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND status = 0`,
         [file_url, file_name, exist[0].id]
       );
       return exist[0].id;

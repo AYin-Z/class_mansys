@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMyExpenses, getSummary, getCollections, getPublications, createCollection, payCollection, closeCollection, exemptCollection, getCollectionRecords } from '@/api/fee'
 import { useUserStore } from '@/stores/user'
@@ -9,8 +9,9 @@ import NavBar from '@/components/ui/NavBar.vue'
 const router = useRouter()
 const userStore = useUserStore()
 const isAdmin = userStore.isAdmin
-const role = userStore.role
-const canManageCollection = role === 2 || role === 8 // 生活副区或超管
+// 权限显隐统一走后端可配置权限矩阵（不再硬编码角色，避免矩阵改了前端不跟着变）
+const canManageCollection = computed(() => userStore.hasPermission('COLLECT_FEE'))
+const canApprove = computed(() => userStore.hasPermission('APPROVE_FEE_USE'))
 
 const expenses = ref<FeeExpense[]>([])
 const collections = ref<FeeCollection[]>([])
@@ -106,6 +107,18 @@ async function doPay() {
   finally { paying.value = false }
 }
 
+/** 免缴前确认成员，避免手输 userId 输错人 */
+async function confirmExemptUser() {
+  const id = Number(exemptUserId.value)
+  if (!id) return
+  try {
+    const res: any = await getCollectionRecords(exemptTarget.value!.id).catch(() => null)
+    const hit = (res?.records || []).find((r: any) => Number(r.user_id) === id)
+    const label = hit ? (hit.student_id + ' ' + hit.name) : ('用户 #' + id)
+    if (!confirm('确认给 ' + label + ' 标记免缴？')) exemptUserId.value = 0
+  } catch (_) { /* ignore */ }
+}
+
 // 免缴
 function openExempt(c: FeeCollection) { exemptTarget.value = c; exemptUserId.value = 0; exemptRemark.value = ''; showExemptModal.value = true }
 async function doExempt() {
@@ -151,10 +164,10 @@ async function openRecords(c: FeeCollection) {
       <div class="quick-item" @click="goApply">
         <span class="qi-icon">🧾</span><span class="qi-label">申请报销</span>
       </div>
-      <div class="quick-item" @click="goApprovals">
+      <div v-if="canApprove" class="quick-item" @click="goApprovals">
         <span class="qi-icon">📋</span>
         <span class="qi-label">审批
-          <span v-if="isAdmin && pendingCount > 0" class="badge">{{ pendingCount }}</span>
+          <span v-if="pendingCount > 0" class="badge">{{ pendingCount }}</span>
         </span>
       </div>
       <div class="quick-item" @click="goApply">
@@ -191,7 +204,9 @@ async function openRecords(c: FeeCollection) {
         </div>
         <div class="progress-bar"><div class="progress-fill" :style="{ width: (c.total_expected > 0 ? Math.min(100, Number(c.collected_amount) / Number(c.total_expected) * 100) : 0) + '%' }"></div></div>
         <div class="card-actions">
-          <button v-if="c.status === 0" class="btn-xs" @click="openPay(c)">💵 缴纳</button>
+          <span v-if="c.my_paid_amount" class="paid-tag">✓ 已缴 ¥{{ Number(c.my_paid_amount).toFixed(2) }}</span>
+          <span v-else-if="c.my_exempt" class="paid-tag exempt">免缴</span>
+          <button v-if="c.status === 0 && !c.my_paid_amount && !c.my_exempt" class="btn-xs" @click="openPay(c)">💵 缴纳</button>
           <button v-if="canManageCollection && c.status === 0" class="btn-xs" @click="openExempt(c)">✏️ 免缴</button>
           <button v-if="canManageCollection && c.status === 0" class="btn-xs" @click="doClose(c)">🔒 截止</button>
           <button v-if="isAdmin" class="btn-xs" @click="openRecords(c)">📋 明细</button>
@@ -247,7 +262,11 @@ async function openRecords(c: FeeCollection) {
       <div class="modal-card">
         <div class="modal-header"><h3>缴纳班费</h3><button class="btn-close" @click="showPayModal = false">✕</button></div>
         <p class="modal-desc">{{ payTarget?.title }}</p>
-        <div class="form-group"><label>金额</label><input v-model.number="payAmount" type="number" /></div>
+        <div class="form-group">
+          <label>应缴金额</label>
+          <input :value="payAmount" type="number" readonly />
+          <p class="form-hint">金额由收缴批次的人均标准决定，如需调整请联系生活副区</p>
+        </div>
         <button class="btn-accent" :disabled="paying" @click="doPay">{{ paying ? '缴纳中...' : '确认缴纳' }}</button>
       </div>
     </div>

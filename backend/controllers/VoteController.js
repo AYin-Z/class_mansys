@@ -1,7 +1,7 @@
 const Vote = require('../models/Vote');
 
 const { isAdmin } = require('../shared/constants');
-const { resolveScope, filterByClassScope, canAccessClassRecord } = require('../shared/scope');
+const { resolveScope, filterByClassScope, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
 const { stampClassId } = require('../shared/classStamp');
 
 class VoteController {
@@ -106,7 +106,7 @@ class VoteController {
       const vote = await Vote.findById(voteId);
       if (!vote) return res.status(404).json({ success: false, error: '投票不存在' });
       const castScope = await resolveScope(req.user);
-      if (!canAccessClassRecord(vote, castScope)) {
+      if (!canAccessOwnClassRecord(vote, castScope)) {
         return res.status(403).json({ success: false, error: '无权参与该投票' });
       }
       if (!vote.is_active) return res.status(400).json({ success: false, error: '该投票已关闭' });
@@ -154,7 +154,7 @@ class VoteController {
       const vote = await Vote.findById(req.params.id);
       if (!vote) return res.status(404).json({ success: false, error: '投票不存在' });
       const closeScope = await resolveScope(req.user);
-      if (!canAccessClassRecord(vote, closeScope)) {
+      if (!canAccessOwnClassRecord(vote, closeScope)) {
         return res.status(403).json({ success: false, error: '无权关闭该投票' });
       }
       const ok = await Vote.close(req.params.id);
