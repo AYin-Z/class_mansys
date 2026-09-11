@@ -100,6 +100,55 @@ app.use('/api', limiter);
 // 操作记录中间件（只记录写操作，失败自吞）
 app.use('/api', require('./middleware/operationLog'));
 
+/**
+ * 前端启动诊断上报（无需登录）
+ *
+ * 背景：2026-09 手机端白屏事故里，用户在手机上「啥也没有」——
+ * 既没有页面也没有错误提示，我们拿不到任何现场信息。
+ * 这里提供一个极小的采集端点，index.html 的启动脚本用 sendBeacon 上报：
+ *   - boot-ok   ：应用挂载成功（用于确认某台设备/某个构建到底有没有跑起来）
+ *   - error     ：脚本错误、资源加载失败、未处理的 Promise 异常
+ *   - timeout   ：8 秒内没挂载成功
+ * 只落盘 JSON 行到 logs/client-errors.log，便于事后排查；限流与长度截断都在这里做。
+ */
+const CLIENT_LOG_MAX_LEN = 800;
+const clientLogHits = new Map();
+app.post('/api/client-log', (req, res) => {
+  try {
+    const ip = req.ip || 'unknown';
+    const now = Date.now();
+    const hit = clientLogHits.get(ip) || { count: 0, resetAt: now + 60000 };
+    if (now > hit.resetAt) { hit.count = 0; hit.resetAt = now + 60000; }
+    hit.count += 1;
+    clientLogHits.set(ip, hit);
+    // 每 IP 每分钟最多 20 条，超出直接丢弃（防滥用）
+    if (hit.count > 20) return res.status(204).end();
+
+    const body = req.body || {};
+    const clip = (v) => (typeof v === 'string' ? v.slice(0, CLIENT_LOG_MAX_LEN) : v);
+    const entry = {
+      at: new Date().toISOString(),
+      kind: clip(body.kind) || 'unknown',
+      build: clip(body.build),
+      url: clip(body.url),
+      message: clip(body.message),
+      stack: clip(body.stack),
+      ua: clip(String(req.headers['user-agent'] || '')),
+      ip,
+      viewport: clip(body.viewport)
+    };
+    const line = JSON.stringify(entry);
+    const logFile = path.join(__dirname, 'logs', 'client-errors.log');
+    fs.mkdirSync(path.dirname(logFile), { recursive: true });
+    fs.appendFile(logFile, line + '\n', () => {});
+    logger.warn({ clientLog: entry }, '前端上报');
+    return res.status(204).end();
+  } catch (err) {
+    logger.error({ err }, 'client-log 写入失败');
+    return res.status(204).end();
+  }
+});
+
 // 路由挂载表：既是 Express 挂载点，也是 Agent 工具目录的来源（避免两处维护）
 const ROUTE_MOUNTS = [
   ['/api/auth', require('./routes/auth')],
@@ -145,16 +194,34 @@ const h5DistCandidates = [
 ];
 const h5DistPath = h5DistCandidates.find((dir) => fs.existsSync(path.join(dir, 'index.html'))) || h5DistCandidates[0];
 console.log('[static] H5 前端目录 =', h5DistPath);
-app.use(express.static(h5DistPath, {
-  setHeaders: (res, _filePath) => {
-    // Vite 构建产物带 crossorigin 属性，需 CORS 头
-    res.set('Access-Control-Allow-Origin', '*');
-    // 禁用所有前端资源的缓存，解决 CDN/浏览器缓存旧版本的问题
+/**
+ * H5 静态资源缓存策略（2026-09-11 白屏事故后重定）
+ *
+ * 旧策略是「所有前端资源一律 no-store」，看似安全，实则两处有害：
+ *  1. 每次访问都要回源拉全部 hash 文件，移动端弱网下慢且易失败；
+ *  2. 一旦某个 chunk 被删（历史上 Vite 每次构建清空 dist），
+ *     Cloudflare 会把 404 缓存 4 小时，用户长时间拿不到正确文件。
+ *
+ * 现在的策略：
+ *  - /assets/**：文件名带内容 hash，内容不可变 → 长缓存 immutable
+ *    （配合 vite.config.ts 的 emptyOutDir:false 保留旧文件，老客户端也能取到）
+ *  - 其它（index.html、favicon 等）：no-store，保证每次拿到最新入口
+ *  - CDN-Cache-Control 同步下发，避免 Cloudflare 用默认规则缓存 404
+ */
+function setH5CacheHeaders(res, filePath) {
+  res.set('Access-Control-Allow-Origin', '*');
+  const isHashedAsset = /[\\/]assets[\\/]/.test(filePath);
+  if (isHashedAsset) {
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.set('CDN-Cache-Control', 'public, max-age=31536000, immutable');
+  } else {
     res.set('Cache-Control', 'no-store, must-revalidate');
+    res.set('CDN-Cache-Control', 'no-store');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
   }
-}));
+}
+app.use(express.static(h5DistPath, { setHeaders: setH5CacheHeaders }));
 // SPA 历史模式：非 API/文件路径的请求都返回 index.html
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/') || req.path.startsWith('/health') || req.path.startsWith('/uploads')) {
@@ -163,6 +230,10 @@ app.get('*', (req, res, next) => {
   // 静态资源文件不存在时直接 404，不要返回 index.html
   // 否则 Vite 6 的 CSS preload 请求不存在的 .css 会收到错误的 text/html
   if (/\.(js|css|map|json|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot)$/i.test(req.path)) {
+    // 关键：告诉 Cloudflare 不要缓存这个 404。
+    // 历史上 CF 会按默认规则把 404 缓存 4 小时，导致文件恢复后用户仍拿不到。
+    res.set('Cache-Control', 'no-store, must-revalidate');
+    res.set('CDN-Cache-Control', 'no-store');
     return next();
   }
   res.sendFile(path.join(h5DistPath, 'index.html'));

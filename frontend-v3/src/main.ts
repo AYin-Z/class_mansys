@@ -7,6 +7,7 @@ import { setRouteGuard, setRequestToastHandler, setAuthFailureHandler } from '@/
 import { showToast, clearToasts } from '@/utils/ui'
 import { initTheme } from '@/utils/theme'
 import { useUserStore } from '@/stores/user'
+import { reportBootOk, reportClient } from '@/utils/diagnostics'
 
 // 主题必须在挂载前应用：否则冷启动会先闪一下亮色
 initTheme()
@@ -36,13 +37,39 @@ router.afterEach(() => {
   clearToasts()
 })
 
+/**
+ * 全局错误兜底（2026-09 手机端白屏排查）
+ *
+ * 现象：手机上底部导航正常、内容区一片白，而服务端日志只有 200。
+ * 只靠服务端看不出原因，因此：
+ *  - 组件渲染/生命周期里抛的错 → app.config.errorHandler：上报 + 页面顶部给出可读提示
+ *  - 路由懒加载 chunk 失败 → router.onError：上报 + 自动重载一次（版本更新/缓存错位场景）
+ *  - 未捕获的脚本错误与 Promise 异常 → 上报（在 index.html 里也挂了同样的监听）
+ */
+app.config.errorHandler = (err, _instance, info) => {
+  const e = err as Error
+  reportClient({ kind: 'vue-error', message: `${info}: ${e?.message || e}`, stack: e?.stack })
+  showToast('页面出错了，已记录问题。请下拉刷新或重进小程序', 'error')
+}
+
+router.onError((error) => {
+  const msg = String((error as Error)?.message || error)
+  reportClient({ kind: 'route-error', message: msg, stack: (error as Error)?.stack })
+  // 动态 chunk 加载失败（版本更新后旧包被替换）→ 自动硬刷新一次
+  const key = '__route_reload__'
+  if (!sessionStorage.getItem(key)) {
+    sessionStorage.setItem(key, '1')
+    showToast('正在更新到最新版本…', 'none')
+    setTimeout(() => location.reload(), 600)
+  } else {
+    showToast('页面加载失败，请检查网络后重试', 'error')
+  }
+})
+
 app.mount('#app')
 
-// 通知 index.html 的启动兜底面板：应用已挂载，撤掉"加载失败"提示
-declare global {
-  interface Window { __APP_BOOT_OK__?: () => void }
-}
-window.__APP_BOOT_OK__?.()
+// 通知 index.html 的启动兜底面板撤掉，并留一条正常启动的记录
+reportBootOk()
 
 // 有 token 时拉一次服务端权限快照（后台改过权限矩阵也能生效）
 if (userStore.isAuthenticated) {

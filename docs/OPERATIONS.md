@@ -219,3 +219,43 @@ if(!/import\.meta/.test(e.message)){bad++;console.log('❌',f,e.message)}}}
 console.log('ES2019 不通过的 chunk:',bad)"
 ```
 （`import.meta` 属模块语法，任何支持 `<script type="module">` 的浏览器都支持，可忽略。）
+
+## 10. 白屏事故（第二次）复盘：构建产物被删导致的「TabBar 在、内容全白」
+
+**现象**：手机浏览器打开后底部导航正常显示，内容区一片白；个别页面（中队）偶尔能看见；桌面正常。
+
+**根因**（与第 9 节的语法兼容是两件不同的事）：
+
+1. `Vite` 默认 `emptyOutDir: true`：**每次构建都会删掉上一次的 hash 文件**。
+2. 手机浏览器缓存里还留着**旧版 index.html / 入口包**，它按需加载的页面 chunk 用的是旧文件名。
+3. 那些旧文件此时已被删除 → 请求 404。
+4. 动态 `import()` 失败 → **该路由组件渲染不出来（内容区空白），但入口包已加载的底部导航仍在**。
+5. 雪上加霜：Cloudflare 会把 404 按默认规则**缓存 4 小时**，即使后来文件恢复了，用户这段时间仍拿到 404。
+
+桌面（或手机上的"桌面版网站"）之所以正常，是它拿到了新的 index.html，引用的是新 chunk 名，版本自洽。
+
+**修复（四点，缺一不可）**：
+
+1. `frontend-v3/vite.config.ts`：`build.emptyOutDir: false` —— 保留历史 hash 文件；
+   新增 `frontend-v3/scripts/prune-dist.mjs`（`npm run build` 自动执行）按时间清理，默认保留 7 天。
+2. `backend/app.js` 静态缓存策略重定：
+   - `/assets/**`（内容 hash）→ `public, max-age=31536000, immutable`
+   - `index.html` / favicon → `no-store`（保证入口永远最新）
+   - 静态资源 404 → `Cache-Control: no-store` + `CDN-Cache-Control: no-store`（**防止 CDN 缓存 404**）
+3. 前端自愈：`router.onError`（`src/main.ts`）捕获动态 chunk 加载失败 → 上报 + `sessionStorage` 标记后自动硬刷新一次
+   → 用户从"白屏"变成"正在更新到最新版本…"并自动恢复。
+4. 页面级兜底：`App.vue` 的 `onErrorCaptured` 会让内容区显示"这个页面没能正常显示 + 错误信息 + 重新加载"，
+   而不是留一片空白。
+
+**排查工具（长期保留）**：
+- `POST /api/client-log`（免鉴权、限流 20 条/分钟、字段截断）→ `backend/logs/client-errors.log`
+- `index.html` 内联脚本 + `src/utils/diagnostics.ts` 上报：`boot-ok` / `error` / `unhandledrejection` /
+  `route-error` / `vue-error` / `timeout`，带构建号（`1.3.0+时间戳`）与视口，便于定位"只有某台设备出问题"。
+- 查看某台设备/某个构建的现场：
+  ```bash
+  tail -f backend/logs/client-errors.log
+  journalctl --user -u class-mansys.service -f | grep EdgA   # 只看某类 UA 的请求
+  ```
+
+**给用户的处置**（本次事故遗留影响）：手机上清一次站点缓存（或换隐私窗口打开）即可恢复；
+之后由于旧文件保留 + 自愈逻辑，不会再出现"白屏且无提示"。

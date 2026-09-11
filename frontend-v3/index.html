@@ -16,6 +16,7 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" href="./favicon.svg" />
     <title>区队管理系统</title>
+    <meta name="x-app-build" content="__BUILD_ID__" />
     <style>
       /* 启动兜底面板：应用挂载成功会被移除；未挂载则说明脚本没跑起来 */
       #__boot_fallback__ {
@@ -125,22 +126,49 @@
           setTimeout(function () { location.reload() }, 300)
         }
 
+        function report(kind, message, stack) {
+          try {
+            var body = JSON.stringify({
+              kind: kind,
+              build: '__BUILD_ID__',
+              url: location.href,
+              message: String(message || '').slice(0, 600),
+              stack: String(stack || '').slice(0, 600),
+              viewport: window.innerWidth + 'x' + window.innerHeight
+            })
+            if (navigator.sendBeacon) {
+              navigator.sendBeacon('/api/client-log', new Blob([body], { type: 'application/json' }))
+            } else {
+              fetch('/api/client-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true })
+            }
+          } catch (err) { /* 上报失败不影响页面 */ }
+        }
+        window.__dshReport__ = report
+
         window.addEventListener('error', function (e) {
           var msg = e && e.message ? e.message : ''
           var src = e && e.target && (e.target.src || e.target.href)
           if (src) msg = '资源加载失败：' + src
           if (msg) errors.push(msg)
+          report(src ? 'resource-error' : 'error', msg, e && e.error && e.error.stack)
           // 脚本资源加载失败（例如旧缓存指向已不存在的 hash 文件）立即提示
           if (src && !booted) show(msg)
         }, true)
 
         window.addEventListener('unhandledrejection', function (e) {
           var r = e && e.reason
-          errors.push('Promise: ' + ((r && (r.message || r)) + ''))
+          var msg = 'Promise: ' + ((r && (r.message || r)) + '')
+          errors.push(msg)
+          report('unhandledrejection', msg, r && r.stack)
         })
 
         // 应用挂载成功会移除面板；8 秒后仍未挂载就提示（不打断已经跑起来的页面）
-        setTimeout(function () { show('脚本未能在 8 秒内启动') }, 8000)
+        setTimeout(function () {
+          if (!booted) {
+            show('脚本未能在 8 秒内启动')
+            report('timeout', 'boot timeout 8s', '')
+          }
+        }, 8000)
       })()
     </script>
 

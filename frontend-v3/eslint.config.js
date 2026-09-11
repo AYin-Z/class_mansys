@@ -12,6 +12,15 @@ export default [
   js.configs.recommended,
   ...vue.configs['flat/essential'],
   {
+    // Node 侧配置/脚本（vite.config.ts、scripts/*.mjs）使用 node 全局
+    files: ['**/*.mjs', 'vite.config.ts'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: { ...globals.node }
+    }
+  },
+  {
     files: ['**/*.{ts,vue}'],
     languageOptions: {
       parser: vueParser,
