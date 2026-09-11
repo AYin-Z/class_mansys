@@ -339,4 +339,33 @@ node scripts/media-gc.js --yes           # 真正删除孤儿文件
 2026-09-11 首次执行：巡检发现 **51 个孤儿文件 / 90.2MB**（早期版本删记录不删文件留下的），
 先用 `mysqldump --no-create-info` 全库反查确认无任何引用后清理，`uploads/` 从 145MB 降到 55MB。
 
+### 12.4 存量图片回填派生图
+
+缩略图能力是 2026-09 新增的，**改造前上传的图片只有原图**（请假证明一度 100+MB）。
+前端虽然能按 `_thumb` 约定直接请求（文件名规则固定），但文件不存在时会回退原图，列表依旧慢。
+
+```bash
+cd backend
+node scripts/media-backfill.js                 # 预演：统计缺多少
+node scripts/media-backfill.js --yes           # 生成（不改数据库，只加文件）
+node scripts/media-backfill.js --yes --dir=leaves   # 只处理某个子目录
+```
+
+2026-09-11 首次执行：98 张老图补出 196 个派生图（耗时 15s），
+例如一张 3.4MB 的请假证明现在有 32KB 的缩略图（列表页加载它）。
+
+### 12.5 前端取图约定
+
+`src/utils/media.ts` 提供：
+
+| 函数 | 用途 |
+|---|---|
+| `mediaUrl(path)` | 受保护资源补访问令牌（原有） |
+| `thumbUrl(path)` | 推导 480px 缩略图地址 |
+| `mediumUrl(path)` | 推导 1440px 中图地址 |
+| `onThumbError(event, original)` | 放在 `<img @error>`：缩略图缺失时自动回退原图（防死循环） |
+
+规则：**列表/卡片/小图 → `mediaUrl(thumbUrl(x))`；全屏查看器 → `mediumUrl`；下载/保存 → 原图 `mediaUrl(x)`**，
+全部加 `loading="lazy" decoding="async"` 与固定 `aspect-ratio`。
+
 建议：每月跑一次 dry-run 看报表；确认后再 `--yes`。

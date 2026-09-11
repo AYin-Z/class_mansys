@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { mediaUrl, openMedia } from '@/utils/media'
+import { mediaUrl, openMedia, thumbUrl, mediumUrl, onThumbError } from '@/utils/media'
 import { ref, onMounted, computed } from 'vue'
 import { getAllLeaves, approveLeave, cancelLeave } from '@/api/leave'
 import type { LeaveItem } from '@/api/leave'
@@ -231,7 +231,18 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
           <div v-if="getAttachments(item).length > 0" class="proof-section">
             <div class="expanded-label">证明材料</div>
             <div class="proof-imgs">
-              <img v-for="(url, i) in getAttachments(item)" :key="i" :src="mediaUrl(url)" class="proof-img" @click.stop="viewProof(url)" />
+              <!-- 证明材料：列表小图只拉 480px 缩略图；派生图缺失时 onThumbError 回退原图 -->
+              <img
+                v-for="(url, i) in getAttachments(item)"
+                :key="i"
+                :src="mediaUrl(thumbUrl(url))"
+                class="proof-img"
+                :alt="`证明材料 ${i + 1}`"
+                loading="lazy"
+                decoding="async"
+                @error="onThumbError($event, url)"
+                @click.stop="viewProof(url)"
+              />
             </div>
           </div>
           <div v-if="item.approval_notes" class="approval-notes">
@@ -272,7 +283,16 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
       <div class="viewer-close" @click="proofViewUrl = null">
         <AppIcon name="close" :size="22" />
       </div>
-      <img :src="mediaUrl(proofViewUrl)" class="viewer-img" @click.stop />
+      <!-- 全屏查看器：1440px 中图；缺失时回退原图 -->
+      <img
+        :src="mediaUrl(mediumUrl(proofViewUrl))"
+        class="viewer-img"
+        alt="证明材料大图"
+        loading="lazy"
+        decoding="async"
+        @error="onThumbError($event, proofViewUrl)"
+        @click.stop
+      />
     </div>
   </div>
 </template>

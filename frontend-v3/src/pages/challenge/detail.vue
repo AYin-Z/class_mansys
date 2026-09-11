@@ -11,7 +11,7 @@
  *  - 裁判结果不可更改，三个动作加确认；写操作按钮加在途锁；
  *  - emoji（🏆⏳📎⚔️📝✕）→ AppIcon；硬编码色值 → 令牌。
  */
-import { mediaUrl, openMedia } from '@/utils/media'
+import { mediaUrl, openMedia, thumbUrl, onThumbError } from '@/utils/media'
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -259,7 +259,15 @@ function formatDate(t: string) {
           <div class="proof-area">
             <div class="proof-list">
               <div v-for="(url, i) in proofUrls" :key="i" class="proof-item">
-                <img :src="mediaUrl(url)" class="proof-thumb" alt="挑战证明" />
+                <!-- 上传后的小图预览只拉 480px 缩略图；派生图缺失时回退原图 -->
+                <img
+                  :src="mediaUrl(thumbUrl(url))"
+                  class="proof-thumb"
+                  alt="挑战证明"
+                  loading="lazy"
+                  decoding="async"
+                  @error="onThumbError($event, url)"
+                />
                 <button class="proof-del" type="button" aria-label="移除证明" @click="removeProof(i)">
                   <AppIcon name="close" :size="13" />
                 </button>
@@ -322,14 +330,17 @@ function formatDate(t: string) {
               <AppIcon name="edit" :size="13" />
               <span>{{ app.notes }}</span>
             </div>
-            <!-- 证明图片 -->
+            <!-- 证明图片：小图只拉缩略图；点开仍在新窗口看原图（保持原行为） -->
             <div v-if="parseProofs(app).length > 0" class="app-proofs">
               <img
                 v-for="(url, i) in parseProofs(app)"
                 :key="i"
-                :src="mediaUrl(url)"
+                :src="mediaUrl(thumbUrl(url))"
                 class="app-proof-img"
                 alt="挑战证明"
+                loading="lazy"
+                decoding="async"
+                @error="onThumbError($event, url)"
                 @click="openMedia(url)"
               />
             </div>

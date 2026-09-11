@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { mediaUrl, openMedia } from '@/utils/media'
+import { mediaUrl, openMedia, thumbUrl, mediumUrl, onThumbError } from '@/utils/media'
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { getLeaveById, cancelLeave } from '@/api/leave'
@@ -55,7 +55,8 @@ async function handleCancel() {
 
 import { computed } from 'vue'
 
-const attachments = computed(() => {
+// 解析方式沿用原实现，仅补返回类型，好让模板里的下标是 number（alt 拼接用）
+const attachments = computed<string[]>(() => {
   try {
     const raw = (leave.value as any)?.attachments
     if (Array.isArray(raw)) return raw
@@ -105,7 +106,18 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
       <div v-if="attachments.length > 0" class="section">
         <h3>证明材料</h3>
         <div class="attach-grid">
-          <img v-for="(url, i) in attachments" :key="i" :src="mediaUrl(url)" class="attach-img" @click="viewImage(url)" />
+          <!-- 附件小图只拉 480px 缩略图；派生图缺失时 onThumbError 回退原图 -->
+          <img
+            v-for="(url, i) in attachments"
+            :key="i"
+            :src="mediaUrl(thumbUrl(url))"
+            class="attach-img"
+            :alt="`证明材料 ${i + 1}`"
+            loading="lazy"
+            decoding="async"
+            @error="onThumbError($event, url)"
+            @click="viewImage(url)"
+          />
         </div>
       </div>
 
@@ -120,7 +132,16 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
       <!-- Image viewer -->
       <div v-if="viewing" class="viewer-overlay" @click="closeView">
         <div class="viewer-close" @click="closeView">✕</div>
-        <img :src="mediaUrl(viewing)" class="viewer-img" @click.stop />
+        <!-- 全屏查看器：1440px 中图；缺失时回退原图 -->
+        <img
+          :src="mediaUrl(mediumUrl(viewing))"
+          class="viewer-img"
+          alt="证明材料大图"
+          loading="lazy"
+          decoding="async"
+          @error="onThumbError($event, viewing)"
+          @click.stop
+        />
       </div>
     </div>
     </StateView>

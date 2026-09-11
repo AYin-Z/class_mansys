@@ -6,7 +6,7 @@ import { showToast } from '@/utils/ui'
 import { apiUrl, getToken } from '@/utils/request'
 import { renderMarkdown } from '@/utils/markdown'
 import { buildMcpAgentPrompt, buildMcpConfigJson, buildMcpStdioConfig } from '@/utils/mcpPrompt'
-import { mediaUrl, openMedia } from '@/utils/media'
+import { mediaUrl, openMedia, thumbUrl, onThumbError } from '@/utils/media'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import {
@@ -500,12 +500,16 @@ function stopBotPolling() {
       <div v-for="(m, i) in messages" :key="i" class="row" :class="m.role">
         <div class="bubble" :class="{ md: m.role === 'assistant' }">
           <div v-if="m.content" v-html="m.role === 'assistant' ? renderMarkdown(m.content) : escapeText(m.content)"></div>
+          <!-- 会话图片：缩略显示只拉 480px 缩略图；点开仍按原行为在新窗口打开原图 -->
           <div v-if="m.attachments && m.attachments.length" class="thumbs">
             <img
               v-for="(a, ai) in m.attachments"
               :key="ai"
-              :src="mediaUrl(a.url)"
+              :src="mediaUrl(thumbUrl(a.url))"
               :alt="a.name || '图片'"
+              loading="lazy"
+              decoding="async"
+              @error="onThumbError($event, a.url)"
               @click="openMedia(a.url)"
             />
           </div>
@@ -537,7 +541,14 @@ function stopBotPolling() {
 
     <div v-if="attachments.length" class="attach-row">
       <div v-for="(a, i) in attachments" :key="i" class="attach-item">
-        <img :src="mediaUrl(a.url)" :alt="a.name || '图片'" />
+        <!-- 待发送图片：56px 小图只拉缩略图；派生图缺失时回退原图 -->
+        <img
+          :src="mediaUrl(thumbUrl(a.url))"
+          :alt="a.name || '图片'"
+          loading="lazy"
+          decoding="async"
+          @error="onThumbError($event, a.url)"
+        />
         <span class="attach-x" @click="removeAttachment(i)"><AppIcon name="close" :size="12" /></span>
       </div>
     </div>
@@ -601,7 +612,7 @@ function stopBotPolling() {
               这一步只需做一次：扫码后，系统就拥有了一个「微信里的助手」身份，同学私聊它即可办事。
             </div>
             <div v-if="bot && bot.qrDataUrl && bot.status !== 'confirmed'" class="qr-box">
-              <img :src="bot.qrDataUrl" alt="微信扫码" />
+              <img :src="bot.qrDataUrl" alt="微信扫码" loading="lazy" decoding="async" />
               <div class="acc-hint">
                 <template v-if="bot.status === 'scaned'">已扫码，请在手机上点击确认…</template>
                 <template v-else>请用微信扫码（约 5 分钟内有效）</template>
