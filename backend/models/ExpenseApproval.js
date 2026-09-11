@@ -10,19 +10,25 @@ const db = require('../config/database');
  * - 审批节点流转与 expenses 状态更新放在同一事务里；
  * - createChain 支持传入连接（与建单同事务）。
  */
+/**
+ * 大额报销投票门槛（依据《25Q6 班费收缴与管理方案【草案1】》）
+ *
+ * PRD 原文：> 500 元 → 经办人提交详细预算方案 → 班长和班主任审核 → **匿名问卷投票，获得全班 19 票以上同意** → 方可使用并报销。
+ * 因此：阈值 = 19 票；当本区队在编学员不足 19 人时取全班人数（否则永远无法达标）。
+ */
+const PRD_VOTE_THRESHOLD = 19;
 async function getVoteThreshold(classId) {
   try {
-    if (!classId) {
-      const [[{ cnt }]] = await db.query("SELECT COUNT(*) AS cnt FROM users WHERE member_type = 'student'");
-      return Math.max(1, Math.ceil(Number(cnt) * 2 / 3));
-    }
-    const [[{ cnt }]] = await db.query(
-      "SELECT COUNT(*) AS cnt FROM users WHERE class_id = ? AND member_type = 'student'",
-      [classId]
-    );
-    return Math.max(1, Math.ceil(Number(cnt) * 2 / 3));
+    const sql = classId
+      ? "SELECT COUNT(*) AS cnt FROM users WHERE class_id = ? AND member_type = 'student'"
+      : "SELECT COUNT(*) AS cnt FROM users WHERE member_type = 'student'";
+    const params = classId ? [classId] : [];
+    const [[{ cnt }]] = await db.query(sql, params);
+    const roster = Number(cnt || 0);
+    if (!roster) return PRD_VOTE_THRESHOLD;
+    return Math.max(1, Math.min(PRD_VOTE_THRESHOLD, roster));
   } catch (e) {
-    return 1;
+    return PRD_VOTE_THRESHOLD;
   }
 }
 
@@ -196,17 +202,21 @@ class ExpenseApproval {
   // 获取待审批列表
   static async getPendingApprovals(role, classIds) {
     const where = ['e.status = 0'];   // 只列未完成的（原先会把已驳回的残留节点也列出来）
-    const params = [role, role];
+    const params = [];
     if (Array.isArray(classIds)) {
       if (!classIds.length) return [];
       where.push('e.class_id IN (' + classIds.map(() => '?').join(',') + ')');
       params.push(...classIds);
     }
+    // 注意参数顺序：SQL 里 class_id 条件在角色条件之前，必须按出现顺序绑定
+    params.push(role, role);
     const [rows] = await db.query(
       `SELECT e.*, u.name as applicant_name, ea.step,
         (SELECT COUNT(*) FROM expense_approval_votes WHERE expense_id = e.id AND vote = 1) as vote_approve
       FROM expenses e
-      JOIN expense_approvals ea ON e.id = ea.expense_id AND ea.status = 0
+      -- 只取「当前步骤」的待办节点：否则大额件刚提交（step=1）时，其 step=3 的空白节点
+      -- 也会被匹配到，导致学员提前看到并投票
+      JOIN expense_approvals ea ON ea.expense_id = e.id AND ea.step = e.approval_step AND ea.status = 0
       LEFT JOIN users u ON e.user_id = u.id
       WHERE (${where.join(' AND ')})
         AND (

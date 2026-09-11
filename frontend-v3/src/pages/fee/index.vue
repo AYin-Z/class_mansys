@@ -183,9 +183,9 @@ async function openRecords(c: FeeCollection) {
       <div class="quick-item" @click="goApply">
         <span class="qi-icon">🧾</span><span class="qi-label">申请报销</span>
       </div>
-      <div v-if="canApprove" class="quick-item" @click="goApprovals">
+      <div class="quick-item" @click="goApprovals">
         <span class="qi-icon">📋</span>
-        <span class="qi-label">审批
+        <span class="qi-label">审批 / 投票
           <span v-if="pendingCount > 0" class="badge">{{ pendingCount }}</span>
         </span>
       </div>

@@ -300,6 +300,10 @@ class FeeController {
       if (!FeeController._inScope(expense, scope)) {
         return res.status(403).json({ success: false, error: '无权对其它区队的费用投票' });
       }
+      // PRD：大额支出采用「全班匿名问卷投票」，因此只有本区队同学（含本班干部）可投票
+      if (!scope.classId || String(scope.classId) !== String(expense.class_id)) {
+        return res.status(403).json({ success: false, error: '只有本区队同学可以参与该项投票' });
+      }
       const result = await ExpenseApproval.castVote(req.params.id, req.user.id, numericVote);
       if (!result.success) return res.status(400).json(result);
       res.json(result);

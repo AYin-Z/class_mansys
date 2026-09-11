@@ -129,7 +129,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/pages/fee/index', name: 'fee-index', component: FeeIndex },
   { path: '/pages/fee/expense-apply', name: 'fee-expense-apply', component: FeeExpenseApply },
   { path: '/pages/fee/expense-detail', name: 'fee-expense-detail', component: FeeExpenseDetail },
-  { path: '/pages/fee/approvals', name: 'fee-approvals', component: FeeApprovals, meta: { requiresAdmin: true, perm: 'APPROVE_FEE_USE' } },
+  // 大额报销投票按 PRD 向全班开放：学员也能进入（页面按服务端返回渲染，学员只会看到 step=3 的匿名投票项）
+  { path: '/pages/fee/approvals', name: 'fee-approvals', component: FeeApprovals },
   { path: '/pages/fee/publication-detail', name: 'fee-publication-detail', component: FeePublicationDetail },
 
   // ===== 个人中心 =====

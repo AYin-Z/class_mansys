@@ -65,7 +65,8 @@ async function handleVote(id: number, vote: 1 | 2) {
   try {
     const res = await castVote(id, vote)
     if (res.success) {
-      showToast(`已投票（${res.approveCount || 0} 赞成 / 需 ${voteResult.value?.totalVotes || '?'} 票）`)
+      const need = res.threshold || voteResult.value?.threshold || 19
+      showToast(`已投票（${res.approveCount || 0} 赞成 / 需 ${need} 票）`)
       approvals.value = approvals.value.filter(a => a.id !== id)
     } else {
       showToast(res.error || '投票失败', 'error')
@@ -76,7 +77,7 @@ async function handleVote(id: number, vote: 1 | 2) {
 
 const tierLabel = (t: string) => ({ small: '小额', medium: '中额', large: '大额' })[t] || t
 const stepLabel = (step: number) => ({ 1: '区队长审批', 2: '辅导员审批', 3: '全员投票' })[step] || '待处理'
-const canReview = (item: FeeExpense) => userStore.isAdmin && item.approval_step !== 3
+const canReview = (item: FeeExpense) => userStore.hasPermission('APPROVE_FEE_USE') && item.approval_step !== 3
 const canVote = (item: FeeExpense) => item.approval_step === 3
 </script>
 <template>

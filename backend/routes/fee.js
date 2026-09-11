@@ -23,11 +23,12 @@ router.get('/expenses', authenticateToken, requirePermission('VIEW_ROSTER'), Fee
 router.get('/expenses/:id', authenticateToken, FeeController.getExpenseDetail);
 
 // === 审批 ===
-router.get('/approvals/pending', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.getPendingApprovals);
+// 待审批/待投票列表：干部看到自己该审的步骤，学员看到 step=3 的匿名投票项（PRD：全班投票）
+router.get('/approvals/pending', authenticateToken, FeeController.getPendingApprovals);
 router.post('/approvals/:id', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.approveExpense);
 router.post('/approvals/:id/reject', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.rejectExpense);
-router.post('/approvals/:id/vote', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.castVote);
-router.get('/approvals/:id/votes', authenticateToken, requirePermission('APPROVE_FEE_USE'), FeeController.getVoteResult);
+router.post('/approvals/:id/vote', authenticateToken, FeeController.castVote);
+router.get('/approvals/:id/votes', authenticateToken, FeeController.getVoteResult);
 
 // === 公示 ===
 router.post('/publications', authenticateToken, requirePermission('BOOKKEEP_FEE'), validateBody(schemas.feePublicationCreate), FeeController.createPublication);

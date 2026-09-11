@@ -70,6 +70,8 @@ export interface VoteResult {
   approveCount: number
   rejectCount: number
   totalVotes: number
+  /** 通过门槛（依据 PRD：全班匿名投票 19 票） */
+  threshold: number
   thresholdMet: boolean
 }
 
@@ -181,12 +183,12 @@ export function rejectExpense(id: number, notes?: string): Promise<{ success: bo
 }
 
 /** 投票（大额审批） */
-export function castVote(expenseId: number, vote: 1 | 2): Promise<{ success: boolean; approveCount?: number; error?: string }> {
+export function castVote(expenseId: number, vote: 1 | 2): Promise<{ success: boolean; approveCount?: number; threshold?: number; thresholdMet?: boolean; error?: string }> {
   return post(`/api/fee/approvals/${expenseId}/vote`, { vote })
 }
 
 /** 获取投票结果 */
-export function getVoteResult(expenseId: number): Promise<{ success: boolean; approveCount: number; rejectCount: number; totalVotes: number; thresholdMet: boolean }> {
+export function getVoteResult(expenseId: number): Promise<{ success: boolean; approveCount: number; rejectCount: number; totalVotes: number; threshold: number; thresholdMet: boolean }> {
   return get(`/api/fee/approvals/${expenseId}/votes`)
 }
 

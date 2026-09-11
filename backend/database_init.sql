@@ -468,7 +468,8 @@ INSERT IGNORE INTO points (user_id, score, reason, created_by) VALUES
 (1, 5, '参与区队活动', 1);
 
 -- 创建索引
-CREATE INDEX idx_users_student_id ON users(student_id);
+-- 注意：users.student_id 已有 UNIQUE 约束（唯一索引），不要再为它单独建普通索引（冗余）；
+-- 历史的 idx_users_student_id / idx_test 已由 migrations/019_drop_redundant_indexes.sql 清理。
 CREATE INDEX idx_classes_company_id ON classes(company_id);
 CREATE INDEX idx_users_class_id ON users(class_id);
 CREATE INDEX idx_leaves_user_id ON leaves(user_id);
