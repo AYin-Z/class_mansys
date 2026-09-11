@@ -14,6 +14,12 @@ concurrency:
   group: android-build-${{ github.ref }}
   cancel-in-progress: false
 
+# 构建完成后要把 app-version.json 提交回仓库（CI Bot），
+# 默认 GITHUB_TOKEN 是只读的，缺了这段会 403：
+#   remote: Permission to AYin-Z/class_mansys.git denied to github-actions[bot].
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: self-hosted
@@ -186,6 +192,21 @@ jobs:
           git add backend/data/app-version.json
           git commit -m "chore: auto-build APK v${{ steps.version.outputs.VERSION_NAME }} (code ${{ steps.version.outputs.VERSION_CODE }})" || echo "无变更需要提交"
           git push origin main
+
+      - name: 🔄 同步代码到生产目录
+        # 生产服务跑在 /home/ayin/Current_Works/class_mansys（与 runner 的 checkout 不是一个目录），
+        # 上一步只是把 app-version.json 推回了 GitHub；这里把它拉到生产目录，
+        # 否则 /api/app/latest 永远返回旧版本（重启也白搭）。
+        # 生产目录若有本地改动，pull 会失败——只告警不中断构建（重启照旧）。
+        run: |
+          PROD_DIR=/home/ayin/Current_Works/class_mansys
+          git -C "$PROD_DIR" fetch origin main
+          git -C "$PROD_DIR" pull --ff-only origin main || {
+            echo "::warning::生产目录 $PROD_DIR 未能快进合并（可能有本地改动），版本文件未更新，请手动处理"
+            git -C "$PROD_DIR" status --short | head -10
+          }
+          echo "生产目录 app-version.json："
+          head -6 "$PROD_DIR/backend/data/app-version.json"
 
       - name: 🔄 重启后端服务
         run: |
