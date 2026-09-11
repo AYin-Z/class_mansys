@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createRequire } from 'node:module';
+
+// CI 环境没有 backend/.env，必须显式给出 JWT_SECRET，
+// 否则 config/env 校验/签名会抛 'secretOrPrivateKey must have a value'
+process.env.NODE_ENV = process.env.NODE_ENV || 'test';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test_secret_1234567';
+
 const require = createRequire(import.meta.url);
 
 const envModule = require('../../config/env');

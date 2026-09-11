@@ -13,6 +13,17 @@ concurrency:
 jobs:
   backend:
     runs-on: self-hosted
+    # ⚠️ 本仓库是公开仓库：数据库口令只能走 GitHub Secrets，绝不能写进本文件。
+    # 专用测试账号 ci_runner 只有 class_manage_sys_test 库的权限（无法读生产库），
+    # 由 scripts/setup-ci-db-user.sh 在宿主机 MySQL 上创建。
+    env:
+      NODE_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_NAME: class_manage_sys_test
+      DB_USER: ${{ secrets.CI_DB_USER || 'ci_runner' }}
+      DB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
+      JWT_SECRET: ci_only_test_secret_please_do_not_reuse
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,6 +34,9 @@ jobs:
         working-directory: backend
       - name: Lint
         run: npm run lint
+        working-directory: backend
+      - name: 应用数据库迁移（测试库）
+        run: node scripts/migrate.js up
         working-directory: backend
       - name: Unit + smoke tests
         run: npm test

@@ -8,8 +8,11 @@ process.env.JWT_SECRET = 'test_secret_1234567';
 const require = createRequire(import.meta.url);
 const request = require('supertest');
 const app = require('../../app');
+const { dbSuite } = require('../lib/dbProbe');
 
 const ACCEPT = 'application/json, text/event-stream';
+// 令牌校验需要真的查库（查不到令牌才是 401）；无库环境跳过，CI 中不跳过
+const withDb = await dbSuite();
 
 describe('MCP over HTTP 路由（认证与协议外壳）', () => {
   it('未带令牌时 /api/mcp/info 返回 401', async () => {
@@ -18,15 +21,17 @@ describe('MCP over HTTP 路由（认证与协议外壳）', () => {
     expect(res.body.success).toBe(false);
   });
 
-  it('无效令牌返回 401（不泄露是否存在）', async () => {
-    const res = await request(app).get('/api/mcp/info').set('Authorization', 'Bearer cm_not_a_real_token');
-    expect(res.status).toBe(401);
-    expect(res.body.error).toMatch(/令牌无效或已吊销/);
-  });
+  withDb('令牌校验（需要数据库）', () => {
+    it('无效令牌返回 401（不泄露是否存在）', async () => {
+      const res = await request(app).get('/api/mcp/info').set('Authorization', 'Bearer cm_not_a_real_token');
+      expect(res.status).toBe(401);
+      expect(res.body.error).toMatch(/令牌无效或已吊销/);
+    });
 
-  it('支持 x-api-key 头但同样需要有效令牌', async () => {
-    const res = await request(app).get('/api/mcp/info').set('x-api-key', 'cm_nope');
-    expect(res.status).toBe(401);
+    it('支持 x-api-key 头但同样需要有效令牌', async () => {
+      const res = await request(app).get('/api/mcp/info').set('x-api-key', 'cm_nope');
+      expect(res.status).toBe(401);
+    });
   });
 
   it('POST 无令牌返回 401，不支持的 GET/DELETE 返回 405', async () => {

@@ -21,11 +21,10 @@ jobs:
     env:
       ANDROID_HOME: /home/ayin/android-sdk
       JAVA_HOME: /usr/lib/jvm/java-21-openjdk-amd64
-      # 签名配置（从 GitHub Secrets 读取）
-      KEYSTORE_PATH: /home/ayin/android-key/class-mansys-release.keystore
-      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      # ⚠️ 签名相关的 KEYSTORE_PATH / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD
+      # 不在这里设默认值：build.gradle 是「KEYSTORE_PATH 非空 → release 签名，否则 debug 签名」，
+      # 若在此处无条件给出 KEYSTORE_PATH，缺 secrets 时会拿空口令去走 release 签名而失败，
+      # 回退 debug 的分支就永远不会生效。签名参数统一由「🔐 准备签名」步骤注入。
       # 前端 API 地址（生产）
       VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
 
@@ -84,7 +83,14 @@ jobs:
             } >> "$GITHUB_ENV"
             echo "✅ 使用 release 签名"
           else
-            echo "SIGN_MODE=debug" >> "$GITHUB_ENV"
+            {
+              echo "SIGN_MODE=debug"
+              # 显式清空，确保 build.gradle 走到 debug 签名分支（即使以后有人在 job env 里加了默认值）
+              echo "KEYSTORE_PATH="
+              echo "KEYSTORE_PASSWORD="
+              echo "KEY_ALIAS="
+              echo "KEY_PASSWORD="
+            } >> "$GITHUB_ENV"
             echo "::warning::未配置 release 签名 secrets（KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD），本次回退 debug 签名。"
             echo "说明：线上已发布的 APK（v1.2.0）本身即 CN=Android Debug 调试签名，因此 debug 签名的新包可以直接覆盖安装；"
             echo "配置 secrets 后本工作流会自动切回 release 签名（届时用户需卸载重装一次）。"
