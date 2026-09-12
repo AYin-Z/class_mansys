@@ -50,9 +50,9 @@ const LOCAL_TOOLS = [
 
 // 干部管理快捷工具（写操作需二次确认）
 const CADRE_CURATED = [
-  { name: 'pending_leave_approvals', label: '待审批请假', method: 'GET', path: '/api/leave/all', desc: '查看全部请假记录（干部），可据此筛选待审批项' },
+  { name: 'pending_leave_approvals', label: '待审批请假', method: 'GET', path: '/api/leave/all', desc: '查看全部请假记录（需 VIEW_ROSTER 权限），可据此筛选待审批项' },
   { name: 'pending_fee_approvals', label: '待审批班费', method: 'GET', path: '/api/fee/approvals/pending', desc: '查看当前待我审批的班费申请' },
-  { name: 'roster_search', label: '成员名册', method: 'GET', path: '/api/admin/members', desc: '按姓名/学号/手机号搜索本区队成员（干部）', query: ['keyword'] },
+  { name: 'roster_search', label: '成员名册', method: 'GET', path: '/api/admin/members', desc: '按姓名/学号/手机号搜索本区队成员（需 VIEW_ROSTER 权限）', query: ['keyword'] },
   {
     name: 'publish_notice', label: '发布通知', method: 'POST', path: '/api/notice/create', write: true,
     desc: '发布通知（干部）。is_todo=true 时成员需点完成', body: ['title', 'content', 'type', 'is_todo', 'is_pinned']
@@ -97,8 +97,8 @@ const CURATED = [
     name: 'submit_suggestion', label: '写建议信', method: 'POST', path: '/api/suggestion', write: true,
     desc: '匿名提交建议/反馈（内容至少 5 个字）', body: ['content', 'category']
   },
-  { name: 'company_attendance', label: '中队出勤概览', method: 'GET', path: '/api/company/overview', desc: '各区队出勤/请假/未销假统计（需干部权限）', query: ['date'] },
-  { name: 'company_leave_records', label: '中队当日请假明细', method: 'GET', path: '/api/company/leave-records', desc: '当日跨区队请假明细（需干部权限）', query: ['date', 'company_id'] },
+  { name: 'company_attendance', label: '中队出勤概览', method: 'GET', path: '/api/company/overview', desc: '各区队出勤/请假/未销假统计（需 VIEW_COMPANY 权限）', query: ['date'] },
+  { name: 'company_leave_records', label: '中队当日请假明细', method: 'GET', path: '/api/company/leave-records', desc: '当日跨区队请假明细（需 VIEW_COMPANY 权限）', query: ['date', 'company_id'] },
   { name: 'my_psychological', label: '我的心理申请', method: 'GET', path: '/api/psychological/mine', desc: '查看本人心理援助申请及处理状态' },
   { name: 'create_psychological', label: '提交心理申请', method: 'POST', path: '/api/psychological', write: true, desc: '提交心理援助申请（内容至少 3 字）', body: ['content'] },
   { name: 'list_albums', label: '相册列表', method: 'GET', path: '/api/album', desc: '查看区队相册' },
