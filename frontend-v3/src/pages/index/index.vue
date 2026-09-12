@@ -98,8 +98,33 @@ function goTo(path: string) {
       <span class="todo-more">查看 ›</span>
     </button>
 
-    <!-- 置顶通知 + 公告 -->
-    <div v-if="pinnedNotices.length > 0 || pinnedAnnouncements.length > 0" class="pinned-bar">
+    <!--
+      置顶公告：公告是"公开告知"性质，必须一眼看到。
+      此前它混在下面那条细窄的滚动条里（和通知挤在一起），存在感太低，
+      因此单独做成首屏卡片（最多 2 条）。
+    -->
+    <div v-if="pinnedAnnouncements.length > 0" class="announce-block">
+      <button
+        v-for="item in pinnedAnnouncements.slice(0, 2)"
+        :key="'ann' + item.id"
+        class="announce-card"
+        type="button"
+        @click="goToAnnouncement(item.id)"
+      >
+        <span class="announce-icon"><AppIcon name="megaphone" :size="18" /></span>
+        <span class="announce-body">
+          <span class="announce-head">
+            <span class="announce-tag">公告</span>
+            <span class="announce-date">{{ item.created_at ? String(item.created_at).slice(0, 10) : '' }}</span>
+          </span>
+          <span class="announce-title">{{ item.title }}</span>
+        </span>
+        <AppIcon name="chevron-right" :size="18" />
+      </button>
+    </div>
+
+    <!-- 置顶通知（公告已单独成卡，这里只显示通知，避免重复） -->
+    <div v-if="pinnedNotices.length > 0" class="pinned-bar">
       <div class="pinned-inner">
         <span class="pinned-icon"><AppIcon name="bell" :size="14" /></span>
         <div class="pinned-scroll">
@@ -110,14 +135,6 @@ function goTo(path: string) {
             @click="goToNotice(item.id)"
           >
             <span class="pinned-tag">通知</span>{{ item.title }}
-          </span>
-          <span
-            v-for="item in pinnedAnnouncements"
-            :key="'a' + item.id"
-            class="pinned-item"
-            @click="goToAnnouncement(item.id)"
-          >
-            <span class="pinned-tag type-ann">公告</span>{{ item.title }}
           </span>
         </div>
       </div>
@@ -187,6 +204,39 @@ function goTo(path: string) {
 
 <style scoped>
 .home-page { padding-bottom: var(--spacing-lg); }
+
+/* 置顶公告卡片：公告是公开告知，做成首屏显眼卡片 */
+.announce-block {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 12px 0;
+}
+.announce-card {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: 64px; padding: 12px 14px;
+  border: 1px solid var(--color-accent-bg);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-accent-bg), var(--color-surface));
+  color: var(--color-text);
+  font-family: inherit; text-align: left; cursor: pointer;
+}
+.announce-card:active { opacity: 0.9; }
+.announce-icon {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--color-accent); color: #fff;
+}
+.announce-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.announce-head { display: flex; align-items: center; gap: 6px; }
+.announce-tag {
+  font-size: var(--font-size-2xs); font-weight: 700; letter-spacing: 0.5px;
+  color: var(--color-accent);
+}
+.announce-date { font-size: var(--font-size-2xs); color: var(--color-text-3); }
+.announce-title {
+  font-size: var(--font-size-md); font-weight: 600; line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 
 /* 待办提醒条 */
 .todo-banner {
