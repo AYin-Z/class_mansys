@@ -61,6 +61,8 @@ const sending = ref(false)
 const uploading = ref(false)
 const conversationId = ref<number | undefined>(undefined)
 const pending = ref<AgentPendingAction | null>(null)
+/** 高危操作的额外确认勾选：换一张卡片就重置，避免上次的勾选被沿用 */
+const highRiskAck = ref(false)
 /** 确认卡片下发时间：用于显示剩余有效期（此前卡片没有过期信息，过期点确认只报错） */
 const pendingAt = ref(0)
 const nowTick = ref(Date.now())
@@ -265,12 +267,14 @@ async function send(text?: string) {
     if (streamed) {
       if (streamed.conversationId) conversationId.value = streamed.conversationId
       pending.value = streamed.pendingAction || null
+      highRiskAck.value = false
       if (pending.value) pendingAt.value = Date.now()
     } else {
       const res = await agentChat(content, conversationId.value, atts)
       if (res?.conversationId) conversationId.value = res.conversationId
       if (res?.reply) messages.value.push({ role: 'assistant', content: res.reply })
       pending.value = res?.pendingAction || null
+      highRiskAck.value = false
       if (pending.value) pendingAt.value = Date.now()
     }
   } catch (e: any) {
@@ -289,6 +293,7 @@ async function confirmAction() {
     const res = await agentConfirm(action.id)
     messages.value.push({ role: 'assistant', content: res?.reply || '已处理' })
     pending.value = null
+    highRiskAck.value = false
   } catch (e: any) {
     showToast(e?.message || '执行失败', 'error')
   } finally {
@@ -299,6 +304,7 @@ async function confirmAction() {
 
 function cancelAction() {
   pending.value = null
+  highRiskAck.value = false
   messages.value.push({ role: 'assistant', content: '好的，已取消这次操作。' })
 }
 
@@ -547,19 +553,39 @@ function stopBotPolling() {
         </div>
       </div>
 
-      <div v-if="pending" class="confirm-card" :class="{ expired: pendingExpired }">
+      <div
+        v-if="pending"
+        class="confirm-card"
+        :class="{ expired: pendingExpired, 'is-high': pending.risk === 'high' }"
+      >
         <div class="confirm-title">
-          待确认操作
+          <span v-if="pending.risk === 'high'" class="confirm-risk">高影响操作</span>
+          <span v-else>待确认操作</span>
           <span class="confirm-ttl">{{ pendingExpired ? '已过期' : `剩余 ${pendingLeftText}` }}</span>
         </div>
         <div class="confirm-body">{{ pending.label }}</div>
         <div class="confirm-preview">{{ pending.preview }}</div>
+        <!-- 影响面必须显眼：这是用户判断要不要点的唯一依据 -->
+        <div v-if="pending.impact" class="confirm-impact" :class="{ danger: pending.irreversible }">
+          {{ pending.irreversible ? '⚠️ ' : '' }}{{ pending.impact }}
+        </div>
         <div v-if="pendingExpired" class="confirm-expired-hint">
           确认卡片有效期 5 分钟，已过期。请重新对助手说一遍你要办的事。
         </div>
+        <!-- 高危操作加摩擦：不勾选就没法点确认，让「随手一点」不成立 -->
+        <label v-if="pending.risk === 'high' && !pendingExpired" class="confirm-ack">
+          <input v-model="highRiskAck" type="checkbox" />
+          <span>我已核对上面的影响，确认要执行</span>
+        </label>
         <div class="confirm-actions">
           <button class="btn-ghost" :disabled="sending" @click="cancelAction">取消</button>
-          <button class="btn-primary" :disabled="sending || pendingExpired" @click="confirmAction">确认执行</button>
+          <button
+            class="btn-primary"
+            :disabled="sending || pendingExpired || (pending.risk === 'high' && !highRiskAck)"
+            @click="confirmAction"
+          >
+            {{ pending.risk === 'high' ? '确认执行（高影响）' : '确认执行' }}
+          </button>
         </div>
       </div>
 
@@ -829,6 +855,24 @@ function stopBotPolling() {
 .confirm-body { font-size: 14px; color: var(--color-text); margin-bottom: 4px; }
 .confirm-preview { font-size: 12px; color: var(--color-text-3); word-break: break-all; margin-bottom: 10px; }
 .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.confirm-card.is-high { border-left-color: var(--color-error); }
+.confirm-card.is-high .confirm-title { color: var(--color-error); }
+.confirm-risk {
+  display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 4px;
+  background: var(--color-error); color: #fff; font-size: var(--font-size-2xs);
+}
+/* 影响面必须比正文更醒目——这是用户判断要不要点的唯一依据 */
+.confirm-impact {
+  margin: 2px 0 10px; padding: 8px 10px; border-radius: var(--radius-sm);
+  background: var(--color-warning-bg, rgba(245, 158, 11, 0.12));
+  font-size: var(--font-size-xs); line-height: 1.5; color: var(--color-text);
+}
+.confirm-impact.danger { background: rgba(239, 68, 68, 0.12); color: var(--color-error); font-weight: 500; }
+.confirm-ack {
+  display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px;
+  font-size: var(--font-size-xs); line-height: 1.5; color: var(--color-text-2); cursor: pointer;
+}
+.confirm-ack input { margin-top: 2px; flex: 0 0 auto; width: 16px; height: 16px; }
 
 .quick { display: flex; gap: 6px; overflow-x: auto; padding: 6px 12px; flex: 0 0 auto; }
 .chip {

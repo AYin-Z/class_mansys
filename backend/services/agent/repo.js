@@ -52,10 +52,13 @@ class AgentRepo {
     return Number(rows[0]?.c || 0);
   }
 
-  static async createAction({ conversationId, userId, tool, method, path, params, preview, ttlMs }) {
+  static async createAction({ conversationId, userId, tool, method, path, params, preview, risk, impact, ttlMs }) {
     const [r] = await db.query(
-      'INSERT INTO agent_actions (conversation_id, user_id, tool, method, path, params, preview, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND))',
-      [conversationId || null, userId, tool, method, path, JSON.stringify(params || {}), preview || null, Math.round((ttlMs || 300000) / 1000)]
+      'INSERT INTO agent_actions (conversation_id, user_id, tool, method, path, params, preview, risk, impact, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND))',
+      [
+        conversationId || null, userId, tool, method, path, JSON.stringify(params || {}),
+        preview || null, risk || 'medium', impact || null, Math.round((ttlMs || 300000) / 1000)
+      ]
     );
     return r.insertId;
   }

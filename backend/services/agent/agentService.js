@@ -2,6 +2,7 @@ const AgentRepo = require('./repo');
 const llm = require('./llm');
 const { buildTools, agentCatalog, toOpenAiTools, isWriteCall } = require('./toolCatalog');
 const { preview, execute } = require('./toolRunner');
+const actionPreview = require('./actionPreview');
 const { buildSystemPrompt, buildUserContext } = require('./persona');
 const usage = require('./usage');
 const { trimHistoryToBudget } = require('./history');
@@ -128,6 +129,8 @@ class AgentService {
         // 写操作 → 生成待确认动作，交给用户确认
         // （模块工具的 action 是真实端点，非 GET 也必须走确认，否则可绕过确认直接写库）
         if (isWriteCall(tool, args)) {
+          // 卡片内容走 actionPreview：说人话 + 由后端查真实影响面（见该模块注释）
+          const desc = await actionPreview.describe(tool, args);
           const actionId = await AgentRepo.createAction({
             conversationId: convId,
             userId: user.id,
@@ -135,10 +138,15 @@ class AgentService {
             method: tool.method,
             path: tool.path,
             params: args,
-            preview: preview(tool, args),
+            preview: desc.summary,
+            risk: desc.risk,
+            impact: desc.impact,
             ttlMs: env.AGENT_ACTION_TTL_MS
           });
-          pendingAction = { id: actionId, tool: tool.name, label: tool.label || tool.name, preview: preview(tool, args) };
+          pendingAction = {
+            id: actionId, tool: tool.name, label: tool.label || tool.name,
+            preview: desc.summary, risk: desc.risk, impact: desc.impact, irreversible: desc.irreversible
+          };
           reply = '需要你确认后才会执行：' + pendingAction.label + ' —— ' + pendingAction.preview;
           blocked = true;
           break;
@@ -275,11 +283,15 @@ class AgentService {
           continue;
         }
         if (isWriteCall(tool, args)) {
+          const desc = await actionPreview.describe(tool, args);
           const actionId = await AgentRepo.createAction({
             conversationId: convId, userId: user.id, tool: tool.name, method: tool.method, path: tool.path,
-            params: args, preview: preview(tool, args), ttlMs: env.AGENT_ACTION_TTL_MS
+            params: args, preview: desc.summary, risk: desc.risk, impact: desc.impact, ttlMs: env.AGENT_ACTION_TTL_MS
           });
-          pendingAction = { id: actionId, tool: tool.name, label: tool.label || tool.name, preview: preview(tool, args) };
+          pendingAction = {
+            id: actionId, tool: tool.name, label: tool.label || tool.name,
+            preview: desc.summary, risk: desc.risk, impact: desc.impact, irreversible: desc.irreversible
+          };
           reply = '需要你确认后才会执行：' + pendingAction.label + ' —— ' + pendingAction.preview;
           send({ type: 'pending', action: pendingAction });
           blocked = true;

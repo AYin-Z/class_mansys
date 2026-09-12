@@ -13,6 +13,12 @@ export interface AgentPendingAction {
   tool: string
   label: string
   preview: string
+  /** low / medium / high —— 决定卡片的摩擦强度 */
+  risk?: 'low' | 'medium' | 'high'
+  /** 人话描述的真实影响面（后端查库得出，如「全中队 215 人会立刻收到这条推送」） */
+  impact?: string
+  /** 是否不可逆（删除、发布全员通知等） */
+  irreversible?: boolean
 }
 
 export interface AgentAttachment {
