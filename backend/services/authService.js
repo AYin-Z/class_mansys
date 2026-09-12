@@ -86,9 +86,24 @@ function fallbackStudentId(prefix, value) {
   return prefix + '_' + digest;
 }
 
+/**
+ * 签发会话 JWT
+ *
+ * P2-2：带上 tv = 该用户当前的 users.token_version。校验端（middleware/auth.js）会用它
+ * 判断令牌是否已被"改密/重置密码/移出"作废。注意调用方必须在 token_version 变更**之后**
+ * 重新读取用户再签发，否则会签出一个立刻就失效的令牌（见 AuthController.changePassword）。
+ */
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, openid: user.openid, role: user.role, isAdmin: user.role > 0, class_id: user.class_id || null },
+    {
+      id: user.id,
+      openid: user.openid,
+      role: user.role,
+      isAdmin: user.role > 0,
+      class_id: user.class_id || null,
+      // 老用户对象（未查 token_version 字段）按 0 处理，与迁移前的语义一致
+      tv: Number(user.token_version || 0)
+    },
     env.JWT_SECRET,
     { expiresIn: env.JWT_EXPIRES_IN }
   );

@@ -5,6 +5,7 @@ const mediaService = require('../services/mediaService');
 const { isAdmin } = require('../shared/constants');
 const { resolveScope, filterByClassScope, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
 const { stampClassId } = require('../shared/classStamp');
+const { parseCursorPaging, decodeCursor } = require('../shared/paging');
 
 class AlbumController {
   /* ---------- 相册 ---------- */
@@ -48,8 +49,23 @@ class AlbumController {
       }
       // 待审核照片对"有审核权的人"可见（不只是 role>=8）
       const includePending = await mediaService.canApprovePhotos(req.user);
-      const photos = await Photo.getByAlbum(req.params.id, includePending);
-      res.json({ success: true, album, photos });
+
+      // 相册照片流分页（P1-3）：只有带了 limit/cursor 才走游标分页；
+      // 不带参数 = 旧客户端，行为与分页前完全一致（全量 + 原字段名）。
+      const paging = parseCursorPaging(req.query);
+      if (!paging.paged) {
+        const photos = await Photo.getByAlbum(req.params.id, includePending);
+        return res.json({ success: true, album, photos });
+      }
+
+      const cursor = decodeCursor(paging.cursor); // 非法游标按"第一页"处理，不报错
+      const { photos, hasMore, nextCursor } = await Photo.getAlbumPage(req.params.id, {
+        includePending,
+        limit: paging.limit,
+        cursor
+      });
+      // nextCursor / hasMore / limit 都是**追加**字段，photos / album 原样保留
+      return res.json({ success: true, album, photos, limit: paging.limit, hasMore, nextCursor });
     } catch (e) {
       res.status(500).json({ success: false, error: '获取相册详情失败' });
     }

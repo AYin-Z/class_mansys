@@ -1,7 +1,8 @@
 const Notice = require('../models/Notice');
 const { isAdmin } = require('../shared/constants');
-const { resolveScope, filterByClassScope, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
+const { resolveScope, filterByClassScope, classScopeSql, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
 const { stampClassId } = require('../shared/classStamp');
+const { parsePaging, buildPageMeta } = require('../shared/paging');
 
 class NoticeController {
   static async createNotice(req, res) {
@@ -34,8 +35,29 @@ class NoticeController {
   static async getNotices(req, res) {
     try {
       const scope = await resolveScope(req.user);
-      const notices = filterByClassScope(await Notice.getAll(req.user.id), scope);
-      res.json({ success: true, notices });
+
+      // 分页（P1-3）：不带 page/pageSize = 旧客户端，走原路径，响应字段一字不变。
+      const paging = parsePaging(req.query);
+      if (!paging.paged) {
+        const notices = filterByClassScope(await Notice.getAll(req.user.id), scope);
+        return res.json({ success: true, notices });
+      }
+
+      // 可见性过滤下推到 SQL（否则每页条数会被后置过滤削掉）；scope 逻辑本身未改，
+      // 这里复用的就是 filterByClassScope 同源的 classScopeSql，之后仍再过滤一次兜底。
+      const scopeFilter = classScopeSql(scope, 'n.class_id');
+      const { rows, total } = await Notice.getPage(req.user.id, {
+        scopeFilter,
+        limit: paging.limit,
+        offset: paging.offset
+      });
+      const notices = filterByClassScope(rows, scope);
+      // page/pageSize/total/hasMore 是追加字段，notices 原样保留
+      return res.json({
+        success: true,
+        notices,
+        ...buildPageMeta({ page: paging.page, pageSize: paging.pageSize, total })
+      });
     } catch (error) {
       console.error('获取通知列表失败:', error);
       res.status(500).json({ success: false, error: '获取通知失败' });

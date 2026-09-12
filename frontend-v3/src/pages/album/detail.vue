@@ -11,7 +11,7 @@
  *    （中图分级加载 + 失败回退、左右滑动、预加载相邻、键盘、滚动锁都在组件里）。
  *  - 删除走 `DELETE /api/album/photos/:id`（同一端点：待审核=驳回）。
  */
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { approvePhoto, deleteAlbum, deletePhoto, getAlbumDetail } from '@/api/album'
 import type { AlbumItem, PhotoItem } from '@/api/album'
@@ -34,6 +34,9 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
+/** 每页张数（后端上限 100，超出会截断）；照片网格一屏 3–5 列，30 张约 6–10 行 */
+const PHOTO_PAGE_SIZE = 30
+
 const albumId = computed(() => Number(route.query.id) || 0)
 const canManage = computed(() => userStore.hasPermission('MANAGE_ALBUM'))
 const canApprovePhoto = computed(() => userStore.hasPermission('APPROVE_PHOTO'))
@@ -43,18 +46,36 @@ const album = ref<AlbumItem | null>(null)
 const photos = ref<PhotoItem[]>([])
 const loading = ref(true)
 const error = ref<unknown>(null)
+/** 触底加载状态：分页请求进行中（首屏另由 loading 表达） */
+const loadingMore = ref(false)
+/** 下一页游标；null = 没有下一页（或后端是老版本、不支持分页） */
+const nextCursor = ref<string | null>(null)
+const hasMorePhotos = ref(false)
+
+/** 底部哨兵：进入视口即加载下一页照片 */
+const sentinel = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
+let scrollFallbackAttached = false
 
 /** 网格图片的加载 / 失败状态（骨架与占位图标都靠它） */
 const photoLoaded = ref<Record<number, boolean>>({})
 const photoBroken = ref<Record<number, boolean>>({})
 const coverBroken = ref(false)
 
+/**
+ * 拉第 1 页照片（游标分页，不带 cursor）
+ *
+ * 老后端不认识 limit/cursor 时会忽略参数、返回全量且**不带** hasMore；
+ * 这时 `hasMore=false` 正好退化成"一次全量"，与分页前的行为一致。
+ */
 async function fetchDetail() {
   const id = albumId.value
   if (!id) throw new Error('相册 ID 无效，请返回列表重新进入')
-  const res = await getAlbumDetail(id)
+  const res = await getAlbumDetail(id, { limit: PHOTO_PAGE_SIZE })
   album.value = res.album || null
   photos.value = res.photos || []
+  nextCursor.value = res.nextCursor ?? null
+  hasMorePhotos.value = !!res.hasMore
 }
 
 async function load() {
@@ -66,19 +87,100 @@ async function load() {
     error.value = e
   } finally {
     loading.value = false
+    void autoFill()
   }
 }
 
 onMounted(load)
 
-/** 上传/删除/审核后刷新照片（不切 loading 态，列表不闪白） */
+/**
+ * 上传/删除/审核后刷新照片（不切 loading 态，列表不闪白）
+ *
+ * 做法选择：**重置回第一页**（而不是保留已加载页数）。
+ * 游标分页没法一条 SQL 重取"前 N 页"，逐页重放会放大请求数；重置只多发一次请求，
+ * 也不会出现"删掉中间一张后前后页错位"。用户此前滑得很深时，底部哨兵会立刻可见，
+ * autoFill 会把后面的页自动补回来（观感是短暂回到第一页后继续加载）。
+ */
 async function reloadPhotos() {
   try {
     await fetchDetail()
+    void autoFill()
   } catch (e) {
     toastIfNotNotified(e, '照片列表刷新失败，请下拉重试')
   }
 }
+
+/** 触底加载下一页照片；失败只提示，已加载的照片不动 */
+async function loadMorePhotos() {
+  if (loading.value || loadingMore.value || !hasMorePhotos.value) return
+  const cursor = nextCursor.value
+  if (!cursor) {
+    hasMorePhotos.value = false
+    return
+  }
+  loadingMore.value = true
+  let appended = false
+  try {
+    const res = await getAlbumDetail(albumId.value, { limit: PHOTO_PAGE_SIZE, cursor })
+    const list = res.photos || []
+    // 按 id 去重：并发/重试造成重复请求时也不会出现同一张照片两次
+    const seen = new Set(photos.value.map((p) => p.id))
+    const fresh = list.filter((p) => !seen.has(p.id))
+    // 空页，或整页都是重复（后端分页失效）→ 直接收尾，避免无限请求
+    if (fresh.length === 0) {
+      hasMorePhotos.value = false
+      return
+    }
+    photos.value = [...photos.value, ...fresh]
+    nextCursor.value = res.nextCursor ?? null
+    // 没有下一页游标就等于到底（老后端不返回 hasMore 时也不会无限请求）
+    hasMorePhotos.value = !!res.hasMore && !!res.nextCursor
+    appended = true
+  } catch (e) {
+    // 失败**不自动重试**：哨兵一直在视口内的话会变成请求风暴；等用户再滚动触发
+    toastIfNotNotified(e, '加载更多照片失败，请稍后重试')
+  } finally {
+    loadingMore.value = false
+    if (appended) void autoFill()
+  }
+}
+
+/** 追加一页后若哨兵仍在视口内，继续补一页（相册页首屏较高时会连补） */
+async function autoFill() {
+  await nextTick()
+  const el = sentinel.value
+  if (!el || !hasMorePhotos.value || loadingMore.value || loading.value) return
+  if (el.getBoundingClientRect().top <= (window.innerHeight || 0) + 200) void loadMorePhotos()
+}
+
+function onScrollFallback() {
+  const el = sentinel.value
+  if (!el || !hasMorePhotos.value || loadingMore.value || loading.value) return
+  if (el.getBoundingClientRect().top <= (window.innerHeight || 0) + 200) void loadMorePhotos()
+}
+
+watch(sentinel, (el) => {
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+  if (!el) return
+  // 单元测试环境（jsdom）与极老 WebView 都没有 IntersectionObserver，退回滚动监听
+  if (typeof IntersectionObserver === 'undefined') {
+    if (!scrollFallbackAttached) {
+      scrollFallbackAttached = true
+      window.addEventListener('scroll', onScrollFallback, { passive: true })
+    }
+    return
+  }
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((e) => e.isIntersecting)) void loadMorePhotos()
+    },
+    { rootMargin: '200px 0px' },
+  )
+  observer.observe(el)
+})
 
 /* ────────────── 上传管线 ────────────── */
 
@@ -416,6 +518,9 @@ async function removeAlbum() {
 onBeforeUnmount(() => {
   // 键盘/滚动锁由 ImageViewer 自己收尾，这里只回收本地预览地址
   for (const item of queue.value) URL.revokeObjectURL(item.previewUrl)
+  // 触底加载的观察者/兜底监听也要收掉
+  if (observer) observer.disconnect()
+  if (scrollFallbackAttached) window.removeEventListener('scroll', onScrollFallback)
 })
 
 function formatDate(t: string): string {
@@ -588,6 +693,22 @@ function formatDate(t: string): string {
               <BaseBadge variant="warning">待审核</BaseBadge>
             </span>
           </button>
+
+          <!-- 加载下一页时的骨架占位（沿用网格自身的脉冲动画，不写死颜色） -->
+          <template v-if="loadingMore">
+            <div
+              v-for="i in 6"
+              :key="`photo-skeleton-${i}`"
+              class="photo-cell is-loading skeleton-cell"
+              aria-hidden="true"
+            />
+          </template>
+        </div>
+
+        <!-- 触底加载哨兵：进入视口拉下一页；到底提示「没有更多了」 -->
+        <div ref="sentinel" class="load-footer">
+          <StateView v-if="loadingMore" slim loading />
+          <p v-else-if="!hasMorePhotos && photos.length > 0" class="load-end">没有更多了</p>
         </div>
       </template>
     </StateView>
@@ -819,5 +940,22 @@ function formatDate(t: string): string {
   color: var(--color-text-3);
 }
 .cell-badge { position: absolute; left: 4px; top: 4px; }
+
+/* 加载下一页的骨架格：沿用 .photo-cell 的脉冲动画与令牌底色 */
+.skeleton-cell { pointer-events: none; }
+
+/* 触底加载：哨兵 + 加载中 / 到底提示 */
+.load-footer {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 8px;
+}
+.load-end {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-3);
+  padding: 12px 0;
+}
 
 </style>

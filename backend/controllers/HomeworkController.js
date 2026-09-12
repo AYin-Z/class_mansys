@@ -1,8 +1,9 @@
 const Homework = require('../models/Homework');
 
 const { isAdmin } = require('../shared/constants');
-const { resolveScope, filterByClassScope, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
+const { resolveScope, filterByClassScope, classScopeSql, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
 const { stampClassId } = require('../shared/classStamp');
+const { parsePaging, buildPageMeta } = require('../shared/paging');
 
 class HomeworkController {
   static async create(req, res) {
@@ -27,8 +28,26 @@ class HomeworkController {
   static async list(req, res) {
     try {
       const scope = await resolveScope(req.user);
-      const homeworks = filterByClassScope(await Homework.getAll(), scope);
-      res.json({ success: true, homeworks });
+
+      // 分页（P1-3）：不带 page/pageSize = 旧客户端，走原路径，响应字段一字不变。
+      const paging = parsePaging(req.query);
+      if (!paging.paged) {
+        const homeworks = filterByClassScope(await Homework.getAll(), scope);
+        return res.json({ success: true, homeworks });
+      }
+
+      const scopeFilter = classScopeSql(scope, 'h.class_id');
+      const { rows, total } = await Homework.getPage({
+        scopeFilter,
+        limit: paging.limit,
+        offset: paging.offset
+      });
+      const homeworks = filterByClassScope(rows, scope);
+      return res.json({
+        success: true,
+        homeworks,
+        ...buildPageMeta({ page: paging.page, pageSize: paging.pageSize, total })
+      });
     } catch (e) {
       res.status(500).json({ success: false, error: '获取作业列表失败' });
     }

@@ -369,3 +369,51 @@ node scripts/media-backfill.js --yes --dir=leaves   # 只处理某个子目录
 全部加 `loading="lazy" decoding="async"` 与固定 `aspect-ratio`。
 
 建议：每月跑一次 dry-run 看报表；确认后再 `--yes`。
+
+## 13. 媒体签名、会话吊销与 UI 冒烟（2026-09 加固）
+
+### 13.1 `/uploads` 三级鉴权（按优先级，命中即止）
+
+| 优先级 | 方式 | 说明 |
+|---|---|---|
+| 1 | `Authorization: Bearer <会话JWT>` | fetch / 下载等能带请求头的场景（原有） |
+| 2 | `?mt=<exp.sig>` | **新增**：HMAC 签名，按路径限定，默认 900s（上限 3600s） |
+| 3 | `?token=<会话JWT>` | 旧方式保留（旧 APK 过渡期）；命中时打限流 warning，日志趋零即可下线 |
+
+- 签名密钥由 `JWT_SECRET` 派生（`HMAC(JWT_SECRET,'media-v1')`），**不新增必填配置**；轮换 JWT_SECRET 即全部失效
+- 路径白名单拒绝 `..`、反斜杠、空字节以及百分号编码形式（`%2e%2e`）的穿越
+- **派生图共用原图签名**：签 `/uploads/x/a.jpg` 同时可访问 `a_thumb.jpg` / `a_medium.jpg`
+  （否则一屏 30 张照片要签 90 个令牌，且存量数据只存原图 URL 无法预取）
+- 前端 `utils/mediaSign.ts`：同 tick 合并批量预取（≤100/批）、内存缓存、距过期 <2 分钟后台续签、
+  同路径并发去重、失败退避 30s；**未命中一律回落旧 `?token=`**，首屏绝不裂图
+- 接口：`POST /api/media/sign { paths: [] }` → `{ tokens: { [path]: 'exp.sig' }, ttlSec, skipped }`
+
+### 13.2 会话可吊销（token_version）
+
+- `users.token_version`（迁移 021）+ JWT 的 `tv` 声明；无 `tv` 的旧令牌视为 0，**上线不踢人**
+- 校验走进程内缓存（TTL 60s；DB 读取失败降级放行 10s），命中不一致 → 401 `登录状态已失效，请重新登录`
+- 会 +1 并立即清缓存的场景：自己改密、验证码重置/设置密码、管理员重置他人密码（含批量）、
+  成员被移出（移出/批量移出/编辑 member_type=left）、用户被删除
+- `/api/auth/refresh` 同样校验 tv（否则被吊销的令牌调一次 refresh 就能换出新的 24h 令牌）
+
+**已知窗口**：bump 后最长 60s 内旧令牌仍可能通过（多实例部署时各实例各自缓存）；
+`/uploads` 的旧 `?token=` 分支刻意不做 tv 比对（图片通路保持同步中间件、不加 DB 查询），
+因此**正解是尽快把媒体全量切到 `?mt=` 并删掉第 3 段兼容分支**。
+
+### 13.3 UI 冒烟（CI 必跑）
+
+```bash
+# 本地：先起一个测试实例（测试库 + 3199 端口）
+cd backend
+DB_NAME=class_manage_sys_test PORT=3199 NODE_ENV=test AGENT_LLM_MODE=mock node app.js &
+DB_NAME=class_manage_sys_test node tests/seed-smoke-user.js   # 输出 SMOKE_USER_ID
+# 再造一个令牌后跑冒烟
+cd ../frontend-v3 && SMOKE_BASE=http://127.0.0.1:3199 SMOKE_TOKEN=<jwt> SMOKE_USER_ID=<id> npm run smoke:ui
+```
+
+覆盖：首页挂载、**逐个点 TabBar 并断言落到哪个路由**、12 个关键页面内容非空、
+任何 `pageerror` / `/assets/*.js` 404 / 页面级错误面板都判失败。
+
+⚠️ 这条断言是三次白屏事故的直接护栏，**不要退化成"内容非空"**：
+2026-09-11 的事故里 tab 路径写错，点下去被 catch-all 兜回首页，内容非空但路由是错的——
+只有断言目标路由才能抓住它（已实测：改错路径 → 冒烟立刻失败并指出期望路由）。

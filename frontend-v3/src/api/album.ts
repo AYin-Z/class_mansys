@@ -63,8 +63,36 @@ export function createAlbum(params: AlbumCreateParams): Promise<{ success: boole
   return post('/api/album', params)
 }
 
-export function getAlbumDetail(id: number): Promise<{ success: boolean; album: AlbumItem; photos: PhotoItem[] }> {
-  return get(`/api/album/${id}`)
+/**
+ * 相册照片的分页参数（**游标**分页，P1-3）
+ *
+ * 不传 = 后端返回该相册**全部**照片（老客户端/老 APK 的行为不变）；
+ * 传了 limit（和可选的 cursor）才走游标分页，响应里会多出 hasMore / nextCursor。
+ */
+export interface PhotoPagingParams {
+  /** 本页张数 1–100（超过按 100 处理）；不传则返回全量 */
+  limit?: number
+  /** 上一页返回的 nextCursor；首页不传 */
+  cursor?: string | null
+}
+
+/** 仅分页请求会返回的附加字段（老字段 photos / album 原样保留） */
+export interface PhotoPageMeta {
+  hasMore?: boolean
+  /** 下一页游标；hasMore=false 时为 null */
+  nextCursor?: string | null
+  /** 服务端最终采用的每页张数（可能被上限截断） */
+  limit?: number
+}
+
+export function getAlbumDetail(
+  id: number,
+  paging?: PhotoPagingParams,
+): Promise<{ success: boolean; album: AlbumItem; photos: PhotoItem[] } & PhotoPageMeta> {
+  const query: Record<string, string> = {}
+  if (paging && paging.limit != null) query.limit = String(paging.limit)
+  if (paging && paging.cursor) query.cursor = paging.cursor
+  return get(`/api/album/${id}`, query)
 }
 
 export function deleteAlbum(id: number): Promise<{ success: boolean }> {

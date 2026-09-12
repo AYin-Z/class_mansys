@@ -40,6 +40,44 @@ class Homework {
     return rows;
   }
 
+  /**
+   * 分页列表（P1-3，offset 模式）
+   *
+   * 区队可见性过滤下推到 SQL（与 controller 里 filterByClassScope 同口径：
+   * class_id IS NULL 的全局作业对所有人可见），否则分页后每页条数与 total 都会失真。
+   *
+   * @param {object} opts
+   * @param {{sql:string, params:any[]}|null} [opts.scopeFilter=null]
+   * @param {number} opts.limit
+   * @param {number} opts.offset
+   * @returns {Promise<{rows:Array, total:number}>}
+   */
+  static async getPage({ scopeFilter = null, limit, offset } = {}) {
+    const whereSql = scopeFilter && scopeFilter.sql ? ` WHERE ${scopeFilter.sql}` : '';
+    const whereParams = (scopeFilter && scopeFilter.params) ? scopeFilter.params : [];
+
+    const [countRows] = await db.query(
+      `SELECT COUNT(*) AS total FROM homeworks h${whereSql}`,
+      whereParams
+    );
+    // created_at 同秒时用 id 兜底排序，保证翻页稳定
+    const [rows] = await db.query(
+      `SELECT h.*, u.name AS creator_name,
+              (SELECT COUNT(*) FROM homework_submissions s WHERE s.homework_id = h.id) AS submission_count
+       FROM homeworks h
+       LEFT JOIN users u ON h.creator_id = u.id${whereSql}
+       ORDER BY h.created_at DESC, h.id DESC
+       LIMIT ? OFFSET ?`,
+      [...whereParams, limit, offset]
+    );
+    rows.forEach(r => {
+      if (r.attachments && typeof r.attachments === 'string') {
+        try { r.attachments = JSON.parse(r.attachments); } catch { r.attachments = null; }
+      }
+    });
+    return { rows, total: Number((countRows[0] && countRows[0].total) || 0) };
+  }
+
   static async delete(id) {
     const [result] = await db.query('DELETE FROM homeworks WHERE id = ?', [id]);
     return result.affectedRows > 0;

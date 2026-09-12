@@ -45,18 +45,38 @@ export function applyLeave(params: LeaveApplyParams): Promise<{ success: boolean
   return post('/api/leave/apply', params)
 }
 
+/** 列表分页参数（P1-3）：不传 = 后端返回全量，行为与分页前一致 */
+export interface PagingParams {
+  /** 第几页，最小 1 */
+  page?: number
+  /** 每页条数 1–100（超过按 100 处理） */
+  pageSize?: number
+}
+
+/** 仅分页请求会返回的附加字段（leaves 原样保留） */
+export interface PageMeta {
+  page?: number
+  pageSize?: number
+  total?: number
+  hasMore?: boolean
+}
+
 /**
  * 获取我的请假记录
+ *
+ * 不传 paging = 全量（老客户端）；传了 page/pageSize 才走分页 SQL。
  */
-export function getMyLeaves(): Promise<{ success: boolean; leaves: LeaveItem[] }> {
-  return get('/api/leave/my')
+export function getMyLeaves(paging?: PagingParams): Promise<{ success: boolean; leaves: LeaveItem[] } & PageMeta> {
+  return get('/api/leave/my', paging)
 }
 
 /**
  * 获取所有请假记录（管理员）
+ *
+ * 不传 paging = 全量（老客户端）；传了 page/pageSize 才走分页 SQL。
  */
-export function getAllLeaves(): Promise<{ success: boolean; leaves: LeaveItem[] }> {
-  return get('/api/leave/all')
+export function getAllLeaves(paging?: PagingParams): Promise<{ success: boolean; leaves: LeaveItem[] } & PageMeta> {
+  return get('/api/leave/all', paging)
 }
 
 /**

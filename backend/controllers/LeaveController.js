@@ -1,9 +1,24 @@
 const LeaveService = require('../services/leaveService');
 const { asyncHandler, ok } = require('../shared/http');
+const { parsePaging, buildPageMeta } = require('../shared/paging');
 
 /**
  * 请假 HTTP 适配层（P2：业务规则已下沉到 services/leaveService.js）
+ *
+ * 分页（P1-3）：不带 page/pageSize 时行为与分页前完全一致（全量 + leaves 字段），
+ * 带了才走分页 SQL 并在原字段之外**追加** page/pageSize/total/hasMore。
  */
+function sendLeaves(res, paging, result) {
+  if (paging.paged && result && !Array.isArray(result)) {
+    const { rows, total } = result;
+    return ok(res, undefined, {
+      leaves: rows,
+      ...buildPageMeta({ page: paging.page, pageSize: paging.pageSize, total })
+    });
+  }
+  return ok(res, undefined, { leaves: result });
+}
+
 class LeaveController {
   static applyLeave = asyncHandler(async (req, res) => {
     const { id } = await LeaveService.apply(req.user, req.body || {});
@@ -11,13 +26,15 @@ class LeaveController {
   });
 
   static getMyLeaves = asyncHandler(async (req, res) => {
-    const leaves = await LeaveService.listMine(req.user);
-    return ok(res, undefined, { leaves });
+    const paging = parsePaging(req.query);
+    const result = await LeaveService.listMine(req.user, paging);
+    return sendLeaves(res, paging, result);
   });
 
   static getAllLeaves = asyncHandler(async (req, res) => {
-    const leaves = await LeaveService.listAll(req.user);
-    return ok(res, undefined, { leaves });
+    const paging = parsePaging(req.query);
+    const result = await LeaveService.listAll(req.user, paging);
+    return sendLeaves(res, paging, result);
   });
 
   static getLeaveById = asyncHandler(async (req, res) => {

@@ -78,11 +78,30 @@ export function completeTodo(id: number): Promise<{ success: boolean; message: s
   return post(`/api/notice/${id}/complete`)
 }
 
+/** 列表分页参数（P1-3）：不传 = 后端返回全量，行为与分页前一致 */
+export interface PagingParams {
+  /** 第几页，最小 1 */
+  page?: number
+  /** 每页条数 1–100（超过按 100 处理） */
+  pageSize?: number
+}
+
+/** 仅分页请求会返回的附加字段（notices 等老字段原样保留） */
+export interface PageMeta {
+  page?: number
+  pageSize?: number
+  total?: number
+  hasMore?: boolean
+}
+
 /**
  * 获取通知列表
+ *
+ * 不传 paging = 全量（老客户端）；传了 page/pageSize 才走分页 SQL，
+ * 响应额外带 page/pageSize/total/hasMore。
  */
-export function getNotices(): Promise<{ success: boolean; notices: NoticeItem[] }> {
-  return get('/api/notice')
+export function getNotices(paging?: PagingParams): Promise<{ success: boolean; notices: NoticeItem[] } & PageMeta> {
+  return get('/api/notice', paging)
 }
 
 /**

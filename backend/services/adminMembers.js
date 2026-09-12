@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const db = require('../config/database');
 const logger = require('../config/logger');
 const { BadRequestError, NotFoundError } = require('../shared/http');
+const { bumpTokenVersion, invalidateTokenVersion } = require('../shared/tokenVersion');
 
 const DEFAULT_PASSWORD = '123456';
 /** 判定"有历史数据"的表（有记录就不允许物理删除） */
@@ -75,6 +76,10 @@ class AdminMembers {
     if (!fields.length) throw new BadRequestError('没有需要更新的字段');
     params.push(id);
     await db.query('UPDATE users SET ' + fields.join(', ') + ' WHERE id = ?', params);
+    // P2-2：把人员类型改成 left（经「编辑成员」这条路）同样属于"移出"，一并吊销其会话
+    if (patch.member_type === 'left' && user.member_type !== 'left') {
+      await bumpTokenVersion(id);
+    }
     const [[updated]] = await db.query(
       'SELECT u.id, u.name, u.student_id, u.class_id, u.role, u.duty_note, u.member_type FROM users u WHERE u.id = ?', [id]
     );
@@ -88,6 +93,8 @@ class AdminMembers {
     const plain = password && String(password).length >= 6 ? String(password) : DEFAULT_PASSWORD;
     const hash = await bcrypt.hash(plain, 10);
     await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
+    // P2-2：管理员重置密码后，该成员此前的所有会话立即作废（旧令牌 tv 与新值不一致 → 401）
+    await bumpTokenVersion(id);
     logger.info({ id, sid: user.student_id }, 'admin reset password');
     return { id, name: user.name, student_id: user.student_id, password: plain };
   }
@@ -99,6 +106,8 @@ class AdminMembers {
     if (!user) throw new NotFoundError('成员不存在');
     if (status === 'left') {
       await db.query("UPDATE users SET member_type = 'left', role = 0, duty_note = NULL WHERE id = ?", [id]);
+      // P2-2：移出统计即"踢下线"——该账号此前的令牌全部作废，避免用旧令牌继续读数据
+      await bumpTokenVersion(id);
     } else {
       await db.query("UPDATE users SET member_type = 'student' WHERE id = ?", [id]);
     }
@@ -121,6 +130,8 @@ class AdminMembers {
       throw new BadRequestError('该成员已有历史数据（' + blocking.slice(0, 4).join('、') + '），不能删除；请改用「移出统计」');
     }
     await db.query('DELETE FROM users WHERE id = ?', [id]);
+    // P2-2：用户已删除 —— 清掉 token_version 缓存，避免残留条目在 60s 内向已删账号放行
+    invalidateTokenVersion(id);
     logger.info({ id, sid: user.student_id }, 'admin member deleted (no history)');
     return { id, name: user.name, student_id: user.student_id };
   }

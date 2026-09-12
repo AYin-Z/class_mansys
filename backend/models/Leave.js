@@ -1,5 +1,20 @@
 const db = require('../config/database');
 
+/**
+ * 分页查询小工具（P1-3，offset 模式）
+ *
+ * selectSql 自带 FROM/JOIN/WHERE/ORDER BY（与对应的全量方法完全同口径），
+ * 这里只追加 LIMIT/OFFSET，并用 countSql 取同一 WHERE 下的总数。
+ * 抽出来是为了让 4 个分页方法各自保持"一条 SQL 一眼看懂"。
+ *
+ * @returns {Promise<{rows:Array, total:number}>}
+ */
+async function pageQuery({ selectSql, countSql, params = [], limit, offset }) {
+  const [countRows] = await db.query(countSql, params);
+  const [rows] = await db.query(`${selectSql}\n       LIMIT ? OFFSET ?`, [...params, limit, offset]);
+  return { rows, total: Number((countRows[0] && countRows[0].total) || 0) };
+}
+
 class Leave {
   static async create(leaveData) {
     const { user_id, leave_type, type, start_time, end_time, reason, attachments } = leaveData;
@@ -92,6 +107,78 @@ class Leave {
     ].join(' ');
     const [rows] = await db.query(query, [companyId]);
     return rows;
+  }
+
+  /* ---------- 分页变体（P1-3）：与上面各全量方法同口径，只多 LIMIT/OFFSET 与 total ---------- */
+
+  /** 我的请假：分页 */
+  static async findByUserIdPaged(user_id, { limit, offset }) {
+    return pageQuery({
+      selectSql: 'SELECT l.* FROM leaves l WHERE l.user_id = ?\n       ORDER BY l.created_at DESC, l.id DESC',
+      countSql: 'SELECT COUNT(*) AS total FROM leaves l WHERE l.user_id = ?',
+      params: [user_id],
+      limit,
+      offset
+    });
+  }
+
+  /** 管理员列表（超管/辅导员，全部）：分页 */
+  static async getAllWithApplicantsPaged({ limit, offset }) {
+    return pageQuery({
+      selectSql: [
+        'SELECT l.*, u.name AS applicant_name, u.student_id AS applicant_student_id,',
+        '  ap.name AS approver_name',
+        'FROM leaves l',
+        'LEFT JOIN users u ON l.user_id = u.id',
+        'LEFT JOIN users ap ON l.approver_id = ap.id',
+        'ORDER BY l.created_at DESC, l.id DESC'
+      ].join(' '),
+      countSql: 'SELECT COUNT(*) AS total FROM leaves l',
+      limit,
+      offset
+    });
+  }
+
+  /** 按区队列表（管理员视图）：分页 */
+  static async getAllByClassesPaged(classIds, { limit, offset }) {
+    if (!Array.isArray(classIds) || classIds.length === 0) return { rows: [], total: 0 };
+    const ph = classIds.map(() => '?').join(',');
+    const where = 'WHERE u.class_id IN (' + ph + ')';
+    return pageQuery({
+      selectSql: [
+        'SELECT l.*, u.name AS applicant_name, u.student_id AS applicant_student_id, u.class_id,',
+        '  ap.name AS approver_name',
+        'FROM leaves l',
+        'JOIN users u ON l.user_id = u.id',
+        'LEFT JOIN users ap ON l.approver_id = ap.id',
+        where,
+        'ORDER BY l.created_at DESC, l.id DESC'
+      ].join(' '),
+      countSql: 'SELECT COUNT(*) AS total FROM leaves l JOIN users u ON l.user_id = u.id ' + where,
+      params: classIds,
+      limit,
+      offset
+    });
+  }
+
+  /** 按中队查询（管理员视图）：分页 */
+  static async getAllByCompanyPaged(companyId, { limit, offset }) {
+    return pageQuery({
+      selectSql: [
+        'SELECT l.*, u.name AS applicant_name, u.student_id AS applicant_student_id, u.class_id,',
+        '  ap.name AS approver_name',
+        'FROM leaves l',
+        'JOIN users u ON l.user_id = u.id',
+        'JOIN classes c ON u.class_id = c.id',
+        'LEFT JOIN users ap ON l.approver_id = ap.id',
+        'WHERE c.company_id = ?',
+        'ORDER BY l.created_at DESC, l.id DESC'
+      ].join(' '),
+      countSql: 'SELECT COUNT(*) AS total FROM leaves l JOIN users u ON l.user_id = u.id JOIN classes c ON u.class_id = c.id WHERE c.company_id = ?',
+      params: [companyId],
+      limit,
+      offset
+    });
   }
 
   /** 取某条请假所属的区队/用户，用于作用域校验 */

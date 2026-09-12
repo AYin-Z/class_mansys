@@ -2,6 +2,7 @@ const User = require('../models/User');
 const axios = require('axios');
 const { ROLES } = require('../shared/constants');
 const authService = require('../services/authService');
+const { bumpTokenVersion, checkTokenVersion } = require('../shared/tokenVersion');
 
 // P2：验证码/令牌/密码等基础设施已下沉到 services/authService.js
 const {
@@ -283,6 +284,12 @@ class AuthController {
 
     try {
       const decoded = verifyToken(refreshToken);
+      // P2-2：/refresh 不需要登录态，但必须同样比对 token_version ——
+      // 否则被吊销的旧令牌只要调一次 /refresh 就能换到一张新令牌，吊销形同虚设。
+      const version = await checkTokenVersion(decoded);
+      if (!version.ok) {
+        return res.status(401).json({ success: false, error: '登录状态已失效，请重新登录', code: 'TOKEN_REVOKED' });
+      }
       const user = await User.findById(decoded.id);
       if (!user) {
         return res.status(401).json({ success: false, error: '用户不存在' });
@@ -636,9 +643,12 @@ class AuthController {
       clearCode(normalized.target);
       const hash = await hashPassword(password);
       await User.updatePassword(user.id, hash);
+      // P2-2：重置密码 = 吊销该账号此前的所有会话（旧令牌 tv 与新值不一致 → 401）
+      await bumpTokenVersion(user.id);
+      const fresh = (await User.findById(user.id)) || user;
 
-      const token = signToken(user);
-      res.json({ success: true, token, user: AuthController._publicUser(user, user.id) });
+      const token = signToken(fresh);
+      res.json({ success: true, token, user: AuthController._publicUser(fresh, user.id) });
     } catch (error) {
       console.error('设置密码失败:', error);
       res.status(500).json({ success: false, error: '设置密码失败' });
@@ -663,8 +673,12 @@ class AuthController {
       if (!valid) return res.status(400).json({ success: false, error: '旧密码错误' });
       const hash = await hashPassword(newPassword);
       await User.updatePassword(user.id, hash);
-      const token = signToken(user);
-      res.json({ success: true, token, user: AuthController._publicUser(user, req.user.id), message: '密码修改成功' });
+      // P2-2：改密后旧令牌（其它设备/泄露的令牌）全部失效；重新读取用户以拿到新的 token_version，
+      // 否则这里会签出一个 tv 落后、下一次请求就 401 的令牌。
+      await bumpTokenVersion(user.id);
+      const fresh = (await User.findById(user.id)) || user;
+      const token = signToken(fresh);
+      res.json({ success: true, token, user: AuthController._publicUser(fresh, req.user.id), message: '密码修改成功' });
     } catch (error) {
       console.error('修改密码失败:', error);
       res.status(500).json({ success: false, error: '修改密码失败' });

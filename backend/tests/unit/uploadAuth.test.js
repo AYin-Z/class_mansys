@@ -67,6 +67,86 @@ describe('requireUploadAccess', () => {
     expect(res.statusCode).toBe(403);
   });
 
+  describe('P2-1 短期媒体签名 ?mt=', () => {
+    const { signMediaToken } = require('../../shared/mediaToken');
+
+    it('有效签名放行，并设置私有缓存', () => {
+      envModule.env.UPLOAD_AUTH_MODE = 'strict';
+      const mw = require('../../middleware/uploadAuth');
+      const mt = signMediaToken('/uploads/albums/a.jpg');
+      const res = mockRes();
+      const next = vi.fn();
+      mw({ headers: {}, query: { mt }, originalUrl: '/uploads/albums/a.jpg?mt=' + mt }, res, next);
+      expect(res.statusCode).toBe(200);
+      expect(next).toHaveBeenCalled();
+      expect(res.headers['Cache-Control']).toMatch(/^private, max-age=604800/);
+    });
+
+    it('派生图可用原图签名（前端按约定推导 _thumb/_medium）', () => {
+      envModule.env.UPLOAD_AUTH_MODE = 'strict';
+      const mw = require('../../middleware/uploadAuth');
+      const mt = signMediaToken('/uploads/albums/a.jpg');
+      const next = vi.fn();
+      mw({ headers: {}, query: { mt }, originalUrl: '/uploads/albums/a_thumb.jpg?mt=' + mt }, mockRes(), next);
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('签名与路径不匹配 → 403', () => {
+      envModule.env.UPLOAD_AUTH_MODE = 'strict';
+      const mw = require('../../middleware/uploadAuth');
+      const mt = signMediaToken('/uploads/albums/a.jpg');
+      const res = mockRes();
+      const next = vi.fn();
+      mw({ headers: {}, query: { mt }, originalUrl: '/uploads/leaves/b.jpg?mt=' + mt }, res, next);
+      expect(res.statusCode).toBe(403);
+      expect(res.body.code).toBe('MEDIA_TOKEN_INVALID');
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('过期签名 → 403（MEDIA_TOKEN_EXPIRED），提示刷新页面', () => {
+      envModule.env.UPLOAD_AUTH_MODE = 'strict';
+      const mw = require('../../middleware/uploadAuth');
+      const mt = signMediaToken('/uploads/albums/a.jpg');
+      const { verifyMediaToken } = require('../../shared/mediaToken');
+      // 直接构造一个已过期但签名合法的令牌
+      const expired = (Math.floor(Date.now() / 1000) - 10) + '.' + mt.split('.')[1];
+      expect(verifyMediaToken('/uploads/albums/a.jpg', expired).reason).toBe('expired');
+      const res = mockRes();
+      mw({ headers: {}, query: { mt: expired }, originalUrl: '/uploads/albums/a.jpg?mt=' + expired }, res, vi.fn());
+      expect(res.statusCode).toBe(403);
+      expect(res.body.code).toBe('MEDIA_TOKEN_EXPIRED');
+    });
+
+    it('优先级：带 ?mt= 时不再回落 ?token=（坏签名 + 好会话令牌仍然 403）', () => {
+      envModule.env.UPLOAD_AUTH_MODE = 'strict';
+      const mw = require('../../middleware/uploadAuth');
+      const session = jwt.sign({ id: 1, role: 0 }, envModule.env.JWT_SECRET);
+      const res = mockRes();
+      mw({ headers: {}, query: { mt: '1700000000.badsignature', token: session }, originalUrl: '/uploads/albums/a.jpg' }, res, vi.fn());
+      expect(res.statusCode).toBe(403);
+      expect(res.body.code).toBe('MEDIA_TOKEN_INVALID');
+    });
+
+    it('优先级：Bearer 有效会话令牌优先于 ?mt=', () => {
+      envModule.env.UPLOAD_AUTH_MODE = 'strict';
+      const mw = require('../../middleware/uploadAuth');
+      const session = jwt.sign({ id: 1, role: 0 }, envModule.env.JWT_SECRET);
+      const next = vi.fn();
+      mw(
+        { headers: { authorization: 'Bearer ' + session }, query: { mt: 'bad' }, originalUrl: '/uploads/albums/a.jpg' },
+        mockRes(),
+        next
+      );
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('请求路径取自 originalUrl（不带 query）', () => {
+      const mw = require('../../middleware/uploadAuth');
+      expect(mw._internals.requestPath({ originalUrl: '/uploads/a.jpg?mt=1.2' })).toBe('/uploads/a.jpg');
+      expect(mw._internals.requestPath({ baseUrl: '/uploads', path: '/a.jpg' })).toBe('/uploads/a.jpg');
+    });
+  });
+
   it('compat：无令牌也放行（灰度兼容）', () => {
     envModule.env.UPLOAD_AUTH_MODE = 'compat';
     const mw = require('../../middleware/uploadAuth');

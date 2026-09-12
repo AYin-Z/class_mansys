@@ -6,8 +6,11 @@
  *  - loading / error+retry / empty 三态（此前 catch (_) {} 把加载失败吞成「暂无作业」）
  *  - 发布作业改用 BaseModal + FormField（字段级校验），成功/失败走统一 toast
  *  - 底部避让交给 App.vue，删除页面手写的 padding-bottom: 80px
+ *
+ * P1-3 分页：触底加载更多（page/pageSize）。发布成功后回到第 1 页重新加载，
+ * 新作业排在最前，避免"发布了却看不到"。
  */
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { getHomeworks, createHomework } from '@/api/homework'
 import type { HomeworkItem } from '@/api/homework'
@@ -22,11 +25,22 @@ import { useUserStore } from '@/stores/user'
 import { showToast } from '@/utils/ui'
 import { toastIfNotNotified } from '@/utils/request'
 
+/** 每页条数（后端上限 100，超出会被截断） */
+const PAGE_SIZE = 20
+
 const router = useRouter()
 const userStore = useUserStore()
 const homeworks = ref<HomeworkItem[]>([])
 const loading = ref(true)
+const loadingMore = ref(false)
 const error = ref<unknown>(null)
+const page = ref(1)
+const hasMore = ref(false)
+
+/** 底部哨兵：进入视口即加载下一页 */
+const sentinel = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
+let scrollFallbackAttached = false
 
 /** 发布作业（干部）：审计修复——后端一直有 createHomework，前端却没有任何入口 */
 const canPublish = computed(() => userStore.hasPermission('PUBLISH_HOMEWORK'))
@@ -44,16 +58,96 @@ function openCreate() {
 async function load() {
   loading.value = true
   error.value = null
+  page.value = 1
   try {
-    const res = await getHomeworks()
-    if (res.success) homeworks.value = res.homeworks || []
-    else error.value = new Error('加载作业列表失败，请稍后重试')
+    const res = await getHomeworks({ page: 1, pageSize: PAGE_SIZE })
+    if (res.success) {
+      homeworks.value = res.homeworks || []
+      hasMore.value = !!res.hasMore
+    } else {
+      error.value = new Error('加载作业列表失败，请稍后重试')
+      hasMore.value = false
+    }
   } catch (e) {
     error.value = e
+    homeworks.value = []
+    hasMore.value = false
   } finally {
     loading.value = false
+    void autoFill()
   }
 }
+
+/** 触底加载下一页；失败只提示，已加载的作业不动 */
+async function loadMore() {
+  if (loading.value || loadingMore.value || !hasMore.value) return
+  loadingMore.value = true
+  let appended = false
+  try {
+    const next = page.value + 1
+    const res = await getHomeworks({ page: next, pageSize: PAGE_SIZE })
+    const list = res.homeworks || []
+    const seen = new Set(homeworks.value.map(h => h.id))
+    const fresh = list.filter(h => !seen.has(h.id))
+    // 空页，或整页都是重复（后端分页失效）→ 直接收尾，避免无限请求
+    if (fresh.length === 0) {
+      hasMore.value = false
+      return
+    }
+    homeworks.value = [...homeworks.value, ...fresh]
+    page.value = next
+    hasMore.value = !!res.hasMore
+    appended = true
+  } catch (e) {
+    // 失败**不自动重试**：哨兵一直在视口内的话会变成请求风暴；等用户再滚动触发
+    toastIfNotNotified(e, '加载更多失败，请稍后重试')
+  } finally {
+    loadingMore.value = false
+    if (appended) void autoFill()
+  }
+}
+
+/** 追加一页后若哨兵仍在视口内，继续补一页 */
+async function autoFill() {
+  await nextTick()
+  const el = sentinel.value
+  if (!el || !hasMore.value || loadingMore.value || loading.value) return
+  if (el.getBoundingClientRect().top <= (window.innerHeight || 0) + 200) void loadMore()
+}
+
+function onScrollFallback() {
+  const el = sentinel.value
+  if (!el || !hasMore.value || loadingMore.value || loading.value) return
+  if (el.getBoundingClientRect().top <= (window.innerHeight || 0) + 200) void loadMore()
+}
+
+watch(sentinel, (el) => {
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+  if (!el) return
+  // 单元测试环境（jsdom）与极老 WebView 都没有 IntersectionObserver，退回滚动监听
+  if (typeof IntersectionObserver === 'undefined') {
+    if (!scrollFallbackAttached) {
+      scrollFallbackAttached = true
+      window.addEventListener('scroll', onScrollFallback, { passive: true })
+    }
+    return
+  }
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((e) => e.isIntersecting)) void loadMore()
+    },
+    { rootMargin: '200px 0px' },
+  )
+  observer.observe(el)
+})
+
+onBeforeUnmount(() => {
+  if (observer) observer.disconnect()
+  if (scrollFallbackAttached) window.removeEventListener('scroll', onScrollFallback)
+})
 
 async function doCreate() {
   if (saving.value) return
@@ -108,7 +202,7 @@ function isOverdue(deadline: string) {
     <StateView
       :loading="loading"
       :error="error"
-      :empty="homeworks.length === 0"
+      :empty="homeworks.length === 0 && !hasMore"
       loading-text="正在加载作业…"
       empty-icon="clipboard"
       empty-title="还没有作业"
@@ -128,6 +222,12 @@ function isOverdue(deadline: string) {
           <span>截止 {{ item.deadline?.slice(0, 10) }}</span>
           <span v-if="item.submission_count !== undefined">{{ item.submission_count }} 人已交</span>
         </div>
+      </div>
+
+      <!-- 触底加载哨兵：进入视口加载下一页；加载中网点，到底提示「没有更多了」 -->
+      <div ref="sentinel" class="load-footer">
+        <StateView v-if="loadingMore" slim loading />
+        <p v-else-if="!hasMore && homeworks.length > 0" class="load-end">没有更多了</p>
       </div>
     </StateView>
 
@@ -177,4 +277,17 @@ function isOverdue(deadline: string) {
 }
 .input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-bg); }
 textarea.input { resize: vertical; min-height: 72px; }
+
+/* 触底加载：哨兵 + 加载中 / 到底提示 */
+.load-footer {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.load-end {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-3);
+  padding: 12px 0;
+}
 </style>

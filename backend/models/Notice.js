@@ -36,7 +36,8 @@ class Notice {
     return rows[0];
   }
 
-  static async getAll(userId = null) {
+  /** 列表 SELECT（含"我是否已读/已完成"两个 LEFT JOIN）；getAll 与 getPage 共用，保证口径一致 */
+  static _listSql(userId = null) {
     let query = `SELECT n.*, u.name AS creator_name, u.nickName AS creator_nickname`;
     if (userId) {
       query += `, (nr.id IS NOT NULL) AS is_read, (nc.id IS NOT NULL) AS is_completed`;
@@ -46,15 +47,52 @@ class Notice {
       query += `\n       LEFT JOIN notice_reads nr ON n.id = nr.notice_id AND nr.user_id = ${Number(userId)}`;
       query += `\n       LEFT JOIN notice_completions nc ON n.id = nc.notice_id AND nc.user_id = ${Number(userId)}`;
     }
-    query += `\n       ORDER BY n.is_pinned DESC, n.created_at DESC`;
+    return query;
+  }
 
-    const [rows] = await db.query(query);
+  static _parseAttachments(rows) {
     rows.forEach(r => {
       if (r.attachments && typeof r.attachments === 'string') {
         try { r.attachments = JSON.parse(r.attachments); } catch { r.attachments = null; }
       }
     });
     return rows;
+  }
+
+  static async getAll(userId = null) {
+    const query = this._listSql(userId) + `\n       ORDER BY n.is_pinned DESC, n.created_at DESC`;
+    const [rows] = await db.query(query);
+    return this._parseAttachments(rows);
+  }
+
+  /**
+   * 分页列表（P1-3，offset 模式）
+   *
+   * 关键点：区队可见性过滤必须**下推到 SQL**，否则"先全量取再 filterByClassScope"
+   * 会让每页条数不足、total 也不对（controller 里仍会再跑一次 filterByClassScope 兜底）。
+   *
+   * @param {number|null} userId 传了就附带 is_read / is_completed
+   * @param {object} opts
+   * @param {{sql:string, params:any[]}|null} [opts.scopeFilter=null] classScopeSql 生成的可见性片段
+   * @param {number} opts.limit
+   * @param {number} opts.offset
+   * @returns {Promise<{rows:Array, total:number}>}
+   */
+  static async getPage(userId = null, { scopeFilter = null, limit, offset } = {}) {
+    const whereSql = scopeFilter && scopeFilter.sql ? ` WHERE ${scopeFilter.sql}` : '';
+    const whereParams = (scopeFilter && scopeFilter.params) ? scopeFilter.params : [];
+
+    const [countRows] = await db.query(
+      `SELECT COUNT(*) AS total FROM notices n${whereSql}`,
+      whereParams
+    );
+    // 排序加 id 兜底：created_at 同秒的多条通知在分页时必须有稳定次序，否则会重复/漏项
+    const [rows] = await db.query(
+      `${this._listSql(userId)}${whereSql}\n       ORDER BY n.is_pinned DESC, n.created_at DESC, n.id DESC\n       LIMIT ? OFFSET ?`,
+      [...whereParams, limit, offset]
+    );
+
+    return { rows: this._parseAttachments(rows), total: Number((countRows[0] && countRows[0].total) || 0) };
   }
 
   static async markAsRead(notice_id, user_id) {

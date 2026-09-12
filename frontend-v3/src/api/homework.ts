@@ -61,8 +61,29 @@ export function uploadHomeworkAttachment(file: File): Promise<{ success: boolean
   return uploadMedia(file, 'homework') as any
 }
 
-export function getHomeworks(): Promise<{ success: boolean; homeworks: HomeworkItem[] }> {
-  return get('/api/homework')
+/** 列表分页参数（P1-3）：不传 = 后端返回全量，行为与分页前一致 */
+export interface PagingParams {
+  /** 第几页，最小 1 */
+  page?: number
+  /** 每页条数 1–100（超过按 100 处理） */
+  pageSize?: number
+}
+
+/** 仅分页请求会返回的附加字段（homeworks 原样保留） */
+export interface PageMeta {
+  page?: number
+  pageSize?: number
+  total?: number
+  hasMore?: boolean
+}
+
+/**
+ * 作业列表
+ *
+ * 不传 paging = 全量（老客户端）；传了 page/pageSize 才走分页 SQL。
+ */
+export function getHomeworks(paging?: PagingParams): Promise<{ success: boolean; homeworks: HomeworkItem[] } & PageMeta> {
+  return get('/api/homework', paging)
 }
 
 export function createHomework(params: HomeworkCreateParams): Promise<{ success: boolean; id: number }> {

@@ -10,6 +10,12 @@
  *     表单字段：file（必填）、album_id（相册需要）、description（可选）
  *   返回：{ success, url, thumbUrl, mediumUrl, filename, size, width, height, mime, id?, autoApproved? }
  *
+ * 媒体访问签名（P2-1）：
+ *   POST /api/media/sign  { paths: string[] }   （≤100 个，需登录）
+ *     返回：{ success, data: { tokens: { [path]: 'exp.sig' }, ttlSec, skipped: string[] } }
+ *   前端把这些令牌拼成 `?mt=<token>` 访问 /uploads（见 frontend-v3/src/utils/mediaSign.ts），
+ *   替代此前把 24h 会话 JWT 放进图片 URL 的做法。
+ *
  * 兼容策略：老的端点（/api/album/photos/upload、/api/leave/upload-proof …）
  * 保留不动，内部同样走 mediaService，避免线上旧 APK 失效。
  */
@@ -23,6 +29,10 @@ const db = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 const { resolveScope, canAccessOwnClassRecord } = require('../shared/scope');
 const { asyncHandler, ok, fail } = require('../shared/http');
+const { signMediaToken, isSafeMediaPath, DEFAULT_TTL_SEC, MAX_TTL_SEC } = require('../shared/mediaToken');
+
+/** 单次签名请求的路径上限：一次列表页（网格+查看器预取）通常 ≤60，100 足够且能挡住滥用 */
+const MAX_SIGN_PATHS = 100;
 
 /** 每种用途的目录、体积上限与允许类型 */
 const KINDS = {
@@ -183,6 +193,46 @@ router.delete('/asset', authenticateToken, asyncHandler(async (req, res) => {
   await mediaService.removeByUrl(url);
   await db.query('DELETE FROM media_assets WHERE url = ?', [url]);
   return ok(res, { url }, { message: '已删除' });
+}));
+
+/**
+ * 批量签发媒体访问令牌（P2-1）
+ *
+ * 入参：{ paths: string[] }（≤ MAX_SIGN_PATHS 个）
+ * 出参：{ tokens: { [path]: 'exp.sig' }, ttlSec, skipped: string[] }
+ *
+ * 权限口径：只签 `/uploads/` 下的具体文件路径，并拒绝 `..`、反斜杠、空字节等越界写法。
+ * 这里不额外做"文件是否存在/属于谁"的查询：/uploads 下的内容本身对所有已登录用户可读
+ * （相册/证明的**业务**可见性由各自的列表接口决定，媒体层从来只要求登录），
+ * 加上路径白名单即可，避免为每个路径再加一次 DB 查询。
+ *
+ * 非法路径**不报错、只跳过**（响应里回 skipped）：前端拿到后对这些路径回落到旧 ?token= 兜底，
+ * 不会因为一个坏路径让整批图片裂图。
+ */
+router.post('/sign', authenticateToken, asyncHandler(async (req, res) => {
+  const raw = req.body ? req.body.paths : null;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return fail(res, 400, 'paths 必须是非空数组', 'BAD_PATHS');
+  }
+  if (raw.length > MAX_SIGN_PATHS) {
+    return fail(res, 400, `单次最多签名 ${MAX_SIGN_PATHS} 个路径`, 'TOO_MANY_PATHS');
+  }
+
+  const ttlSec = Math.min(Math.max(Number(req.body.ttlSec) || DEFAULT_TTL_SEC, 30), MAX_TTL_SEC);
+  const tokens = {};
+  const skipped = [];
+  for (const item of raw) {
+    const p = typeof item === 'string' ? item.trim() : '';
+    if (!isSafeMediaPath(p)) {
+      skipped.push(String(item == null ? '' : item).slice(0, 200));
+      continue;
+    }
+    // 同一个路径重复出现时只签一次（token 与时间戳相关，复用同一个值便于前端缓存）
+    if (!tokens[p]) {
+      tokens[p] = signMediaToken(p, { ttlSec, userId: req.user && req.user.id });
+    }
+  }
+  return ok(res, { tokens, ttlSec, skipped });
 }));
 
 /** 上传能力自检：前端可用来提示"支持的格式与大小" */

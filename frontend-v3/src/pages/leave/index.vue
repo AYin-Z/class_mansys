@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+/**
+ * 我的请假
+ *
+ * P1-3 分页：触底加载更多（page/pageSize）。
+ * 分类 Tab 仍是**前端过滤已加载的页**：后端 `hasMore` 为真时继续触底加载，
+ * 所以「当前分类下没有记录」只在确实翻到底之后才出现（不会误报空）。
+ */
+import { ref, watch, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMyLeaves, cancelLeave } from '@/api/leave'
 import type { LeaveItem } from '@/api/leave'
@@ -12,11 +19,17 @@ import AppIcon from '@/components/ui/AppIcon.vue'
 import { showConfirm, showToast } from '@/utils/ui'
 import { toastIfNotNotified } from '@/utils/request'
 
+/** 每页条数（后端上限 100，超出会被截断） */
+const PAGE_SIZE = 20
+
 const router = useRouter()
 const userStore = useUserStore()
 const leaves = ref<LeaveItem[]>([])
 const loading = ref(true)
+const loadingMore = ref(false)
 const error = ref<unknown>(null)
+const page = ref(1)
+const hasMore = ref(false)
 const TABS = ['全部', '待审批', '已通过', '已驳回']
 const activeTab = ref(0)
 /** 干部看得到审批入口：此前请假页只有"我的记录"，干部每天批假要绕到仪表盘（手册却写了「请假 → 审批」） */
@@ -28,19 +41,110 @@ const filteredLeaves = computed(() => {
   return leaves.value.filter(l => l.status === statusMap[activeTab.value])
 })
 
+/** 空态只在"没有更多可加载"时出现，否则继续触底加载（分类 Tab 下的过滤是前端做的） */
+const showEmpty = computed(() => filteredLeaves.value.length === 0 && !hasMore.value)
+
+/** 底部哨兵：进入视口即加载下一页 */
+const sentinel = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
+let scrollFallbackAttached = false
+
 async function load() {
   loading.value = true
   error.value = null
+  page.value = 1
   try {
-    const res = await getMyLeaves()
-    if (res.success) leaves.value = res.leaves || []
-    else error.value = new Error('加载请假记录失败')
+    const res = await getMyLeaves({ page: 1, pageSize: PAGE_SIZE })
+    if (res.success) {
+      leaves.value = res.leaves || []
+      hasMore.value = !!res.hasMore
+    } else {
+      error.value = new Error('加载请假记录失败')
+      hasMore.value = false
+    }
   } catch (e) {
     error.value = e
+    leaves.value = []
+    hasMore.value = false
   } finally {
     loading.value = false
+    void autoFill()
   }
 }
+
+/** 触底加载下一页；失败只提示，已加载的记录不动 */
+async function loadMore() {
+  if (loading.value || loadingMore.value || !hasMore.value) return
+  loadingMore.value = true
+  let appended = false
+  try {
+    const next = page.value + 1
+    const res = await getMyLeaves({ page: next, pageSize: PAGE_SIZE })
+    const list = res.leaves || []
+    const seen = new Set(leaves.value.map(l => l.id))
+    const fresh = list.filter(l => !seen.has(l.id))
+    // 空页，或整页都是重复（后端分页失效）→ 直接收尾，避免无限请求
+    if (fresh.length === 0) {
+      hasMore.value = false
+      return
+    }
+    leaves.value = [...leaves.value, ...fresh]
+    page.value = next
+    hasMore.value = !!res.hasMore
+    appended = true
+  } catch (e) {
+    // 失败**不自动重试**：哨兵一直在视口内的话会变成请求风暴；等用户再滚动触发
+    toastIfNotNotified(e, '加载更多失败，请稍后重试')
+  } finally {
+    loadingMore.value = false
+    if (appended) void autoFill()
+  }
+}
+
+/** 追加一页后若哨兵仍在视口内，继续补一页（分类 Tab 下没有匹配项时会自动往后翻） */
+async function autoFill() {
+  await nextTick()
+  const el = sentinel.value
+  if (!el || !hasMore.value || loadingMore.value || loading.value) return
+  if (el.getBoundingClientRect().top <= (window.innerHeight || 0) + 200) void loadMore()
+}
+
+function onScrollFallback() {
+  const el = sentinel.value
+  if (!el || !hasMore.value || loadingMore.value || loading.value) return
+  if (el.getBoundingClientRect().top <= (window.innerHeight || 0) + 200) void loadMore()
+}
+
+watch(sentinel, (el) => {
+  if (observer) {
+    observer.disconnect()
+    observer = null
+  }
+  if (!el) return
+  // 单元测试环境（jsdom）与极老 WebView 都没有 IntersectionObserver，退回滚动监听
+  if (typeof IntersectionObserver === 'undefined') {
+    if (!scrollFallbackAttached) {
+      scrollFallbackAttached = true
+      window.addEventListener('scroll', onScrollFallback, { passive: true })
+    }
+    return
+  }
+  observer = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((e) => e.isIntersecting)) void loadMore()
+    },
+    { rootMargin: '200px 0px' },
+  )
+  observer.observe(el)
+})
+
+/** 切到某个分类时若当前页没有匹配项，直接往后补一页 */
+watch(activeTab, () => { void autoFill() })
+
+onBeforeUnmount(() => {
+  if (observer) observer.disconnect()
+  if (scrollFallbackAttached) window.removeEventListener('scroll', onScrollFallback)
+})
 
 onMounted(load)
 
@@ -100,7 +204,7 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
     <StateView
       :loading="loading"
       :error="error"
-      :empty="filteredLeaves.length === 0"
+      :empty="showEmpty"
       empty-icon="calendar"
       :empty-variant="activeTab === 0 ? 'default' : 'filtered'"
       :empty-title="activeTab === 0 ? '还没有请假记录' : '当前分类下没有记录'"
@@ -124,6 +228,12 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
         <button v-if="item.status === 0 && !item.is_cancelled" class="cancel-btn" @click.stop="handleCancel(item.id)">销假</button>
         <span v-else-if="item.is_cancelled" class="cancelled-label">已销假</span>
       </div>
+    </div>
+
+    <!-- 触底加载哨兵：进入视口加载下一页；加载中网点，到底提示「没有更多了」 -->
+    <div ref="sentinel" class="load-footer">
+      <StateView v-if="loadingMore" slim loading />
+      <p v-else-if="!hasMore && leaves.length > 0" class="load-end">没有更多了</p>
     </div>
     </StateView>
   </div>
@@ -185,4 +295,17 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
   color: var(--color-error); border-radius: 4px; background: none; cursor: pointer;
 }
 .cancelled-label { color: var(--color-text-3); }
+
+/* 触底加载：哨兵 + 加载中 / 到底提示 */
+.load-footer {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.load-end {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-3);
+  padding: 12px 0;
+}
 </style>

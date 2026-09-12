@@ -66,23 +66,45 @@ class LeaveService {
     return { id };
   }
 
-  static async listMine(user) {
+  /**
+   * 我的请假列表
+   * @param {object} user
+   * @param {{paged:boolean, limit:number, offset:number}|null} [paging]
+   *   不传 / paged=false → 返回数组（与分页前完全一致，旧客户端不受影响）；
+   *   传了 paged=true → 返回 { rows, total }。
+   */
+  static async listMine(user, paging = null) {
     // 审计修复：不再在读取时批量 autoCancel（会把「未销假」永远算成 0 并伪造销假时间）
-    return Leave.findByUserId(user.id);
+    if (!paging || !paging.paged) return Leave.findByUserId(user.id);
+    return Leave.findByUserIdPaged(user.id, { limit: paging.limit, offset: paging.offset });
   }
 
-  /** 管理员列表：超管/辅导员全部；区队管理层平行查看本中队；否则本区队 */
-  static async listAll(user) {
+  /**
+   * 管理员列表：超管/辅导员全部；区队管理层平行查看本中队；否则本区队
+   * @param {object} user
+   * @param {{paged:boolean, limit:number, offset:number}|null} [paging] 同上：分页时返回 { rows, total }
+   */
+  static async listAll(user, paging = null) {
     const scope = await resolveScope(user);
     const role = Number(user.role);
-    if (role >= 8) return Leave.getAllWithApplicants();
-    if (scope.canViewCompany) {
-      if (scope.companyId) return Leave.getAllByCompany(scope.companyId);
-      if (scope.classIds && scope.classIds.length) return Leave.getAllByClasses(scope.classIds);
-      return [];
+    const paged = !!(paging && paging.paged);
+    const pageOpts = paged ? { limit: paging.limit, offset: paging.offset } : null;
+    if (role >= 8) {
+      return paged ? Leave.getAllWithApplicantsPaged(pageOpts) : Leave.getAllWithApplicants();
     }
-    if (scope.classIds && scope.classIds.length) return Leave.getAllByClasses(scope.classIds);
-    return [];
+    if (scope.canViewCompany) {
+      if (scope.companyId) {
+        return paged ? Leave.getAllByCompanyPaged(scope.companyId, pageOpts) : Leave.getAllByCompany(scope.companyId);
+      }
+      if (scope.classIds && scope.classIds.length) {
+        return paged ? Leave.getAllByClassesPaged(scope.classIds, pageOpts) : Leave.getAllByClasses(scope.classIds);
+      }
+      return paged ? { rows: [], total: 0 } : [];
+    }
+    if (scope.classIds && scope.classIds.length) {
+      return paged ? Leave.getAllByClassesPaged(scope.classIds, pageOpts) : Leave.getAllByClasses(scope.classIds);
+    }
+    return paged ? { rows: [], total: 0 } : [];
   }
 
   static async detail(user, rawId) {

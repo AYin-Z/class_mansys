@@ -1,15 +1,42 @@
 import { getToken } from './request'
+import { ensureSigned, needsSignRefresh, readMediaSignVersion, signedMediaQuery } from './mediaSign'
+
+/** 拼接查询参数（原样保留路径里已有的 query） */
+function withQuery(path: string, query: string): string {
+  return path + (path.includes('?') ? '&' : '?') + query
+}
 
 /**
- * /uploads 下的受保护资源需要携带访问令牌。
- * <img src>/<a href> 无法带请求头，因此以 ?token= 传递；非 /uploads 路径原样返回。
+ * 受保护资源的访问地址（/uploads/**）
+ *
+ * 优先级（P2-1）：
+ *   1) 命中短期媒体签名缓存 → `?mt=<exp.sig>`（15 分钟、按路径限定，泄露了也只对这一张有效）
+ *   2) 未命中/已过期 → 先用旧的 `?token=<会话 JWT>` 兜底，**保证首屏不裂图**，
+ *      同时后台批量预取签名；签名到位后版本号自增，用过 mediaUrl() 的组件会自动重渲染，
+ *      下一次渲染就换成 ?mt=。
+ *
+ * 注意：这里**不能**因为"签名还没好"就返回不带令牌的地址 —— 那会让图片直接裂掉。
+ * 旧 ?token= 方式在过渡期内继续可用（服务端 uploadAuth 保留该分支并打 warning）。
  */
 export function mediaUrl(path?: string | null): string {
   if (!path) return ''
   if (!path.startsWith('/uploads')) return path
+
+  // 读取签名版本号：签名到位后本函数所在的组件会重新渲染（Vue 响应式依赖）
+  readMediaSignVersion()
+
+  const signed = signedMediaQuery(path)
+  if (signed) {
+    // 临近过期（默认 2 分钟）时后台续签；本次仍用旧签名，不断图
+    if (needsSignRefresh(path)) void ensureSigned(path)
+    return withQuery(path, signed)
+  }
+
+  void ensureSigned(path)
+
   const token = getToken()
   if (!token) return path
-  return path + (path.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token)
+  return withQuery(path, 'token=' + encodeURIComponent(token))
 }
 
 /**
