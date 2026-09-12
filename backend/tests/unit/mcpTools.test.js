@@ -51,3 +51,23 @@ describe('MCP 工具映射', () => {
     expect(rw.some((t) => t.name === 'cm_system_guide')).toBe(true);
   });
 });
+
+describe('MCP 工具表按令牌权限裁剪', () => {
+  it('学员令牌看不到需要干部权限的工具，但保留 system_guide（MCP 没有 system prompt）', () => {
+    const app = require('../../app');
+    const { buildTools, agentCatalog } = require('../../services/agent/toolCatalog');
+    const { buildMcpTools } = require('../../services/mcp/mcpTools');
+    const names = buildMcpTools(agentCatalog(buildTools(app), { role: 0 }, { keepInline: true }), { allowWrite: true }).map((t) => t.name);
+    expect(names).not.toContain('cm_approve_leave');
+    expect(names).not.toContain('cm_publish_notice');
+    expect(names).toContain('cm_system_guide');
+  });
+
+  it('超管令牌保留管理类工具', () => {
+    const app = require('../../app');
+    const { buildTools, agentCatalog } = require('../../services/agent/toolCatalog');
+    const { buildMcpTools } = require('../../services/mcp/mcpTools');
+    const names = buildMcpTools(agentCatalog(buildTools(app), { role: 8 }, { keepInline: true }), { allowWrite: true }).map((t) => t.name);
+    expect(names).toContain('cm_approve_leave');
+  });
+});

@@ -203,13 +203,16 @@ function buildTools(app) {
  * 注意：**不要**在这里删 system_guide，它只是不从 LLM 工具表暴露（inline 标记），
  * MCP 外部客户端仍需要它（那些客户端没有 system prompt）。
  */
-function agentCatalog(catalog, user) {
+function agentCatalog(catalog, user, opts) {
+  const keepInline = !!(opts && opts.keepInline);
   const allowed = (perm) => !perm || hasPermission(user, perm);
   const tools = [];
   const byName = new Map();
   for (const t of catalog.tools) {
     if (t.kind === 'local') {
-      if (t.inline) continue;
+      // inline 工具的正文已进 system prompt，对 LLM 不再暴露；但 MCP 外部客户端没有
+      // system prompt，必须保留（keepInline=true）。
+      if (t.inline && !keepInline) continue;
       tools.push(t);
       byName.set(t.name, t);
       continue;

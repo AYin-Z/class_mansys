@@ -1,5 +1,5 @@
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
-const { buildTools } = require('../agent/toolCatalog');
+const { buildTools, agentCatalog } = require('../agent/toolCatalog');
 const { buildMcpTools } = require('../mcp/mcpTools');
 const { execute } = require('../agent/toolRunner');
 const { isWriteCall } = require('../agent/toolCatalog');
@@ -31,7 +31,11 @@ function catalogFor(app) {
  * @param {boolean} opts.allowWrite 是否暴露写工具
  */
 function buildMcpServer({ app, user, jwt, allowWrite }) {
-  const catalog = catalogFor(app);
+  // 按令牌所属用户的权限裁剪工具表：执行侧本来就走该用户的 JWT（403 兜底），
+  // 但把无权工具暴露给客户端有两个坏处——客户端会看到用不了的 API 表面，
+  // 而且这些 schema 每轮都要发一遍（DSH 按 token 计费，48 个工具约 8.7K tok/轮）。
+  // keepInline：MCP 客户端没有 system prompt，system_guide 这类工具必须保留。
+  const catalog = agentCatalog(catalogFor(app), user, { keepInline: true });
   const tools = buildMcpTools(catalog, { allowWrite: !!allowWrite });
   const server = new McpServer({ name: 'class-mansys', version: '1.1.0' });
 
