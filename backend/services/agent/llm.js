@@ -123,6 +123,7 @@ async function chatOnce(target, { messages, tools }) {
         tools,
         tool_choice: 'auto',
         temperature: 0.2,
+        max_tokens: env.LLM_MAX_TOKENS,
         stream: false
       }),
       signal: controller.signal
@@ -252,6 +253,7 @@ async function streamOnce(target, { messages, tools, onDelta }) {
       tools,
       tool_choice: 'auto',
       temperature: 0.2,
+      max_tokens: env.LLM_MAX_TOKENS,
       stream: true,
       // 让上游在最后一帧带上 usage（OpenAI 兼容协议）；不带的话流式路径无法记账
       stream_options: { include_usage: true }
