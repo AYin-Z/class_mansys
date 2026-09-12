@@ -14,6 +14,9 @@ const fs = require('fs');
 const { env } = require('../config/env');
 const logger = require('../config/logger');
 const AgentRepo = require('../services/agent/repo');
+const ilinkMedia = require('../services/channel/ilinkMedia');
+const mediaIntake = require('../services/channel/mediaIntake');
+const mediaService = require('../services/mediaService');
 const ilink = require('../services/channel/ilinkClient');
 const ChannelRepo = require('../services/channel/channelRepo');
 const ChannelService = require('../services/channel/channelService');
@@ -30,6 +33,44 @@ function loadCreds() {
     if (j.account_id && j.token) return j;
   } catch (e) { /* ignore */ }
   return null;
+}
+
+
+/**
+ * 把回复里的 Markdown 图片真的发到微信。
+ * 单条最多 3 张（微信里连发图片很打扰），超出只发前 3 张并提示去 App 看全部。
+ */
+async function sendReplyImages(reply, { token, toUserId, contextToken, cdnBaseUrl }) {
+  const urls = [];
+  const re = /!\[[^\]]*\]\((\/uploads\/[^)\s]+)\)/g;
+  let m;
+  while ((m = re.exec(String(reply || ''))) !== null) {
+    if (!urls.includes(m[1])) urls.push(m[1]);
+  }
+  if (!urls.length) return;
+  for (const url of urls.slice(0, 3)) {
+    try {
+      const abs = mediaService.urlToAbsPath(url);
+      const buf = fs.readFileSync(abs);
+      await ilinkMedia.uploadAndSend({
+        apiPost: ilink.apiPost,
+        token,
+        toUserId,
+        contextToken,
+        buffer: buf,
+        filename: abs.split('/').pop(),
+        kind: /\.(jpe?g|png|gif|webp)$/i.test(abs) ? 'image' : 'file',
+        cdnBaseUrl
+      });
+    } catch (e) {
+      logger.warn({ err: e.message, url }, 'weixin reply image send failed');
+    }
+  }
+  if (urls.length > 3) {
+    try {
+      await ilink.sendText({ token, toUserId, contextToken, text: '（另有 ' + (urls.length - 3) + ' 张图片，请在 App 中查看）' });
+    } catch (e) { /* 忽略 */ }
+  }
 }
 
 async function main() {
@@ -55,10 +96,49 @@ async function main() {
       for (const msg of msgs) {
         const from = String(msg.from_user_id || '').trim();
         if (!from || from === creds.account_id) continue;
-        const text = ilink.extractText(msg.item_list);
-        if (!text) continue;
         const contextToken = String(msg.context_token || '').trim();
-        const trimmed = text.trim();
+        let text = ilink.extractText(msg.item_list);
+        const mediaRefs = ilinkMedia.extractMediaItems(msg.item_list);
+        // 以前这里直接 `if (!text) continue`，导致**图片被静默丢弃**：
+        // 用户发请假证明照片过去，什么都没发生也没有任何提示——最糟的一种失败。
+        if (!text && !mediaRefs.length) continue;
+
+        // 语音消息自带转写文本，没有其他文字时直接当文本用（Hermes 同款做法）
+        if (!text) {
+          const voice = mediaRefs.find((m) => m.voiceText);
+          if (voice) text = voice.voiceText;
+        }
+
+        // 媒体要先落到系统里，才能作为附件交给 Agent（请假证明、相册照片）
+        let attachments = [];
+        if (mediaRefs.length) {
+          const bindingForMedia = await ChannelRepoMod.findBinding('weixin', from);
+          if (!bindingForMedia) {
+            await ilink.sendText({
+              token: creds.token, toUserId: from, contextToken,
+              text: '收到你的文件，但当前还没绑定账号，无法归档。\n请先发送：/绑定 <绑定码>'
+            });
+            continue;
+          }
+          for (const ref of mediaRefs) {
+            try {
+              const buf = await ilinkMedia.downloadMedia(ref, { cdnBaseUrl: creds.cdn_base_url });
+              const att = await mediaIntake.saveInboundMedia(buf, {
+                kind: ref.kind, filename: ref.filename, ownerId: bindingForMedia.user_id
+              });
+              attachments.push({ url: att.url, name: att.name, mime: att.mime, size: att.size });
+            } catch (e) {
+              logger.warn({ err: e.message, kind: ref.kind }, 'wechat inbound media failed');
+              await ilink.sendText({
+                token: creds.token, toUserId: from, contextToken,
+                text: '这张' + (ref.kind === 'image' ? '图片' : '文件') + '没能接收成功（' + e.message + '），请在 App 里上传。'
+              });
+            }
+          }
+          if (!text) text = attachments.length ? '（发来' + attachments.length + '个附件）' : '';
+        }
+        const trimmed = String(text || '').trim();
+        if (!trimmed && !attachments.length) continue;
 
         // 确认 / 取消
         //
@@ -109,13 +189,16 @@ async function main() {
 
         let out;
         try {
-          out = await ChannelService.handleInbound({ channel: 'weixin', externalId: from, displayName: from, text: trimmed, app });
+          out = await ChannelService.handleInbound({ channel: 'weixin', externalId: from, displayName: from, text: trimmed, attachments, app });
         } catch (e) {
           logger.warn({ err: e.message, from }, 'channel inbound failed');
           out = { reply: '处理失败：' + e.message };
         }
         if (out.reply) {
           await ilink.sendText({ token: creds.token, toUserId: from, text: out.reply, contextToken });
+          // 回复里如果带 Markdown 图片（如助手展示相册照片），微信里必须真把图发出去——
+          // 微信不渲染 Markdown，只发 `![说明](/uploads/x.jpg)` 用户看到的就是一串路径。
+          await sendReplyImages(out.reply, { token: creds.token, toUserId: from, contextToken, cdnBaseUrl: creds.cdn_base_url });
         }
       }
     } catch (e) {

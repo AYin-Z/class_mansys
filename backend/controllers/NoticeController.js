@@ -3,16 +3,30 @@ const { isAdmin } = require('../shared/constants');
 const { resolveScope, filterByClassScope, classScopeSql, canAccessClassRecord, canAccessOwnClassRecord } = require('../shared/scope');
 const { stampClassId } = require('../shared/classStamp');
 const { parsePaging, buildPageMeta } = require('../shared/paging');
+const { hasPermission } = require('../shared/permissions');
 
 class NoticeController {
   static async createNotice(req, res) {
     try {
-      const { title, content, type, priority, is_pinned, is_todo, attachments } = req.body || {};
+      const { title, content, type, priority, is_pinned, is_todo, attachments, audience } = req.body || {};
       if (!title || !content) {
         return res.status(400).json({ success: false, error: '标题和内容必填' });
       }
 
       const scope = await resolveScope(req.user);
+      // 可见范围：默认按作者作用域（区队干部 → 本区队）；显式要求全中队需有对应权限。
+      // 不能只靠"参数没传就本区队"——那样任何干部都能靠传 audience=company 越权群发。
+      let className = scope.writeClassId;
+      if (audience === 'company') {
+        if (!hasPermission(req.user, 'PUBLISH_NOTICE_COMPANY')) {
+          return res.status(403).json({
+            success: false,
+            error: '你没有发布全中队通知的权限（只能发本区队）',
+            code: 'FORBIDDEN'
+          });
+        }
+        className = null; // NULL = 全局可见
+      }
       const id = await Notice.create({
         title,
         content,
@@ -23,7 +37,7 @@ class NoticeController {
         attachments,
         creator_id: req.user.id
       });
-      await stampClassId('notices', id, scope.writeClassId);
+      await stampClassId('notices', id, className);
 
       res.json({ success: true, data: { id }, message: '通知发布成功' });
     } catch (error) {

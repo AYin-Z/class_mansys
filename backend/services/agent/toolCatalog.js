@@ -55,7 +55,9 @@ const CADRE_CURATED = [
   { name: 'roster_search', label: '成员名册', method: 'GET', path: '/api/admin/members', desc: '按姓名/学号/手机号搜索本区队成员（需 VIEW_ROSTER 权限）', query: ['keyword'] },
   {
     name: 'publish_notice', label: '发布通知', method: 'POST', path: '/api/notice/create', write: true,
-    desc: '发布通知（干部）。is_todo=true 时成员需点完成', body: ['title', 'content', 'type', 'is_todo', 'is_pinned']
+    desc: '发布通知（干部）。is_todo=true 时成员需点完成。'
+      + '默认只发本区队；只有团支书/宣传委员/超管/辅导员可以传 audience=company 发全中队（无权限会被拒绝）',
+    body: ['title', 'content', 'type', 'is_todo', 'is_pinned', 'audience']
   },
   {
     name: 'approve_leave', label: '审批请假', method: 'PUT', path: '/api/leave/approve', write: true,

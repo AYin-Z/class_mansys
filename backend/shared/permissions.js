@@ -13,6 +13,15 @@ const PERMISSIONS = Object.freeze({
   ACCESS_DASHBOARD: ADMIN_ROLE_IDS,
 
   PUBLISH_NOTICE: ADMIN_ROLE_IDS,
+  /**
+   * 发布**全中队**通知（class_id = NULL，全体可见）。
+   *
+   * 默认不给所有干部：通知的可见范围由作者作用域决定（区队干部 → 本区队），
+   * 放开成"人人可发全中队"意味着任何人都能向 215 人推送，风险和骚扰面都太大。
+   * 所以只给：团支书（团的工作面向全中队）、宣传委员（宣传）、超管、辅导员。
+   * 其他人想发全中队，由超管在权限矩阵里单独授予。
+   */
+  PUBLISH_NOTICE_COMPANY: [ROLES.LEAGUE_SECRETARY, ROLES.PUBLICITY_COMMITTEE, ROLES.SUPER_ADMIN, ROLES.COUNSELOR],
   MANAGE_NOTICE: ADMIN_ROLE_IDS,
 
   PUBLISH_ANNOUNCEMENT: [ROLES.CLASS_LEADER, ROLES.SUPER_ADMIN],
@@ -72,6 +81,7 @@ const PERMISSION_KEYS = Object.keys(PERMISSIONS);
 const PERMISSION_LABELS = {
   ACCESS_DASHBOARD: '访问管理仪表盘',
   PUBLISH_NOTICE: '发布通知',
+  PUBLISH_NOTICE_COMPANY: '发布全中队通知',
   MANAGE_NOTICE: '管理通知',
   PUBLISH_ANNOUNCEMENT: '发布公告',
   MANAGE_ANNOUNCEMENT: '管理公告',

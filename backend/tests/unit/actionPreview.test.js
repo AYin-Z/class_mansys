@@ -125,3 +125,35 @@ describe('通知影响面必须按作者作用域算（不能想当然写全中�
     expect(d.impact).toContain('全中队');
   });
 });
+
+describe('通知可见范围选项', () => {
+  it('显式要全中队时，影响面按全中队算', async () => {
+    const d = await ap.describe(
+      catalog.byName.get('publish_notice'),
+      { title: '集合', content: '明天早上8点集合', audience: 'company' },
+      { id: 5, role: 5, class_id: '6' }
+    );
+    expect(d.impact).toContain('全中队');
+  });
+
+  it('不传范围时按作者作用域（区队干部 → 本区队）', async () => {
+    const d = await ap.describe(
+      catalog.byName.get('publish_notice'),
+      { title: '集合', content: '明天早上8点集合' },
+      { id: 1, role: 1, class_id: '6' }
+    );
+    expect(d.impact).toContain('本区队');
+  });
+
+  it('工具表暴露了 audience，模型才知道有这个选项', () => {
+    const t = catalog.byName.get('publish_notice');
+    expect(t.body).toContain('audience');
+  });
+
+  it('权限矩阵里只有团支书/宣传委员/超管/辅导员能发全中队', () => {
+    const perms = require('../../shared/permissions');
+    const roles = perms.PERMISSIONS.PUBLISH_NOTICE_COMPANY;
+    expect(roles).toEqual([5, 7, 8, 9]);
+    expect(roles).not.toContain(1); // 区队长默认不能向全中队群发
+  });
+});

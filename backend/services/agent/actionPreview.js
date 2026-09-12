@@ -121,7 +121,8 @@ async function describe(tool, args, user) {
     /\/api\/notice\/create/.test(action);
 
   if (isBroadcast) {
-    const aud = await audienceOf(user);
+    // 显式要求全中队时按全中队算；否则按作者作用域（区队干部 → 本区队）
+    const aud = a.audience === 'company' ? await audienceOf({ ...user, role: 8 }) : await audienceOf(user);
     // 模型经常只给 content 不给 title，直接显示"(未填标题)"没有信息量——退化成正文前 40 字
     const title = a.title || a.name || (a.content ? short(a.content, 40) : '(未填标题)');
     const who = aud.count !== null ? aud.label + ' ' + aud.count + ' 人' : aud.label + '成员';
@@ -131,6 +132,7 @@ async function describe(tool, args, user) {
       irreversible: true,
       summary: '发布' + (name === 'publish_notice' ? '通知' : '公告') + '：' + short(title, 40),
       impact: who + '会收到这条推送，发布后无法撤回'
+        + (a.audience === 'company' ? '（全中队）' : '')
     };
   }
 

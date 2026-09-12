@@ -70,7 +70,7 @@ class ChannelService {
    * - /绑定 <code>、/解绑 为控制命令
    * - 其余交给 Agent（与站内完全一致的权限与确认机制）
    */
-  static async handleInbound({ channel, externalId, displayName, text, app }) {
+  static async handleInbound({ channel, externalId, displayName, text, attachments, app }) {
     const trimmed = String(text || '').trim();
     if (!trimmed) return { reply: '' };
 
@@ -112,7 +112,9 @@ class ChannelService {
     const result = await AgentService.chat(
       { id: user.id, name: user.name, role: user.role, class_id: user.class_id },
       token,
-      { message: trimmed },
+      // 微信收到的图片/文件已由 worker 落盘成 /uploads URL，这里作为附件交给 Agent
+      // （请假证明、相册照片正好是现成用途）
+      { message: trimmed, attachments: Array.isArray(attachments) ? attachments : [] },
       app
     );
 
