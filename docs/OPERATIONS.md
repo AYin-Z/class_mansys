@@ -417,3 +417,103 @@ cd ../frontend-v3 && SMOKE_BASE=http://127.0.0.1:3199 SMOKE_TOKEN=<jwt> SMOKE_US
 ⚠️ 这条断言是三次白屏事故的直接护栏，**不要退化成"内容非空"**：
 2026-09-11 的事故里 tab 路径写错，点下去被 catch-all 兜回首页，内容非空但路由是错的——
 只有断言目标路由才能抓住它（已实测：改错路径 → 冒烟立刻失败并指出期望路由）。
+
+## 14. 对话助手模型路由：本地优先 + 远端兜底（2026-09-12）
+
+### 14.1 为什么要本地模型
+
+系统内对话助手原先把每个请求都发给 DeepSeek。实测单轮成本 **¥0.0065**（输入 8512 tok，其中 8320 tok
+命中前缀缓存；输出约 30 tok），一条用户消息约 2 轮 ≈ **¥0.013**。历史上总用量只有 9 条用户消息，
+但全站 215 个用户——**按量计费会随采用度线性增长，而余额归零时 `resolveMode()` 仍返回 live，
+助手会整体 502 挂掉，没有任何兜底**。本地模型解决的是成本和可用性两件事。
+
+### 14.2 硬件与实测结论
+
+RTX 5060 Ti 16G（Hermes 的 9B 常驻占用约 5G），本地 `Qwen3-VL-4B-Instruct-Q4_K_M`：
+
+| 指标 | DeepSeek | 本地 4B |
+|---|---|---|
+| 工具选择（真实 48 工具 / 17 用例） | 14/17 | **17/17**（改造后） |
+| 写操作参数合法率（真实 schema 校验） | 6/6 | 6/6 |
+| 平均延迟 | 1.0s | **0.6s** |
+| 单轮成本 | ¥0.0065 | **¥0** |
+
+注意：Hermes 那个 `Qwythos-9B-Claude-Mythos` 是**推理型**模型，会先吐 `reasoning_content`，
+实测只有 3.4 tok/s、工具选择 2/3——**不能作为本地能力的代表**，选型时别拿它下结论。
+
+### 14.3 上下文与并发的硬约束（踩过的坑）
+
+这个 llama.cpp build 里**每槽上下文 = n_ctx / n_parallel**，而每槽必须装下「工具表 + system prompt +
+会话历史 + 输出」：
+
+| 配置 | 每槽 | 结果 |
+|---|---|---|
+| `-c 32768 --parallel 4` | 8192 | ❌ 请求全部 400（prompt 就已 8692 tok） |
+| `-c 32768 --parallel 2` | 16384 | ✅ |
+| `-c 65536 -ctk q8_0 -ctv q8_0 --parallel 4` | 16384 | ✅ 8 并发墙钟 0.9s（约 9.7 req/s） |
+
+`-ctk/-ctv q8_0` 是必需的：64K 的 f16 KV 要约 9.4G，会和 Hermes 的 9B 抢显存 OOM；量化后约 4.7G，
+当前总占用 12.8G/16.3G。**改动这些参数前请重测**，参数取舍都写在 `scripts/serve-local-llm.sh` 注释里。
+
+### 14.4 工具表按角色裁剪
+
+`buildTools(app)` 原本没有用户参数，目录在 `app.locals.__agentCatalog` 全局缓存**一份给所有角色**——
+学员也能看见 `approve_leave` / `add_points` / `publish_notice`。现在：
+
+- `shared/permissions.js` 的 `requirePermission` 给守卫打 `__permission` 标记；
+- `toolCatalog.collectRoutes` 采集每个端点的权限；
+- `toolCatalog.agentCatalog(catalog, user)` 按权限裁掉无权工具与无权 action，按角色缓存在
+  `app.locals.__agentCatalogByRole`（215 个用户只有 10 种角色，命中率接近 100%）。
+
+这样做的另一个好处是**权限一处定义两处生效**：路由改了权限，工具表自动跟着变，不会两边漂移。
+
+### 14.5 system_guide 内联进 prompt
+
+`system_guide` 作为工具每用一次要多一轮 LLM 往返，而且小模型会把「**帮我**请假」误判成
+「**怎么**请假」去调它。现在 guide 内容由 `persona.renderGuides()` 内联进 system prompt，
+工具对 LLM 不再暴露（`LOCAL_TOOLS` 上标 `inline: true`），同时加了一条消歧规则。
+
+实测（真实目录，本地 4B）：
+
+| 变体 | 准确率 |
+|---|---|
+| A 原状：48 工具 + 原 prompt | 4/5（"帮我请假"误调 system_guide） |
+| B 只裁剪工具，仍保留 guide 工具 | **3/5（更差）**——候选变短后 guide 反而更显眼 |
+| C 裁剪 + 移除 guide 工具 + 内联 + 消歧规则 | **5/5** |
+
+**注意**：**不要**在 `agentCatalog` 里删 `system_guide`（MCP 外部客户端没有 system prompt，
+仍需要它），只在 LLM 面向的工具表里过滤。
+
+### 14.6 路由与熔断（`services/agent/llm.js`）
+
+- `AGENT_LLM_MODE=hybrid`：按序尝试 `resolveTargets()`，失败自动下一个。
+- `LLM_PREFER=local`（默认）本地优先；`remote` 则远端优先、本地兜底（灰度期可零风险观察）。
+- 流式（`chatStream`）**只在还没吐出任何 token 时**才允许换上游——已经吐字再重试会让前端
+  看到两段拼接的内容。
+- 熔断：同一上游连续失败 `LLM_BREAKER_THRESHOLD`（默认 3）次后跳过
+  `LLM_BREAKER_COOLDOWN_MS`（默认 60s）。**本地假死时没有熔断，每个请求都要白等满 8s 超时。**
+- 4xx（最常见是 prompt 超过该上游上下文窗口）算**请求级错误，不计入熔断**——
+  否则长对话几次超限就会把本地模型整体停掉 60 秒。
+
+### 14.7 常驻服务与运维
+
+```
+systemctl --user status  class-mansys-llm.service     # 本地模型（llama-server，127.0.0.1:8090）
+journalctl --user -u class-mansys-llm.service -f      # 模型日志
+systemctl --user restart class-mansys-llm.service     # 换参数/换模型后重启
+```
+
+启动脚本 `backend/scripts/serve-local-llm.sh`（参数与依据都在注释里），单元文件
+`~/.config/systemd/user/class-mansys-llm.service`，`Restart=always`，模型加载需 30~40 秒。
+
+**本地模型挂掉不会让功能不可用**：`llm.js` 会自动回落到 DeepSeek，用户无感，只是成本回到 API 计费。
+
+### 14.8 已知待办
+
+- **无 token 记账**：`llm.js` 拿到了 `usage` 但没落库。没有它就无法定价、限额、熔断成本。
+  注意 `/user/balance` 有结算延迟（实测 10 次调用 ¥0.047 余额不动），账本和余额都不能当实时计费依据，
+  唯一可靠的是 API 返回的 `usage` 字段。
+- **会话历史没有 token 预算**：`agentService` 固定带最近 30 条消息，长对话叠加 6K 的 prompt
+  可能超过每槽 16K。当前靠超限后回落远端兜住，应该改成按 token 预算裁剪。
+- **权限矩阵可能过宽**：`VIEW_ROSTER` / `VIEW_COMPANY` 当前授予 role 0，但对应工具描述写着
+  「需干部权限」，两者矛盾，需要确认哪个是对的。

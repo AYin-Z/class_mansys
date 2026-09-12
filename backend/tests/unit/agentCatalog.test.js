@@ -73,4 +73,54 @@ describe('Agent 工具目录', () => {
     const applyLeave = catalog.openai.find((t) => t.function.name === 'apply_leave');
     expect(applyLeave.function.parameters.required).toContain('start_time');
   });
+
+  it('模块工具的 action 带权限标记（供按角色裁剪）', () => {
+    const leave = catalog.byName.get('leave');
+    expect(leave.actionPerms).toBeTruthy();
+    // 至少有一个端点受权限保护——否则说明权限标记没采集到，裁剪会失效
+    expect(Object.values(leave.actionPerms).some((p) => !!p)).toBe(true);
+  });
+});
+
+describe('按角色裁剪工具目录', () => {
+  let full;
+  beforeAll(() => {
+    const { buildTools } = require('../../services/agent/toolCatalog');
+    full = buildTools(require('../../app'));
+  });
+
+  it('学员看不到需要干部权限的工具', () => {
+    const { agentCatalog, toOpenAiTools } = require('../../services/agent/toolCatalog');
+    const names = toOpenAiTools(agentCatalog(full, { role: 0 })).map((t) => t.function.name);
+    for (const n of ['approve_leave', 'approve_expense', 'publish_notice', 'add_points']) {
+      expect(names, n).not.toContain(n);
+    }
+  });
+
+  it('干部保留管理类工具', () => {
+    const { agentCatalog, toOpenAiTools } = require('../../services/agent/toolCatalog');
+    const names = toOpenAiTools(agentCatalog(full, { role: 1 })).map((t) => t.function.name);
+    for (const n of ['approve_leave', 'publish_notice', 'pending_leave_approvals']) {
+      expect(names, n).toContain(n);
+    }
+  });
+
+  it('system_guide 已内联进 prompt，不再出现在 LLM 工具表（但 MCP 仍可用完整目录）', () => {
+    const { agentCatalog, toOpenAiTools } = require('../../services/agent/toolCatalog');
+    const agentNames = toOpenAiTools(agentCatalog(full, { role: 0 })).map((t) => t.function.name);
+    expect(agentNames).not.toContain('system_guide');
+    // 完整目录必须保留它——MCP 外部客户端没有 system prompt，只能靠这个工具
+    expect(full.byName.has('system_guide')).toBe(true);
+  });
+
+  it('裁剪后的工具描述里没有该角色无权调用的 action', () => {
+    const { agentCatalog } = require('../../services/agent/toolCatalog');
+    const student = agentCatalog(full, { role: 0 });
+    const admin = student.byName.get('admin');
+    if (admin) {
+      // 学员不应拿到角色变更这类管理端点
+      const forbidden = admin.actions.filter((a) => a.includes('members/:p/role'));
+      expect(forbidden).toEqual([]);
+    }
+  });
 });

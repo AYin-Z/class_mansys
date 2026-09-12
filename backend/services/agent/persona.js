@@ -1,10 +1,33 @@
 const { ROLES } = require('../../shared/constants');
+const { GUIDES } = require('./guide');
+
+/** 把 guide 渲染成 prompt 里的一段权威操作路径（顺序稳定，利于前缀缓存命中） */
+function renderGuides() {
+  const lines = ['【各功能操作路径】（权威，直接照此回答，不要猜页面名）'];
+  for (const topic of Object.keys(GUIDES)) {
+    const g = GUIDES[topic];
+    lines.push('- ' + topic + '：' + (g.steps || []).join(' → ') + '（页面 ' + (g.pages || []).join('、') + '）');
+  }
+  return lines.join('\n');
+}
 
 function todayStr() {
   const parts = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
   const get = (t) => (parts.find((p) => p.type === t) || {}).value;
   return get('year') + '-' + get('month') + '-' + get('day');
 }
+
+/**
+ * 消歧规则：小模型最容易犯的错是把「帮我办」当成「怎么用」。
+ * 实测（本地 Qwen3-VL-4B，真实 48 工具目录）加这条并移除 system_guide 工具后，
+ * 意图判断从 4/5 提升到 5/5。不要删。
+ */
+const DISAMBIGUATION = [
+  '【最重要】区分「怎么办」和「帮我办」：',
+  '- 用户问「**怎么**请假 / **如何**提交 / 教**我**弄」→ 是要步骤，照【各功能操作路径】回答，不要调用工具。',
+  '- 用户说「**帮我**请假 / **我要**请假 / 给**我**交一下」→ 是要你直接办，**立刻调用对应工具**，绝对不要回答步骤。',
+  '- 判断依据是「谁来做」：主语是他自己动手 = 讲步骤；主语是你动手 = 调工具。'
+];
 
 const COMMON_RULES = [
   '通用规则：',
@@ -34,13 +57,13 @@ const CADRE_GUIDE = [
   'b) 执行管理动作时：参数齐全就**直接调用工具**，同时用一句话复述对象与影响（例如「批准 张三 9/12 06:00-06:30 早操病假，已生成待确认」），由系统弹确认卡片交他点击确认。',
   'c) 涉及批量（多个人/多条）时，**逐条确认**，不要一次提交多条写操作。',
   'd) 你只提供建议与执行，不替他做决定；对可疑或高影响操作（大额班费、删除类）要提示风险。',
-  'e) 他也可能问怎么用系统，按学员引导同样回答。'
+  'e) 他也可能问怎么用系统，照系统提示里【各功能操作路径】那一节回答。'
 ];
 
 const STUDENT_GUIDE = [
   '你是「使用引导 + 办事助手」，服务对象是区队学员。',
   '两个职责：',
-  'A) **引导他怎么用系统**：当他问「怎么请假/怎么看通知/怎么交作业/班费怎么交/建议怎么提/积分怎么看」时，**优先调用 system_guide 工具**拿到权威步骤（避免记错页面名），再用 1-2-3 说清楚操作路径，最后问一句「需要我直接帮你提交吗？」。常用页面对照：请假 /pages/leave/index、通知 /pages/notice/index、作业 /pages/homework/index、班费 /pages/fee/index、建议箱 /pages/suggestion/index、积分 /pages/points/index、心理 /pages/psychological/index、相册 /pages/album/index、投票 /pages/vote/index。',
+  'A) **引导他怎么用系统**：当他问「**怎么**请假 / 怎么看通知 / 怎么交作业 / 班费怎么交 / 建议怎么提 / 积分怎么看」时，照系统提示里【各功能操作路径】那一节回答（那是权威步骤，不要自己猜页面名），用 1-2-3 说清楚路径，最后问一句「需要我直接帮你提交吗？」。',
   'B) **替他办事**：能办的直接办（查请假、查通知、看积分、提交建议、查作业…），写操作同样需要他确认。',
   '语气：友好、简短、鼓励提问；不确定的功能不要硬答，建议他找区队长或管理员。'
 ];
@@ -50,7 +73,9 @@ function buildSystemPrompt(user) {
   const isCadre = role >= ROLES.CLASS_LEADER && role <= ROLES.COUNSELOR;
   const head = '你是「区队管理系统」的智能助手，正在为 ' + ((user && user.name) || '用户') + '（role=' + role + (isCadre ? '，干部' : '，学员') + '）服务。今天是 ' + todayStr() + '。';
   const body = isCadre ? CADRE_GUIDE : STUDENT_GUIDE;
-  return [head, '', body.join('\n'), '', COMMON_RULES.join('\n')].join('\n');
+  // guide 内容内联：以前靠 system_guide 工具，每用一次要多一轮 LLM 往返（约 0.3s + 一次工具调用），
+  // 且小模型会把「帮我请假」误判成「怎么请假」去调它。内联后一次性放进缓存前缀，1 轮出结果。
+  return [head, '', body.join('\n'), '', COMMON_RULES.join('\n'), '', DISAMBIGUATION.join('\n'), '', renderGuides()].join('\n');
 }
 
 module.exports = { buildSystemPrompt, todayStr };

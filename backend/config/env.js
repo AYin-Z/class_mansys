@@ -24,7 +24,16 @@ const schema = z.object({
   UPLOAD_AUTH_MODE: z.enum(['strict', 'compat']).default('strict'),
 
   // ---- 对话式 Agent ----
-  AGENT_LLM_MODE: z.enum(['auto', 'live', 'mock', 'off']).default('auto'),
+  AGENT_LLM_MODE: z.enum(['auto', 'live', 'mock', 'off', 'hybrid']).default('auto'),
+  // 主模型（hybrid 模式下先走它）。指向本地 llama-server 时无需 API key。
+  LLM_LOCAL_BASE_URL: z.string().optional().default(''),
+  LLM_LOCAL_MODEL: z.string().optional().default(''),
+  LLM_LOCAL_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
+  // hybrid 模式下谁优先：local=本地优先省钱（默认）；remote=远端优先、本地兜底（灰度期用）
+  LLM_PREFER: z.enum(['local', 'remote']).default('local'),
+  // 上游连续失败几次后临时跳过（避免假死时每个请求都白等满超时）
+  LLM_BREAKER_THRESHOLD: z.coerce.number().int().positive().default(3),
+  LLM_BREAKER_COOLDOWN_MS: z.coerce.number().int().positive().default(60000),
   LLM_BASE_URL: z.string().optional().default('https://api.deepseek.com'),
   LLM_API_KEY: z.string().optional().default(''),
   LLM_MODEL: z.string().optional().default('deepseek-chat'),
@@ -80,6 +89,12 @@ if (parsed.success) {
     APK_DIR: process.env.APK_DIR || './apk',
     UPLOAD_AUTH_MODE: process.env.UPLOAD_AUTH_MODE === 'compat' ? 'compat' : 'strict',
     AGENT_LLM_MODE: process.env.AGENT_LLM_MODE || 'auto',
+    LLM_LOCAL_BASE_URL: process.env.LLM_LOCAL_BASE_URL || '',
+    LLM_LOCAL_MODEL: process.env.LLM_LOCAL_MODEL || '',
+    LLM_LOCAL_TIMEOUT_MS: Number(process.env.LLM_LOCAL_TIMEOUT_MS || 8000),
+    LLM_PREFER: process.env.LLM_PREFER || 'local',
+    LLM_BREAKER_THRESHOLD: Number(process.env.LLM_BREAKER_THRESHOLD || 3),
+    LLM_BREAKER_COOLDOWN_MS: Number(process.env.LLM_BREAKER_COOLDOWN_MS || 60000),
     LLM_BASE_URL: process.env.LLM_BASE_URL || 'https://api.deepseek.com',
     LLM_API_KEY: process.env.LLM_API_KEY || '',
     LLM_MODEL: process.env.LLM_MODEL || 'deepseek-chat',

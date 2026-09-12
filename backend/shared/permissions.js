@@ -199,7 +199,7 @@ function hasPermission(user, perm) {
 
 /** 路由中间件：要求指定权限（必须放在 authenticateToken 之后） */
 function requirePermission(perm) {
-  return function permissionGuard(req, res, next) {
+  const guard = function permissionGuard(req, res, next) {
     if (!req.user) {
       return res.status(401).json({ success: false, error: '未提供认证令牌', code: 'UNAUTHORIZED' });
     }
@@ -208,6 +208,10 @@ function requirePermission(perm) {
     }
     return next();
   };
+  // 打标记：供工具目录（services/agent/toolCatalog）按角色裁剪工具表。
+  // 必须在这里标记而不是另建映射表——否则路由改了权限、工具表不会跟着变，两边必然漂移。
+  guard.__permission = perm;
+  return guard;
 }
 
 module.exports = {

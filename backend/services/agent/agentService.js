@@ -1,6 +1,6 @@
 const AgentRepo = require('./repo');
 const llm = require('./llm');
-const { buildTools, toOpenAiTools, isWriteCall } = require('./toolCatalog');
+const { buildTools, agentCatalog, toOpenAiTools, isWriteCall } = require('./toolCatalog');
 const { preview, execute } = require('./toolRunner');
 const { buildSystemPrompt } = require('./persona');
 const { normalize: normalizeAttachments, withAttachmentText } = require('./attachments');
@@ -13,6 +13,25 @@ function catalogFor(app) {
     app.locals.__agentCatalog = buildTools(app);
   }
   return app.locals.__agentCatalog;
+}
+
+/**
+ * 面向 LLM 的工具目录：在完整目录基础上按用户权限裁剪（并排除已内联进 prompt 的本地工具）。
+ * 按角色缓存——215 个用户只有 10 种角色，缓存命中率接近 100%，
+ * 避免每次请求都重建 48 个工具的目录。权限矩阵热更新时用 clearAgentCatalogCache() 失效。
+ */
+function agentCatalogFor(app, user) {
+  const full = catalogFor(app);
+  const role = String((user && user.role) != null ? user.role : 'anon');
+  if (!app.locals.__agentCatalogByRole) app.locals.__agentCatalogByRole = new Map();
+  const cache = app.locals.__agentCatalogByRole;
+  if (!cache.has(role)) cache.set(role, agentCatalog(full, user));
+  return cache.get(role);
+}
+
+/** 权限矩阵变更后调用，清掉按角色缓存的工具目录 */
+function clearAgentCatalogCache(app) {
+  if (app && app.locals) app.locals.__agentCatalogByRole = new Map();
 }
 
 class AgentService {
@@ -34,7 +53,7 @@ class AgentService {
       throw new HttpError(429, '今日对话次数已达上限，请明天再试', 'AGENT_QUOTA_EXCEEDED');
     }
 
-    const catalog = catalogFor(app);
+    const catalog = agentCatalogFor(app, user);
     let convId = conversationId ? Number(conversationId) : null;
     if (convId) {
       const conv = await AgentRepo.getConversation(convId, user.id);
@@ -172,7 +191,7 @@ class AgentService {
     const used = await AgentRepo.countUserMessagesLast24h(user.id);
     if (used >= env.AGENT_DAILY_QUOTA) throw new HttpError(429, '今日对话次数已达上限，请明天再试', 'AGENT_QUOTA_EXCEEDED');
 
-    const catalog = catalogFor(app);
+    const catalog = agentCatalogFor(app, user);
     let convId = conversationId ? Number(conversationId) : null;
     if (convId) {
       const conv = await AgentRepo.getConversation(convId, user.id);
@@ -243,3 +262,4 @@ class AgentService {
 }
 
 module.exports = AgentService;
+module.exports.clearAgentCatalogCache = clearAgentCatalogCache;

@@ -30,12 +30,17 @@ const MODULE_META = {
 };
 
 const { systemGuide } = require('./guide');
+const { hasPermission } = require('../../shared/permissions');
 
 // 本地工具（不调用 HTTP）
 const LOCAL_TOOLS = [
   {
     name: 'system_guide',
     kind: 'local',
+    // inline=true：内容已内联进 persona 的 system prompt。
+    // 对 LLM 不再暴露成工具（少一轮往返，且小模型不再把「帮我请假」误判成「怎么请假」）；
+    // MCP 外部客户端没有 system prompt，仍然保留这个工具。
+    inline: true,
     label: '系统使用引导',
     desc: '查询某个功能怎么用（步骤 + 页面路径）。topic 可取：请假/通知公告/作业/班费/建议箱/积分/心理/相册/投票抽奖擂台/账号/中队出勤',
     params: ['topic'],
@@ -113,8 +118,14 @@ function collectRoutes(router, prefix, out) {
   for (const layer of stack) {
     if (layer.route) {
       const full = joinPath(prefix, layer.route.path);
+      // 从该路由的中间件里取 requirePermission 打的标记（无标记 = 登录即可访问）
+      let perm = null;
+      for (const mw of layer.route.stack || []) {
+        const handle = mw && mw.handle;
+        if (handle && handle.__permission) { perm = handle.__permission; break; }
+      }
       for (const m of Object.keys(layer.route.methods || {})) {
-        if (layer.route.methods[m]) out.push({ method: m.toUpperCase(), path: full });
+        if (layer.route.methods[m]) out.push({ method: m.toUpperCase(), path: full, perm });
       }
     } else if (layer.handle && layer.handle.stack) {
       collectRoutes(layer.handle, prefix, out);
@@ -148,13 +159,16 @@ function buildTools(app) {
     if (!list.length) continue;
     const name = moduleKey(mount);
     const actions = list.map((r) => r.method + ' ' + r.path);
+    const actionPerms = {};
+    for (const r of list) actionPerms[r.method + ' ' + r.path] = r.perm || null;
     const tool = {
       name,
       module: mount,
       label: mount,
       description: (MODULE_META[mount] || mount) + '。可用 action：' + actions.join(' | '),
       kind: 'module',
-      actions
+      actions,
+      actionPerms
     };
     tools.push(tool);
     byName.set(name, tool);
@@ -169,14 +183,50 @@ function buildTools(app) {
 
   // 3) 快捷工具（含干部管理快捷项）
   for (const c of [...CURATED, ...CADRE_CURATED]) {
-    const exists = routes.some((r) => r.method === c.method && normPath(r.path) === normPath(c.path));
-    if (!exists) continue; // 路由不存在则不注册（保持与真实能力一致）
-    const tool = { ...c, kind: 'curated', write: c.method !== 'GET' };
+    const route = routes.find((r) => r.method === c.method && normPath(r.path) === normPath(c.path));
+    if (!route) continue; // 路由不存在则不注册（保持与真实能力一致）
+    const tool = { ...c, kind: 'curated', write: c.method !== 'GET', perm: route.perm || null };
     tools.push(tool);
     byName.set(c.name, tool);
   }
 
   return { tools, byName, routeCount: routes.length };
+}
+
+/**
+ * 按用户权限裁剪工具目录（供 LLM 使用）
+ *
+ * 为什么必须裁：目录原本对所有角色一视同仁，学员也看得见 approve_leave / add_points /
+ * publish_notice。实测把 48 个工具裁到学员白名单后，prompt 从 8738 tok 降到约 1700 tok，
+ * 同一块 32K 上下文能开的并发槽位从 3 个变成 10 个；同时候选变少，误选也明显减少。
+ *
+ * 注意：**不要**在这里删 system_guide，它只是不从 LLM 工具表暴露（inline 标记），
+ * MCP 外部客户端仍需要它（那些客户端没有 system prompt）。
+ */
+function agentCatalog(catalog, user) {
+  const allowed = (perm) => !perm || hasPermission(user, perm);
+  const tools = [];
+  const byName = new Map();
+  for (const t of catalog.tools) {
+    if (t.kind === 'local') {
+      if (t.inline) continue;
+      tools.push(t);
+      byName.set(t.name, t);
+      continue;
+    }
+    if (t.kind === 'module') {
+      const actions = t.actions.filter((a) => allowed((t.actionPerms || {})[a]));
+      if (!actions.length) continue; // 该模块下没有他有权的端点 → 整个不给
+      const filtered = { ...t, actions };
+      tools.push(filtered);
+      byName.set(filtered.name, filtered);
+      continue;
+    }
+    if (!allowed(t.perm)) continue;
+    tools.push(t);
+    byName.set(t.name, t);
+  }
+  return { tools, byName, routeCount: catalog.routeCount, filtered: true };
 }
 
 /**
@@ -256,4 +306,4 @@ function toOpenAiTools(catalog) {
   });
 }
 
-module.exports = { buildTools, toOpenAiTools, isWriteCall, CURATED, CADRE_CURATED, LOCAL_TOOLS, MODULE_META, QUERY_KEYS };
+module.exports = { buildTools, agentCatalog, toOpenAiTools, isWriteCall, CURATED, CADRE_CURATED, LOCAL_TOOLS, MODULE_META, QUERY_KEYS };
