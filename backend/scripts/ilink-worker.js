@@ -13,12 +13,12 @@
 const fs = require('fs');
 const { env } = require('../config/env');
 const logger = require('../config/logger');
+const AgentRepo = require('../services/agent/repo');
 const ilink = require('../services/channel/ilinkClient');
 const ChannelRepo = require('../services/channel/channelRepo');
 const ChannelService = require('../services/channel/channelService');
 const ChannelRepoMod = ChannelRepo;
 
-const pendingByExternal = new Map(); // externalId -> actionId
 
 function loadCreds() {
   if (env.WEIXIN_ACCOUNT_ID && env.WEIXIN_TOKEN) {
@@ -60,22 +60,49 @@ async function main() {
         const contextToken = String(msg.context_token || '').trim();
         const trimmed = text.trim();
 
-        // 确认/取消
-        if (/^[/／]?(确认|确定|yes|ok)$/i.test(trimmed) || trimmed === '1') {
-          const actionId = pendingByExternal.get(from);
-          if (!actionId) { await ilink.sendText({ token: creds.token, toUserId: from, text: '当前没有待确认操作。', contextToken }); continue; }
+        // 确认 / 取消
+        //
+        // 以前的实现把 actionId 存在进程内的 Map 里，worker 一重启（Restart=always）映射就没了，
+        // 用户回复「确认」会被告知"没有待确认操作"——而卡片明明还在聊天记录里。
+        // 现在改为每次都从库里查该用户最近一条仍有效的待确认动作，天然跨重启。
+        const isConfirm = /^[/／]?(确认|确定|yes|ok)$/i.test(trimmed) || trimmed === '1' || /^[/／]?确认\s*\d{4}$/.test(trimmed);
+        if (isConfirm) {
           try {
             const binding = await ChannelRepoMod.findBinding('weixin', from);
-            const r = await ChannelService.confirm(binding.user_id, actionId, app);
-            pendingByExternal.delete(from);
-            await ilink.sendText({ token: creds.token, toUserId: from, text: r.reply, contextToken });
+            if (!binding) { await ilink.sendText({ token: creds.token, toUserId: from, text: '尚未绑定账号，请先发送：/绑定 <绑定码>', contextToken }); continue; }
+            const pending = await AgentRepo.latestPendingAction(binding.user_id);
+            if (!pending) { await ilink.sendText({ token: creds.token, toUserId: from, text: '当前没有待确认操作（可能已过期或已处理）。', contextToken }); continue; }
+            // 高危操作必须带对短码：码由 actionId 派生，用户得把影响面那行看一眼才打得出来
+            if (pending.risk === 'high') {
+              const codeInText = (trimmed.match(/(\d{4})$/) || [])[1];
+              const expected = ChannelService.confirmCode(pending.id);
+              if (codeInText !== expected) {
+                await ilink.sendText({
+                  token: creds.token, toUserId: from,
+                  text: '这是高影响操作，为避免误触需要确认码。\n请回复：确认 ' + expected + '\n放弃请回复：取消',
+                  contextToken
+                });
+                continue;
+              }
+            }
+            const r = await ChannelService.confirm(binding.user_id, pending.id, app);
+            await ilink.sendText({ token: creds.token, toUserId: from, text: ChannelService.toPlainText(r.reply), contextToken });
           } catch (e) {
             await ilink.sendText({ token: creds.token, toUserId: from, text: '执行失败：' + e.message, contextToken });
           }
           continue;
         }
         if (/^[/／]?(取消|算了|no|cancel)$/i.test(trimmed) || trimmed === '0') {
-          pendingByExternal.delete(from);
+          // 取消：把库里那条待确认动作标记掉，否则它会一直"待确认"到过期
+          try {
+            const binding = await ChannelRepoMod.findBinding('weixin', from);
+            if (binding) {
+              const pending = await AgentRepo.latestPendingAction(binding.user_id);
+              if (pending) await AgentRepo.markAction(pending.id, 'cancelled', {});
+            }
+          } catch (e) {
+            logger.warn({ err: e.message }, 'cancel pending action failed');
+          }
           await ilink.sendText({ token: creds.token, toUserId: from, text: '好的，已取消。', contextToken });
           continue;
         }
@@ -87,7 +114,6 @@ async function main() {
           logger.warn({ err: e.message, from }, 'channel inbound failed');
           out = { reply: '处理失败：' + e.message };
         }
-        if (out.pendingAction) pendingByExternal.set(from, out.pendingAction.id);
         if (out.reply) {
           await ilink.sendText({ token: creds.token, toUserId: from, text: out.reply, contextToken });
         }

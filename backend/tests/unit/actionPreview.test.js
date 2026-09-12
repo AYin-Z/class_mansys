@@ -82,3 +82,24 @@ describe('写操作确认卡片：说人话 + 影响面', () => {
     expect(d.impact.length).toBeLessThanOrEqual(255);
   });
 });
+
+describe('确认策略：降噪（不是所有写操作都值得打断）', () => {
+  it('低风险直接办，不回卡片', () => {
+    expect(ap.policyFor('low')).toBe('auto');
+  });
+
+  it('中风险回卡片，不加额外摩擦', () => {
+    expect(ap.policyFor('medium')).toBe('confirm');
+  });
+
+  it('高风险回卡片且加摩擦（App 勾选 / 微信短码）', () => {
+    expect(ap.policyFor('high')).toBe('strict');
+  });
+
+  it('发布通知走 strict，提交建议走 auto', async () => {
+    const notice = await ap.describe(catalog.byName.get('publish_notice'), { title: 'x', content: 'y' });
+    const sugg = await ap.describe(catalog.byName.get('submit_suggestion'), { content: '食堂排队太久' });
+    expect(notice.policy).toBe('strict');
+    expect(sugg.policy).toBe('auto');
+  });
+});

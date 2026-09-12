@@ -47,6 +47,21 @@ function short(v, max = 60) {
   return s.length > max ? s.slice(0, max) + '…' : s;
 }
 
+/**
+ * 确认策略：哪些操作值得打断用户
+ *
+ * auto   直接办，不回卡片——只给**后果无害且只影响自己**的操作。
+ *        注意判据不是"能撤销"：提交匿名建议没有删除端点，但它的最坏后果只是一条噪音，
+ *        所以它可以 auto；而销假虽然只影响自己，后果是考勤状态，不能 auto。
+ * confirm 回卡片（默认）
+ * strict  回卡片 + 额外摩擦（必须勾选核对 / 微信里必须回短码）
+ */
+function policyFor(risk) {
+  if (risk === 'low') return 'auto';
+  if (risk === 'high') return 'strict';
+  return 'confirm';
+}
+
 /** 风险分级：静态名单 + HTTP 方法兜底规则 */
 function classify(tool, args) {
   if (!tool) return 'high'; // 未知工具一律当高危
@@ -103,6 +118,7 @@ async function describe(tool, args) {
     const title = a.title || a.name || (a.content ? short(a.content, 40) : '(未填标题)');
     return {
       risk: 'high',
+      policy: 'strict',
       irreversible: true,
       summary: '发布' + (name === 'publish_notice' ? '通知' : '公告') + '：' + short(title, 40),
       impact: (n !== null ? to + ' ' + n + ' 人' : to + '所有人') + '会立刻收到这条推送，发布后无法撤回'
@@ -116,6 +132,7 @@ async function describe(tool, args) {
     if (a.notes) parts.push('批注：' + short(a.notes, 40));
     return {
       risk: 'high',
+      policy: 'strict',
       irreversible: false,
       summary: '批准' + (name === 'approve_expense' ? '班费申请' : '请假申请') + (parts.length ? '（' + parts.join('，') + '）' : ''),
       impact: '对方会收到审批通过的通知'
@@ -127,6 +144,7 @@ async function describe(tool, args) {
     const score = a.score;
     return {
       risk: 'high',
+      policy: 'strict',
       irreversible: false,
       summary: '给成员 ' + (a.user_id !== undefined ? '#' + a.user_id : '（未指定）') +
         (score !== undefined ? ' ' + (Number(score) >= 0 ? '加 ' : '扣 ') + Math.abs(Number(score)) + ' 分' : ''),
@@ -138,6 +156,7 @@ async function describe(tool, args) {
   if (method === 'DELETE') {
     return {
       risk: 'high',
+      policy: 'strict',
       irreversible: true,
       summary: '删除' + (tool && tool.label ? '：' + tool.label : '') + (a.id ? '（#' + a.id + '）' : ''),
       impact: '删除后无法恢复'
@@ -157,10 +176,11 @@ async function describe(tool, args) {
   const label = (tool && (tool.label || tool.name)) || name;
   return {
     risk,
+    policy: policyFor(risk),
     irreversible: false,
     summary: label + (bits.length ? '（' + bits.slice(0, 3).join('，') + '）' : ''),
     impact: risk === 'low' ? '' : '提交后可在对应页面查看或更正'
   };
 }
 
-module.exports = { describe, classify, FIELD_LABELS, humanField };
+module.exports = { describe, classify, policyFor, FIELD_LABELS, humanField };

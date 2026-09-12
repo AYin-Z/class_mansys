@@ -13,6 +13,29 @@ const BIND_CODE_TTL_MS = 15 * 60 * 1000;
  * 渠道服务（当前实现微信 iLink）：
  * 外部账号 → 系统用户（绑定码）→ 复用 AgentService（同一套权限/确认/审计）
  */
+
+/**
+ * 高危操作的确认短码：由 actionId 派生，稳定可复算（不需要额外存）。
+ * 用户必须把这个码打出来，等于强制他把影响面那行字看一眼。
+ */
+function confirmCode(actionId) {
+  const n = Number(actionId) || 0;
+  return String((n * 7919) % 10000).padStart(4, '0');
+}
+
+/** 微信不渲染 Markdown：把 **粗体**、`代码`、# 标题、- 列表这些符号去掉，免得满屏星号 */
+function toPlainText(text) {
+  return String(text || '')
+    .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, ''))
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*]\s+/gm, '· ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 class ChannelService {
   static async issueBindCode(user) {
     const code = crypto.randomBytes(3).toString('hex').toUpperCase();
@@ -93,11 +116,23 @@ class ChannelService {
       app
     );
 
-    let reply = result.reply || '（没有回复）';
-    if (result.pendingAction) {
-      reply += '\n\n回复「确认」执行，或回复「取消」放弃（也可在 App 内操作）。';
+    let reply = toPlainText(result.reply || '（没有回复）');
+    const pa = result.pendingAction;
+    if (pa) {
+      // 微信里没有按钮，只能靠文字确认。三件事必须做：
+      // 1) 把影响面贴出来——App 里它单独成块，微信里不能丢，否则用户没有任何判断依据；
+      // 2) 高危操作要求回一个短码而不是「确认」——微信里回两个字比点按钮还省事，
+      //    是最容易闭眼确认的场景，必须加一点摩擦（要求把码看一遍再打出来）；
+      // 3) 普通操作仍是「确认」，避免日常太啰嗦。
+      if (pa.impact) reply += '\n\n⚠ ' + pa.impact;
+      if (pa.risk === 'high') {
+        const code = confirmCode(pa.id);
+        reply += '\n\n这是高影响操作。确认请回复：确认 ' + code + '\n放弃请回复：取消';
+      } else {
+        reply += '\n\n回复「确认」执行，回复「取消」放弃（也可在 App 内操作）。';
+      }
     }
-    return { reply, pendingAction: result.pendingAction || null, conversationId: result.conversationId };
+    return { reply, pendingAction: pa || null, conversationId: result.conversationId };
   }
 
   /** 微信侧确认：执行待确认动作 */
@@ -111,3 +146,5 @@ class ChannelService {
 }
 
 module.exports = ChannelService;
+module.exports.toPlainText = toPlainText;
+module.exports.confirmCode = confirmCode;

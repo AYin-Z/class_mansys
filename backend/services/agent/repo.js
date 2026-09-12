@@ -63,6 +63,23 @@ class AgentRepo {
     return r.insertId;
   }
 
+  /**
+   * 某用户最近一条仍有效的待确认动作。
+   *
+   * 为什么需要：微信侧原来用进程内的 Map 记住 actionId，worker 一重启（Restart=always）
+   * 映射就没了，用户回复「确认」会被告知"没有待确认操作"——而卡片明明还在聊天记录里。
+   * 改从库里查，天然跨重启，也避免同一用户多条待确认时张冠李戴。
+   */
+  static async latestPendingAction(userId) {
+    const [rows] = await db.query(
+      "SELECT * FROM agent_actions WHERE user_id = ? AND status = 'pending' AND expires_at > NOW() ORDER BY id DESC LIMIT 1",
+      [userId]
+    );
+    const row = rows[0];
+    if (!row) return null;
+    return { ...row, params: typeof row.params === 'string' ? safeParse(row.params) : row.params };
+  }
+
   static async getAction(id) {
     const [rows] = await db.query(
       "SELECT * FROM agent_actions WHERE id = ? AND status = 'pending' AND expires_at > NOW()",

@@ -42,3 +42,21 @@ describe('iLink 客户端协议构造', () => {
     expect(ilink.DEFAULT_BASE_URL).toBe('https://ilinkai.weixin.qq.com');
   });
 });
+
+describe('微信渠道：纯文本适配与高危确认码', () => {
+  const ChannelService = require('../../services/channel/channelService');
+
+  it('去掉 Markdown 外壳（微信不渲染，否则满屏星号）', () => {
+    const out = ChannelService.toPlainText('**重点**\n- 第一项\n- 第二项\n`code`');
+    expect(out).not.toContain('**');
+    expect(out).not.toContain('`');
+    expect(out).toContain('重点');
+    expect(out).toContain('第一项');
+  });
+
+  it('确认码由 actionId 派生：稳定可复算，不需要额外存', () => {
+    expect(ChannelService.confirmCode(123)).toBe(ChannelService.confirmCode(123));
+    expect(ChannelService.confirmCode(123)).toMatch(/^\d{4}$/);
+    expect(ChannelService.confirmCode(123)).not.toBe(ChannelService.confirmCode(124));
+  });
+});
