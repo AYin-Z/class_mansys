@@ -1,13 +1,13 @@
 {
   "android": {
     "versionName": "1.3.0",
-    "versionCode": 26091201,
+    "versionCode": 26091302,
     "minVersionCode": 100,
-    "downloadUrl": "https://cls.ayinserver.xin/apk/class-mansys-v1.3.0-26091201.apk",
-    "apkSize": 1723688,
-    "releasedAt": "2026-09-12",
+    "downloadUrl": "https://cls.ayinserver.xin/apk/class-mansys-v1.3.0-26091302.apk",
+    "apkSize": 1723672,
+    "releasedAt": "2026-09-13",
     "forceUpdate": false,
-    "changelog": "fix(agent): \u64a4\u9500\u673a\u5236 + \u53c2\u6570\u5b88\u536b + \u672c\u5730\u6a21\u578b\u5065\u5eb7\u544a\u8b66\u4e0e\u663e\u5b58\u81ea\u9002\u5e94"
+    "changelog": "docs(agent): \u672c\u5730\u6a21\u578b\u9009\u578b\u8bb0\u5f55\uff08\u6807\u51c6/\u8bd5\u8fc7\u4ec0\u4e48/\u5f15\u64ce\u7ea6\u675f/\u7ed3\u8bba/\u590d\u76d8\uff09"
   },
   "ios": {
     "versionName": "",
