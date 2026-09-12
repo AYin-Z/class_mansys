@@ -49,6 +49,8 @@ const schema = z.object({
   // 显式限制生成长度：不设的话行为随上游默认值变（DeepSeek 4096 / llama-server 按剩余上下文），
   // 既不可预期，也可能把每槽上下文吃光拖慢并发
   LLM_MAX_TOKENS: z.coerce.number().int().positive().default(2048),
+  // 撤销窗口（默认 30 分钟）。过期后不再提供撤销——太久了用户已经记不清当时发生了什么
+  AGENT_UNDO_TTL_MS: z.coerce.number().int().positive().default(1800000),
   LLM_BASE_URL: z.string().optional().default('https://api.deepseek.com'),
   LLM_API_KEY: z.string().optional().default(''),
   LLM_MODEL: z.string().optional().default('deepseek-chat'),
@@ -119,6 +121,7 @@ if (parsed.success) {
     AGENT_HISTORY_TOKEN_BUDGET: Number(process.env.AGENT_HISTORY_TOKEN_BUDGET ?? 4000),
     LLM_WARMUP_INTERVAL_MS: Number(process.env.LLM_WARMUP_INTERVAL_MS ?? 300000),
     LLM_MAX_TOKENS: Number(process.env.LLM_MAX_TOKENS ?? 2048),
+    AGENT_UNDO_TTL_MS: Number(process.env.AGENT_UNDO_TTL_MS ?? 1800000),
     LLM_BASE_URL: process.env.LLM_BASE_URL || 'https://api.deepseek.com',
     LLM_API_KEY: process.env.LLM_API_KEY || '',
     LLM_MODEL: process.env.LLM_MODEL || 'deepseek-chat',

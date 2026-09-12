@@ -80,6 +80,45 @@ class AgentRepo {
     return { ...row, params: typeof row.params === 'string' ? safeParse(row.params) : row.params };
   }
 
+  /** 记一条可撤销操作 */
+  static async createUndo({ userId, actionId, conversationId, tool, label, method, path, params, ttlMs }) {
+    const [r] = await db.query(
+      'INSERT INTO agent_undo (user_id, action_id, conversation_id, tool, label, method, path, params, expires_at)' +
+        ' VALUES (?,?,?,?,?,?,?,?, DATE_ADD(NOW(), INTERVAL ? SECOND))',
+      [
+        userId, actionId || null, conversationId || null, tool, label, method, path,
+        JSON.stringify(params || {}), Math.round((ttlMs || 1800000) / 1000)
+      ]
+    );
+    return r.insertId;
+  }
+
+  /** 某用户最近一条仍可撤销的操作 */
+  static async latestUndo(userId) {
+    const [rows] = await db.query(
+      "SELECT * FROM agent_undo WHERE user_id = ? AND status = 'available' AND expires_at > NOW()" +
+        ' ORDER BY id DESC LIMIT 1',
+      [userId]
+    );
+    const row = rows[0];
+    if (!row) return null;
+    return { ...row, params: typeof row.params === 'string' ? safeParse(row.params) : row.params };
+  }
+
+  static async getUndo(id, userId) {
+    const [rows] = await db.query(
+      "SELECT * FROM agent_undo WHERE id = ? AND user_id = ? AND status = 'available' AND expires_at > NOW()",
+      [id, userId]
+    );
+    const row = rows[0];
+    if (!row) return null;
+    return { ...row, params: typeof row.params === 'string' ? safeParse(row.params) : row.params };
+  }
+
+  static async markUndo(id, status) {
+    await db.query('UPDATE agent_undo SET status = ?, used_at = NOW() WHERE id = ?', [status, id]);
+  }
+
   static async getAction(id) {
     const [rows] = await db.query(
       "SELECT * FROM agent_actions WHERE id = ? AND status = 'pending' AND expires_at > NOW()",

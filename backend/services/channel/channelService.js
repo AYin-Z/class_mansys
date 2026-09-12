@@ -137,6 +137,15 @@ class ChannelService {
     return { reply, pendingAction: pa || null, conversationId: result.conversationId };
   }
 
+  /** 微信侧撤销：撤回最近一次写操作 */
+  static async undo(userId, app) {
+    const user = await User.findById(userId);
+    if (!user) throw new BadRequestError('账号不存在');
+    const token = authService.signToken(user);
+    const result = await AgentService.undoLast({ id: user.id, name: user.name, role: user.role }, token, app, {});
+    return { reply: result.reply, success: result.success };
+  }
+
   /** 微信侧确认：执行待确认动作 */
   static async confirm(userId, actionId, app) {
     const user = await User.findById(userId);

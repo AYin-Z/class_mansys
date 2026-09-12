@@ -172,6 +172,18 @@ async function main() {
           }
           continue;
         }
+        // 撤销：撤回最近一次写操作（通知撤回、积分回滚…）
+        if (/^[/／]?(撤销|撤回|undo)$/i.test(trimmed)) {
+          try {
+            const binding = await ChannelRepoMod.findBinding('weixin', from);
+            if (!binding) { await ilink.sendText({ token: creds.token, toUserId: from, text: '尚未绑定账号，请先发送：/绑定 <绑定码>', contextToken }); continue; }
+            const r = await ChannelService.undo(binding.user_id, app);
+            await ilink.sendText({ token: creds.token, toUserId: from, text: ChannelService.toPlainText(r.reply), contextToken });
+          } catch (e) {
+            await ilink.sendText({ token: creds.token, toUserId: from, text: '撤销失败：' + e.message, contextToken });
+          }
+          continue;
+        }
         if (/^[/／]?(取消|算了|no|cancel)$/i.test(trimmed) || trimmed === '0') {
           // 取消：把库里那条待确认动作标记掉，否则它会一直"待确认"到过期
           try {

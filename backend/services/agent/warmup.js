@@ -17,6 +17,34 @@ const logger = require('../../config/logger');
 const { buildSystemPrompt } = require('./persona');
 const { toOpenAiTools } = require('./toolCatalog');
 const llm = require('./llm');
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * 本地模型健康状态落盘。
+ *
+ * 为什么需要：用量记账的"回落率告警"要求至少 N 次调用，而本系统助手用量极低
+ * （上线至今总共个位数消息）——**低流量时回落率告警永远不会触发**。
+ * 实测 2026-09-12 本地模型因显存不足崩溃、服务卡在 activating 近一小时，
+ * 记账里一行回落都没有（那段时间没有真实请求），但预热的每 5 分钟探测把
+ * "fetch failed" 完整记了下来。所以健康信号必须独立于流量，这里把它落盘给告警用。
+ */
+const HEALTH_FILE = process.env.LLM_HEALTH_FILE || path.join(process.env.HOME || '/tmp', '.class-mansys', 'llm-health.json');
+
+function writeHealth(state) {
+  try {
+    fs.mkdirSync(path.dirname(HEALTH_FILE), { recursive: true });
+    fs.writeFileSync(HEALTH_FILE, JSON.stringify(state, null, 1));
+  } catch (e) { /* 健康文件写不了不能影响主流程 */ }
+}
+
+function readHealth() {
+  try {
+    return JSON.parse(fs.readFileSync(HEALTH_FILE, 'utf8'));
+  } catch (e) {
+    return null;
+  }
+}
 
 /** 预热哪些角色（学员 + 干部 = 两组静态 prompt；再多的角色不影响前缀） */
 const WARM_ROLES = [0, 1];
@@ -78,15 +106,38 @@ function startWarmup(app, agentCatalogFor) {
     return null;
   }
 
+  let consecutiveFailures = 0;
+
   const tick = async () => {
     if (stopped) return;
     try {
       const r = await warmOnce(app, agentCatalogFor);
-      if (r && r.results) {
-        logger.info({ results: r.results }, '本地模型预热完成');
+      const results = (r && r.results) || [];
+      const failed = results.filter((x) => x.error);
+      if (failed.length) {
+        consecutiveFailures += 1;
+        logger.warn(
+          { results, consecutiveFailures },
+          '本地模型预热失败（对话会自动回落远端；连续失败会进告警邮件）'
+        );
+        writeHealth({
+          ok: false,
+          consecutiveFailures,
+          since: Date.now(),
+          detail: failed[0].error,
+          checkedAt: new Date().toISOString()
+        });
+      } else {
+        if (consecutiveFailures > 0) {
+          logger.info({ consecutiveFailures }, '本地模型已恢复');
+        }
+        consecutiveFailures = 0;
+        writeHealth({ ok: true, consecutiveFailures: 0, checkedAt: new Date().toISOString(), results });
       }
     } catch (e) {
-      logger.warn({ err: e && e.message }, '本地模型预热失败（不影响对话）');
+      consecutiveFailures += 1;
+      logger.warn({ err: e && e.message, consecutiveFailures }, '本地模型预热失败（不影响对话）');
+      writeHealth({ ok: false, consecutiveFailures, detail: (e && e.message) || 'unknown', checkedAt: new Date().toISOString() });
     }
   };
 
@@ -104,4 +155,4 @@ function stopWarmup() {
   timer = null;
 }
 
-module.exports = { startWarmup, stopWarmup, warmOnce, WARM_ROLES };
+module.exports = { startWarmup, stopWarmup, warmOnce, readHealth, WARM_ROLES, HEALTH_FILE };

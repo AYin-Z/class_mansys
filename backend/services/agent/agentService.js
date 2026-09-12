@@ -1,7 +1,9 @@
 const AgentRepo = require('./repo');
 const llm = require('./llm');
 const { buildTools, agentCatalog, toOpenAiTools, isWriteCall } = require('./toolCatalog');
-const { preview, execute } = require('./toolRunner');
+const { preview, execute, callApi, resolveTarget } = require('./toolRunner');
+const undo = require('./undo');
+const argGuard = require('./argGuard');
 const actionPreview = require('./actionPreview');
 const { buildSystemPrompt, buildUserContext } = require('./persona');
 const usage = require('./usage');
@@ -35,6 +37,29 @@ function agentCatalogFor(app, user) {
 /** 权限矩阵变更后调用，清掉按角色缓存的工具目录 */
 function clearAgentCatalogCache(app) {
   if (app && app.locals) app.locals.__agentCatalogByRole = new Map();
+}
+
+
+/** 执行成功后登记一条可撤销记录（拿不到新建资源 id 就不登记，不猜） */
+async function registerUndo({ user, tool, method, path, params, resultData, actionId, conversationId }) {
+  try {
+    const plan = undo.planFor({ method, path, resultData });
+    if (!plan) return null;
+    return await AgentRepo.createUndo({
+      userId: user.id,
+      actionId: actionId || null,
+      conversationId: conversationId || null,
+      tool: tool.name,
+      label: plan.label,
+      method: plan.method,
+      path: plan.path,
+      params: {},
+      ttlMs: plan.ttlMs
+    });
+  } catch (e) {
+    logger.warn({ err: e && e.message }, 'register undo failed');
+    return null;
+  }
 }
 
 class AgentService {
@@ -126,6 +151,23 @@ class AgentService {
           continue;
         }
 
+        // 参数守卫：类型纠正 + 必填校验。
+        // 小模型常漏必填、把布尔写成字符串；不拦的话用户会看到一串面向开发者的 zod 报错。
+        // 缺字段时**不发起请求**，把"缺哪些"回给模型让它补（模型在循环里能自己补）。
+        const guarded = argGuard.guard(tool, args);
+        args = guarded.args;
+        if (guarded.missing.length) {
+          messages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: JSON.stringify({
+              error: '缺少必填参数：' + guarded.missing.join('、'),
+              hint: '请补齐这些字段后重新调用工具（本次未执行任何操作）'
+            })
+          });
+          continue;
+        }
+
         // 写操作 → 生成待确认动作，交给用户确认
         // （模块工具的 action 是真实端点，非 GET 也必须走确认，否则可绕过确认直接写库）
         if (isWriteCall(tool, args)) {
@@ -137,6 +179,13 @@ class AgentService {
             const autoResult = await execute(tool, args, { token, userId: user.id, conversationId: convId });
             const ok = autoResult && autoResult.ok !== false;
             logger.info({ userId: user.id, tool: tool.name, ok }, 'agent low-risk write auto-executed');
+            if (ok) {
+              const autoTarget = resolveTarget(tool, args);
+              await registerUndo({
+                user, tool, method: autoTarget.method, path: autoTarget.path,
+                params: args, resultData: autoResult.data, conversationId: convId
+              });
+            }
             messages.push({
               role: 'tool',
               tool_call_id: call.id,
@@ -144,12 +193,13 @@ class AgentService {
             });
             continue;
           }
+          const target = resolveTarget(tool, args);
           const actionId = await AgentRepo.createAction({
             conversationId: convId,
             userId: user.id,
             tool: tool.name,
-            method: tool.method,
-            path: tool.path,
+            method: target.method,
+            path: target.path,
             params: args,
             preview: desc.summary,
             risk: desc.risk,
@@ -198,8 +248,19 @@ class AgentService {
     const success = result.ok && result.data && result.data.success !== false;
     await AgentRepo.markAction(action.id, success ? 'executed' : 'failed', result.data);
 
+    // 撤销登记：只有真有反向端点的操作才登记（见 services/agent/undo.js）
+    let undoId = null;
+    if (success) {
+      undoId = await registerUndo({
+        user, tool, method: resolveTarget(tool, action.params).method, path: resolveTarget(tool, action.params).path,
+        params: action.params, resultData: result.data,
+        actionId: action.id, conversationId: action.conversation_id
+      });
+    }
+
     const summary = success
-      ? '已执行：' + (tool.label || tool.name) + '。' + (result.data && result.data.message ? result.data.message : '')
+      ? '已执行：' + (tool.label || tool.name) + '。' + (result.data && result.data.message ? result.data.message : '') +
+        (undoId ? '\n（若发错了，回复「撤销」可以撤回）' : '')
       : '执行未成功：' + ((result.data && result.data.error) || '未知错误');
 
     if (action.conversation_id) {
@@ -209,7 +270,44 @@ class AgentService {
     }
 
     logger.info({ userId: user.id, tool: tool.name, success }, 'agent action executed');
-    return { reply: summary, success, status: result.status, result: result.data };
+    return { reply: summary, success, status: result.status, result: result.data, undoId: undoId || null };
+  }
+
+  /**
+   * 撤销最近一次（或指定一次）写操作。
+   * 撤销本身也是一次写操作：以用户身份走内部 API，权限矩阵照旧生效。
+   */
+  static async undoLast(user, token, app, opts) {
+    const target = opts && opts.id
+      ? await AgentRepo.getUndo(Number(opts.id), user.id)
+      : await AgentRepo.latestUndo(user.id);
+    if (!target) {
+      throw new NotFoundError('没有可撤销的操作（可能已撤销、已过期，或这个操作本身不支持撤销）');
+    }
+    let result;
+    try {
+      result = await callApi({
+        method: target.method,
+        path: target.path,
+        body: target.method === 'DELETE' ? undefined : target.params,
+        token,
+        conversationId: target.conversation_id
+      });
+    } catch (e) {
+      await AgentRepo.markUndo(target.id, 'failed');
+      throw e;
+    }
+    const ok = result.ok && (!result.data || result.data.success !== false);
+    await AgentRepo.markUndo(target.id, ok ? 'used' : 'failed');
+    const reply = ok
+      ? '已撤销：' + target.label
+      : '撤销未成功：' + ((result.data && result.data.error) || '未知错误');
+    if (target.conversation_id) {
+      await AgentRepo.addMessage(target.conversation_id, 'assistant', reply);
+      await AgentRepo.touchConversation(target.conversation_id);
+    }
+    logger.info({ userId: user.id, undoId: target.id, ok }, 'agent undo executed');
+    return { reply, success: ok, undoId: target.id };
   }
 
   static async listConversations(user) {
@@ -295,6 +393,20 @@ class AgentService {
           messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ error: '未知工具 ' + name }) });
           continue;
         }
+        // 参数守卫：类型纠正 + 必填校验（与 chat 路径同理，见 services/agent/argGuard.js）
+        const guarded = argGuard.guard(tool, args);
+        args = guarded.args;
+        if (guarded.missing.length) {
+          messages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: JSON.stringify({
+              error: '缺少必填参数：' + guarded.missing.join('、'),
+              hint: '请补齐这些字段后重新调用工具（本次未执行任何操作）'
+            })
+          });
+          continue;
+        }
         if (isWriteCall(tool, args)) {
           const desc = await actionPreview.describe(tool, args, user);
           // 降噪：低风险直接办（与 chat 路径同理，见 actionPreview.policyFor）
@@ -302,6 +414,12 @@ class AgentService {
             const autoResult = await execute(tool, args, { token, userId: user.id, conversationId: convId });
             const ok = autoResult && autoResult.ok !== false;
             logger.info({ userId: user.id, tool: tool.name, ok }, 'agent low-risk write auto-executed');
+            if (ok) {
+              await registerUndo({
+                user, tool, method: tool.method, path: tool.path,
+                params: args, resultData: autoResult.data, conversationId: convId
+              });
+            }
             messages.push({
               role: 'tool',
               tool_call_id: call.id,
@@ -309,8 +427,9 @@ class AgentService {
             });
             continue;
           }
+          const target = resolveTarget(tool, args);
           const actionId = await AgentRepo.createAction({
-            conversationId: convId, userId: user.id, tool: tool.name, method: tool.method, path: tool.path,
+            conversationId: convId, userId: user.id, tool: tool.name, method: target.method, path: target.path,
             params: args, preview: desc.summary, risk: desc.risk, impact: desc.impact, ttlMs: env.AGENT_ACTION_TTL_MS
           });
           pendingAction = {

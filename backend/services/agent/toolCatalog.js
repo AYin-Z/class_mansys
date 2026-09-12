@@ -57,10 +57,13 @@ const CADRE_CURATED = [
     name: 'publish_notice', label: '发布通知', method: 'POST', path: '/api/notice/create', write: true,
     desc: '发布通知（干部）。is_todo=true 时成员需点完成。'
       + '默认只发本区队；只有团支书/宣传委员/超管/辅导员可以传 audience=company 发全中队（无权限会被拒绝）',
-    body: ['title', 'content', 'type', 'is_todo', 'is_pinned', 'audience']
+    body: ['title', 'content', 'type', 'is_todo', 'is_pinned', 'audience'],
+    // title 曾经不在必填里，模型就真的漏掉了它 → 用户看到一串 zod 报错。显式声明。
+    required: ['title', 'content']
   },
   {
     name: 'approve_leave', label: '审批请假', method: 'PUT', path: '/api/leave/approve', write: true,
+    required: ['id', 'status'],
     desc: '审批请假：status=1 通过，status=2 驳回；approval_notes 为批注', body: ['id', 'status', 'approval_notes']
   },
   {
@@ -69,7 +72,8 @@ const CADRE_CURATED = [
   },
   {
     name: 'add_points', label: '积分加减', method: 'POST', path: '/api/points', write: true,
-    desc: '给成员加/减积分（干部）。score 可为负数，reason 必填', body: ['user_id', 'score', 'reason']
+    desc: '给成员加/减积分（干部）。score 可为负数，reason 必填', body: ['user_id', 'score', 'reason'],
+    required: ['user_id', 'score', 'reason']
   }
 ];
 
@@ -81,14 +85,16 @@ const CURATED = [
   {
     name: 'apply_leave', label: '提交请假申请', method: 'POST', path: '/api/leave/apply', write: true,
     desc: '提交请假申请。type 必须是后端配置的请假类型（如 早操/早集合/午集合/收假集合/晚自习/中队会/全休/其他），start_time/end_time 为 YYYY-MM-DD HH:mm:ss',
-    body: ['type', 'start_time', 'end_time', 'reason', 'attachments']
+    body: ['type', 'start_time', 'end_time', 'reason', 'attachments'],
+    required: ['type', 'start_time', 'end_time']
   },
   { name: 'cancel_leave', label: '销假', method: 'PUT', path: '/api/leave/cancel/{id}', pathParams: ['id'], write: true, desc: '对本人某条请假记录销假（id 为请假记录 id）' },
   { name: 'my_expenses', label: '我的班费报销', method: 'GET', path: '/api/fee/expenses/my', desc: '查看本人提交的班费报销申请与审批状态' },
   {
     name: 'create_expense', label: '提交班费报销', method: 'POST', path: '/api/fee/expenses', write: true,
     desc: '提交班费报销申请。amount 为金额（元），purpose 为用途说明，proof_url 为已上传的证明材料地址（可选）',
-    body: ['amount', 'type', 'purpose', 'details', 'semester', 'proof_url']
+    body: ['amount', 'type', 'purpose', 'details', 'semester', 'proof_url'],
+    required: ['amount', 'purpose']
   },
   { name: 'my_points', label: '我的积分', method: 'GET', path: '/api/points/mine', desc: '查看本人积分明细与总分' },
   { name: 'points_ranking', label: '积分排行', method: 'GET', path: '/api/points/ranking', desc: '查看积分排行榜', query: ['limit'] },
@@ -97,7 +103,7 @@ const CURATED = [
   { name: 'my_homework', label: '作业列表', method: 'GET', path: '/api/homework', desc: '查看作业列表与截止时间' },
   {
     name: 'submit_suggestion', label: '写建议信', method: 'POST', path: '/api/suggestion', write: true,
-    desc: '匿名提交建议/反馈（内容至少 5 个字）', body: ['content', 'category']
+    desc: '匿名提交建议/反馈（内容至少 5 个字）', body: ['content', 'category'], required: ['content']
   },
   { name: 'company_attendance', label: '中队出勤概览', method: 'GET', path: '/api/company/overview', desc: '各区队出勤/请假/未销假统计（需 VIEW_COMPANY 权限）', query: ['date'] },
   { name: 'company_leave_records', label: '中队当日请假明细', method: 'GET', path: '/api/company/leave-records', desc: '当日跨区队请假明细（需 VIEW_COMPANY 权限）', query: ['date', 'company_id'] },
@@ -293,9 +299,13 @@ function toOpenAiTools(catalog) {
       props[k] = { type: 'string', description: k };
       required.push(k);
     }
+    // 布尔字段给明确的 boolean 类型，模型填错时前端/后端也更容易发现
+    const BOOL = new Set(['is_todo', 'is_pinned', 'auto_approve', 'notify']);
     for (const k of t.body || []) {
-      props[k] = { type: ['string', 'number', 'array', 'object'], description: k };
-      if (['type', 'start_time', 'end_time', 'amount', 'content', 'purpose'].includes(k)) required.push(k);
+      props[k] = BOOL.has(k) ? { type: 'boolean', description: k } : { type: ['string', 'number', 'array', 'object'], description: k };
+      // 显式声明的必填优先；没声明就回落到以前的关键字段启发式（保持既有行为）
+      if (t.required && t.required.includes(k)) required.push(k);
+      else if (!t.required && ['type', 'start_time', 'end_time', 'amount', 'content', 'purpose'].includes(k)) required.push(k);
     }
     for (const k of t.query || []) {
       props[k] = { type: 'string', description: k };

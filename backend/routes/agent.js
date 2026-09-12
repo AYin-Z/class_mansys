@@ -80,4 +80,13 @@ router.post('/confirm', authenticateToken, validateBody(schemas.agentConfirm), a
   return res.json({ success: true, ...result });
 }));
 
+/**
+ * 撤销最近一次写操作（通知撤回、积分回滚等）。
+ * 撤销是安全网而不是安全边界：确认卡片拦不住闭眼点击，但撤销是在**看到结果之后**做的。
+ */
+router.post('/undo', authenticateToken, asyncHandler(async (req, res) => {
+  const result = await AgentService.undoLast(req.user, bearer(req), req.app, { id: req.body && req.body.id });
+  return res.json({ success: true, ...result });
+}));
+
 module.exports = router;

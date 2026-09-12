@@ -30,6 +30,8 @@ const DISAMBIGUATION = [
 ];
 
 const COMMON_RULES = [
+  '0) **用户一次说了好几件事时**：挑其中**最明确、最可执行的一件先调用工具办掉**（绝对不要改成用文字回答），' +
+    '然后在回复里用一句话说明"另一件事要不要接着办"。一次只办一件，不要在一个回合里提交多条写操作。',
   '通用规则：',
   '1) 只能办理该用户本人权限内的事；越权请求礼貌拒绝并说明原因。',
   '2) 写操作（请假、报销、审批、发布、积分等）分两种情形：',
@@ -97,7 +99,46 @@ function buildUserContext(user) {
   const role = Number((user && user.role) || 0);
   const name = (user && user.name) || '用户';
   const label = ROLE_NAMES[role] || (role >= ROLES.CLASS_LEADER ? '干部' : '学员');
-  return '【当前用户：' + name + '，role=' + role + '（' + label + '），今天 ' + todayStr() + '】';
+  return '【当前用户：' + name + '，role=' + role + '（' + label + '）】\n' + dateAnchors();
 }
 
-module.exports = { buildSystemPrompt, buildUserContext, todayStr };
+/**
+ * 日期锚点。
+ *
+ * 为什么直接给答案而不是让模型算：实测 4B 会把「下周一」算成今天 +7 天（2026-09-12 周六 → 报 09-19），
+ * 而正确答案是 09-14。**日历换算是确定性计算，不该让语言模型去推理** ——
+ * 这跟"必填字段该由代码校验而不是靠模型自觉"是同一个道理。
+ * 代价只有几十个 token，且对所有模型（包括将来微调的小模型）一视同仁地生效。
+ */
+function dateAnchors() {
+  const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const base = new Date();
+  // 用北京时区把"今天"归一到本地日历日，避免 UTC 偏移导致星期算错
+  const fmt = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const parts = fmt.formatToParts(base);
+  const get = (t) => (parts.find((p) => p.type === t) || {}).value;
+  const y = Number(get('year'));
+  const mo = Number(get('month'));
+  const da = Number(get('day'));
+  const today = new Date(Date.UTC(y, mo - 1, da));
+  const shift = (n) => {
+    const t = new Date(today.getTime() + n * 86400000);
+    const m = String(t.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(t.getUTCDate()).padStart(2, '0');
+    return t.getUTCFullYear() + '-' + m + '-' + dd + '(' + WEEK[t.getUTCDay()] + ')';
+  };
+  // 下周一：今天之后（不含今天）的第一个周一
+  const dow = today.getUTCDay(); // 0=周日
+  const toNextMon = ((8 - dow) % 7) || 7;
+  const iso = (n) => {
+    const t = new Date(today.getTime() + n * 86400000);
+    return t.toISOString().slice(0, 10);
+  };
+  return (
+    '【日期】今天 ' + shift(0) + '；明天 ' + shift(1) + '；后天 ' + shift(2) +
+    '；下周一 ' + iso(toNextMon) + '；本周末 ' + shift(((6 - dow) + 7) % 7) + '。' +
+    '用户说相对日期时直接用这些值，不要自己推算。'
+  );
+}
+
+module.exports = { buildSystemPrompt, buildUserContext, todayStr, dateAnchors };

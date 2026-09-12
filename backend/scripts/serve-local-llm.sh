@@ -23,8 +23,26 @@ LLAMA_SERVER="${LLAMA_SERVER:-/home/ayin/llama.cpp/build4/bin/llama-server}"
 MODEL="${LOCAL_LLM_MODEL_PATH:-/home/ayin/models/gguf/Qwen3-VL-4B-Instruct-Q4_K_M.gguf}"
 HOST="${LOCAL_LLM_HOST:-127.0.0.1}"
 PORT="${LOCAL_LLM_PORT:-8090}"
-CTX="${LOCAL_LLM_CTX:-65536}"
-PARALLEL="${LOCAL_LLM_PARALLEL:-4}"
+# 2026-09-12 修正：原来配 64K/4 槽（KV 约 4.9G），是按"显存最空闲时"估的。
+# 实测 Hermes 的 9B 常驻占 8G 后只剩 7.7G 可用，llama-server 因装不下直接 abort，
+# 服务卡在 activating —— 本地模型静默不可用，全部请求回落 DeepSeek（要花钱）。
+# 现在按"Hermes 在跑时也能起来"来配：模型 2.4G + 32K/q8 KV 2.4G ≈ 4.8G，留足余量。
+# 需求侧只有约 0.8 轮/秒，而修好前缀缓存后单槽就够快，2 槽完全够用。
+# 上下文按**当前可用显存**自动定档，而不是写死。
+# 教训：原来写死 64K/4 槽，Hermes 的 9B 一起来就装不下，llama-server 直接 abort，
+# systemd 反复重启形成崩溃循环（实测一晚 26 次），本地模型静默不可用、全部请求走了要花钱的 API。
+# 宁可上下文小一点，也不要起不来——起不来是"功能静默降级"，比慢更糟。
+if [[ -z "${LOCAL_LLM_CTX:-}" ]]; then
+  FREE_MIB=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>/dev/null | head -1 || echo 0)
+  if   (( FREE_MIB >= 11000 )); then CTX=65536; PARALLEL=4
+  elif (( FREE_MIB >= 8000  )); then CTX=32768; PARALLEL=4
+  elif (( FREE_MIB >= 6000  )); then CTX=32768; PARALLEL=2
+  else                               CTX=16384; PARALLEL=1
+  fi
+  echo "[serve-local-llm] 可用显存 ${FREE_MIB}MiB → 上下文 ${CTX} / ${PARALLEL} 槽"
+fi
+CTX="${LOCAL_LLM_CTX:-$CTX}"
+PARALLEL="${LOCAL_LLM_PARALLEL:-$PARALLEL}"
 
 if [[ ! -x "$LLAMA_SERVER" ]]; then
   echo "llama-server 不存在或不可执行: $LLAMA_SERVER" >&2

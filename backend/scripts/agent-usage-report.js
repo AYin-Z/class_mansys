@@ -32,6 +32,19 @@ const mailer = require('../services/mailer');
 
   const sum = await usage.summary({ sinceHours: hours });
   const alerts = usage.checkAlerts(sum);
+
+  // 本地模型健康：独立于流量告警。
+  // 助手用量极低，"回落率"告警永远够不到阈值；但本地模型挂了会让所有请求静默走 API 花钱，
+  // 所以预热探测到的连续失败必须能发出来。
+  try {
+    const health = require('../services/agent/warmup').readHealth();
+    if (health && health.ok === false && Number(health.consecutiveFailures) >= 3) {
+      alerts.push(
+        '本地模型连续 ' + health.consecutiveFailures + ' 次探测失败（最近一次：' + (health.detail || '未知') +
+          '）——对话已全部回落到 DeepSeek，成本在持续产生。检查：systemctl --user status class-mansys-llm'
+      );
+    }
+  } catch (e) { /* 健康文件缺失不算问题 */ }
   const text = usage.renderReport(sum, alerts);
 
   let extra = '';
