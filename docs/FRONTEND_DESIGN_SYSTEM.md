@@ -108,3 +108,29 @@
   已替换大部分高频路径，剩余可在后续迭代随功能改动逐步替换。
 - `stylelint color-no-hex`（白名单 `variables.css`）尚未接入，接入后能自动拦住新增硬编码色值。
 - `StateView`/`EmptyState` 的 variant 类型建议抽成共享类型，避免后续漂移。
+
+### 3.6 看图：统一用 `ImageViewer`
+
+全系统的"点图看大图"统一走 `components/ui/ImageViewer.vue`（2026-09 抽出）：
+相册详情、请假详情、请假审批、擂台证明、助手聊天图片。
+
+```vue
+<ImageViewer
+  v-model="viewerOpen"
+  :images="[{ url: p.url, title: p.uploader_name, description: p.description, deletable: canDelete(p) }]"
+  :start-index="startIndex"
+  @delete="onDelete"          <!-- 父组件负责二次确认 + 调接口 -->
+>
+  <template #meta="{ image }">…</template>      <!-- 额外信息（如「待审核」角标） -->
+  <template #actions="{ save }">…</template>    <!-- 自定义底部操作；不传则用默认 保存原图/删除 -->
+</ImageViewer>
+```
+
+组件内部已处理（**不要在页面里重复实现**）：
+Teleport 到 body（避免被父级 stacking context 裁切）、纯黑不透明底 + 安全区、
+左右滑动（横向 ≥40px 且横向优先）、相邻中图预加载、键盘 ←/→/Esc、
+打开锁 body 滚动、预览用 1440px 中图（失败回退原图）、保存/下载用原图、
+`images` 变短时自动把下标夹回（删图后不会黑屏）、清空时自动关闭。
+
+历史上这里有三种实现（相册一份、请假两份、助手/擂台直接 `window.open` 看几 MB 原图），
+新增页面一律用组件，不要再写第二份。

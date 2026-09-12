@@ -2,11 +2,13 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import NavBar from '@/components/ui/NavBar.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import ImageViewer from '@/components/ui/ImageViewer.vue'
+import type { ViewerImage } from '@/components/ui/ImageViewer.vue'
 import { showToast } from '@/utils/ui'
 import { apiUrl, getToken } from '@/utils/request'
 import { renderMarkdown } from '@/utils/markdown'
 import { buildMcpAgentPrompt, buildMcpConfigJson, buildMcpStdioConfig } from '@/utils/mcpPrompt'
-import { mediaUrl, openMedia, thumbUrl, onThumbError } from '@/utils/media'
+import { mediaUrl, thumbUrl, onThumbError } from '@/utils/media'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import {
@@ -81,6 +83,35 @@ const scroller = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const listening = ref(false)
 const attachments = ref<AgentAttachment[]>([])
+
+/**
+ * 图片查看器（统一走公共组件 ImageViewer）
+ *
+ * 之前点图片是 window.open 看原图：手机上会离开应用，装成 APK 后可能没反应，
+ * 而且拉的是几 MB 的原图。现在改成组件内的中图查看器，同一批图片可左右滑动。
+ */
+const viewerOpen = ref(false)
+const viewerStart = ref(0)
+const viewerImages = ref<ViewerImage[]>([])
+
+function openViewer(images: ViewerImage[], index: number) {
+  if (images.length === 0) return
+  viewerImages.value = images
+  viewerStart.value = index
+  viewerOpen.value = true
+}
+
+/** 一条消息里的全部图片：这样才能左右滑动看同一批图（下标与缩略图一致） */
+function openMessageImage(m: UiMessage, index: number) {
+  const list = (m.attachments || []).map((a) => ({ url: a.url, title: a.name || '图片' }))
+  openViewer(list, index)
+}
+
+/** 待发送的附件行同一条消息：整行一起滑 */
+function openPendingImage(index: number) {
+  const list = attachments.value.map((a) => ({ url: a.url, title: a.name || '图片' }))
+  openViewer(list, index)
+}
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -500,7 +531,7 @@ function stopBotPolling() {
       <div v-for="(m, i) in messages" :key="i" class="row" :class="m.role">
         <div class="bubble" :class="{ md: m.role === 'assistant' }">
           <div v-if="m.content" v-html="m.role === 'assistant' ? renderMarkdown(m.content) : escapeText(m.content)"></div>
-          <!-- 会话图片：缩略显示只拉 480px 缩略图；点开仍按原行为在新窗口打开原图 -->
+          <!-- 会话图片：缩略显示只拉 480px 缩略图；点开进查看器看中图，同一批可左右滑动 -->
           <div v-if="m.attachments && m.attachments.length" class="thumbs">
             <img
               v-for="(a, ai) in m.attachments"
@@ -510,7 +541,7 @@ function stopBotPolling() {
               loading="lazy"
               decoding="async"
               @error="onThumbError($event, a.url)"
-              @click="openMedia(a.url)"
+              @click="openMessageImage(m, ai)"
             />
           </div>
         </div>
@@ -541,13 +572,14 @@ function stopBotPolling() {
 
     <div v-if="attachments.length" class="attach-row">
       <div v-for="(a, i) in attachments" :key="i" class="attach-item">
-        <!-- 待发送图片：56px 小图只拉缩略图；派生图缺失时回退原图 -->
+        <!-- 待发送图片：56px 小图只拉缩略图；点开进查看器，同一批可左右滑动 -->
         <img
           :src="mediaUrl(thumbUrl(a.url))"
           :alt="a.name || '图片'"
           loading="lazy"
           decoding="async"
           @error="onThumbError($event, a.url)"
+          @click="openPendingImage(i)"
         />
         <span class="attach-x" @click="removeAttachment(i)"><AppIcon name="close" :size="12" /></span>
       </div>
@@ -739,6 +771,9 @@ function stopBotPolling() {
         </div>
       </div>
     </div>
+
+    <!-- 图片查看器：公共组件（中图分级加载 + 失败回退、滑动/键盘/滚动锁都在组件内） -->
+    <ImageViewer v-model="viewerOpen" :images="viewerImages" :start-index="viewerStart" />
   </div>
 </template>
 
@@ -805,7 +840,7 @@ function stopBotPolling() {
 .chip:active { opacity: 0.85; }
 .attach-row { display: flex; gap: 8px; padding: 6px 12px 0; overflow-x: auto; flex: 0 0 auto; }
 .attach-item { position: relative; flex: 0 0 auto; }
-.attach-item img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; }
+.attach-item img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; cursor: pointer; }
 .attach-x {
   position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 9px;
   background: var(--color-danger, var(--color-error)); color: #fff; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer;

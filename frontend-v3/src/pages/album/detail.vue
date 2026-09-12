@@ -7,10 +7,11 @@
  *    原图 `url` 只在「保存原图」时下载 —— 此前网格直出原图，翻一页几十 MB。
  *  - 上传改走统一端点 + `uploadBatch`：并发 3、失败自动重试 2 次、逐张进度、
  *    可取消剩余、失败项单独重试，压缩在客户端完成（3MB → 300KB 量级）。
- *  - 查看器：左右滑动切换（≥40px 才切）、预加载相邻两张、锁滚动、保存原图、删除。
+ *  - 查看器：统一走公共组件 `@/components/ui/ImageViewer.vue`
+ *    （中图分级加载 + 失败回退、左右滑动、预加载相邻、键盘、滚动锁都在组件里）。
  *  - 删除走 `DELETE /api/album/photos/:id`（同一端点：待审核=驳回）。
  */
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { approvePhoto, deleteAlbum, deletePhoto, getAlbumDetail } from '@/api/album'
 import type { AlbumItem, PhotoItem } from '@/api/album'
@@ -26,6 +27,8 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseBadge from '@/components/ui/BaseBadge.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import ImageViewer from '@/components/ui/ImageViewer.vue'
+import type { ViewerImage } from '@/components/ui/ImageViewer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -261,21 +264,35 @@ function clearQueue() {
   overall.total = 0
 }
 
-/* ────────────── 查看器 ────────────── */
+/* ────────────── 查看器（统一走公共组件 ImageViewer） ────────────── */
 
+/** 当前查看的照片下标；null = 查看器关闭（沿用原来的语义） */
 const viewerIndex = ref<number | null>(null)
-const viewerLoading = ref(false)
-const viewerFailed = ref(false)
 const deletingId = ref<number | null>(null)
 
-const viewerPhoto = computed<PhotoItem | null>(() =>
-  viewerIndex.value === null ? null : photos.value[viewerIndex.value] || null,
-)
-const viewerSrc = computed(() => {
-  const p = viewerPhoto.value
-  if (!p) return ''
-  return mediaUrl(p.medium_url || p.url)
+/** v-model 需要布尔值：开关状态仍由 viewerIndex 表达 */
+const viewerOpen = computed({
+  get: () => viewerIndex.value !== null,
+  set: (open: boolean) => {
+    if (!open) viewerIndex.value = null
+  },
 })
+
+/** 起始下标：组件只在「打开」那一刻读取它 */
+const viewerStart = computed(() => viewerIndex.value ?? 0)
+
+/**
+ * 查看器图片列表：只传原图地址，中图由组件按 `_medium` 约定推导
+ * （派生图缺失时组件内部回退原图；只有保存/下载才用原图）
+ */
+const viewerImages = computed<ViewerImage[]>(() =>
+  photos.value.map((p) => ({
+    url: p.url,
+    title: p.uploader_name || '未知上传者',
+    description: p.description || '',
+    deletable: canDeletePhoto(p),
+  })),
+)
 
 function openViewer(index: number) {
   viewerIndex.value = index
@@ -285,99 +302,32 @@ function closeViewer() {
   viewerIndex.value = null
 }
 
-function nextPhoto() {
-  const n = photos.value.length
-  if (viewerIndex.value === null || n === 0) return
-  viewerIndex.value = (viewerIndex.value + 1) % n
+/** 插槽只给下标，这里按下标取回照片 */
+function photoAt(index: number): PhotoItem | null {
+  return photos.value[index] || null
 }
 
-function prevPhoto() {
-  const n = photos.value.length
-  if (viewerIndex.value === null || n === 0) return
-  viewerIndex.value = (viewerIndex.value - 1 + n) % n
+function approveFromViewer(index: number) {
+  const p = photoAt(index)
+  if (p) void approveOne(p)
 }
 
-/** 预加载相邻两张（中图），滑动时不至于空白 */
-function preloadAdjacent(index: number) {
-  const n = photos.value.length
-  if (n < 2) return
-  for (const j of [(index + 1) % n, (index - 1 + n) % n]) {
-    const p = photos.value[j]
-    if (!p || j === index) continue
-    const img = new Image()
-    img.decoding = 'async'
-    img.src = mediaUrl(p.medium_url || p.url)
-  }
-}
-
-let touchStartX = 0
-let touchStartY = 0
-
-function onTouchStart(e: TouchEvent) {
-  const t = e.changedTouches[0]
-  if (!t) return
-  touchStartX = t.clientX
-  touchStartY = t.clientY
-}
-
-/** 位移 ≥40px 且以横向为主才切图，避免和点击/纵向滑动打架 */
-function onTouchEnd(e: TouchEvent) {
-  const t = e.changedTouches[0]
-  if (!t) return
-  const dx = t.clientX - touchStartX
-  const dy = t.clientY - touchStartY
-  if (Math.abs(dx) < 40 || Math.abs(dx) <= Math.abs(dy)) return
-  if (dx < 0) nextPhoto()
-  else prevPhoto()
-}
-
-function onViewerError() {
-  viewerFailed.value = true
-  viewerLoading.value = false
-}
-
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') closeViewer()
-  else if (e.key === 'ArrowRight') nextPhoto()
-  else if (e.key === 'ArrowLeft') prevPhoto()
-}
-
-function lockScroll(lock: boolean) {
-  document.body.style.overflow = lock ? 'hidden' : ''
-}
-
-watch(viewerIndex, (v) => {
-  if (v === null) {
-    lockScroll(false)
-    document.removeEventListener('keydown', onKeydown)
+/**
+ * 查看器里删除/驳回：删除逻辑不变（二次确认 → 接口 → 提示 → 刷新），
+ * 只是不再无条件关闭查看器 —— 删完还能接着看剩下的照片。
+ */
+async function onViewerDelete(index: number) {
+  const p = photoAt(index)
+  if (!p) return
+  const removed = await removePhoto(p)
+  if (!removed) return
+  // 相册空了，或删掉的是最后一张（组件内部下标会越界）→ 收掉查看器
+  if (photos.value.length === 0 || index >= photos.value.length) {
+    closeViewer()
     return
   }
-  viewerLoading.value = true
-  viewerFailed.value = false
-  lockScroll(true)
-  document.addEventListener('keydown', onKeydown)
-  preloadAdjacent(v)
-})
-
-function basename(path: string): string {
-  const clean = String(path || '').split('?')[0]
-  const name = clean.split('/').filter(Boolean).pop()
-  return name || 'photo.jpg'
-}
-
-/** 保存原图：预览用中图，只有这里才下原图 */
-function saveOriginal(p: PhotoItem | null) {
-  if (!p?.url) {
-    showToast('这张照片没有原图地址', 'error')
-    return
-  }
-  const a = document.createElement('a')
-  a.href = mediaUrl(p.url)
-  a.download = basename(p.url)
-  a.rel = 'noopener'
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
+  // 后一张顶上来了：页面侧下标跟上
+  viewerIndex.value = index
 }
 
 /** 后端放宽后的删除权限：APPROVE_PHOTO / 相册创建者 / 上传者本人 */
@@ -390,8 +340,9 @@ function canDeletePhoto(p: PhotoItem | null): boolean {
   return Number(p.uploader_id) === Number(me)
 }
 
-async function removePhoto(p: PhotoItem | null) {
-  if (!p || deletingId.value !== null) return
+/** 删除/驳回照片；返回是否真的删掉了（查看器怎么收尾交给调用方） */
+async function removePhoto(p: PhotoItem | null): Promise<boolean> {
+  if (!p || deletingId.value !== null) return false
   const approved = !!p.is_approved
   const ok = await showConfirm(approved ? '删除照片' : '驳回照片', p.description || '这张照片', {
     danger: true,
@@ -400,20 +351,21 @@ async function removePhoto(p: PhotoItem | null) {
       ? '删除会同时清理服务器上的原图与缩略图，且无法恢复'
       : '驳回会删除该照片及其文件，且无法恢复，上传者需要重新上传',
   })
-  if (!ok) return
+  if (!ok) return false
   deletingId.value = p.id
   try {
     const res = await deletePhoto(p.id)
     if (res?.success !== false) {
       showToast(approved ? '已删除' : '已驳回', 'success')
-      closeViewer()
       await reloadPhotos()
+      return true
     }
   } catch (e) {
     toastIfNotNotified(e, '删除失败，请稍后重试')
   } finally {
     deletingId.value = null
   }
+  return false
 }
 
 /** 待审核照片的「通过」（网格角标 + 查看器入口） */
@@ -462,8 +414,7 @@ async function removeAlbum() {
 }
 
 onBeforeUnmount(() => {
-  document.removeEventListener('keydown', onKeydown)
-  lockScroll(false)
+  // 键盘/滚动锁由 ImageViewer 自己收尾，这里只回收本地预览地址
   for (const item of queue.value) URL.revokeObjectURL(item.previewUrl)
 })
 
@@ -641,103 +592,39 @@ function formatDate(t: string): string {
       </template>
     </StateView>
 
-    <!-- 查看器：全屏黑底，中图预览 + 手势切换 -->
-    <Teleport to="body">
-      <div
-        v-if="viewerPhoto"
-        class="viewer"
-        role="dialog"
-        aria-modal="true"
-        aria-label="照片查看器"
-        @touchstart.passive="onTouchStart"
-        @touchend.passive="onTouchEnd"
-      >
-        <header class="viewer-top">
-          <button class="viewer-btn" type="button" aria-label="关闭" @click="closeViewer">
-            <AppIcon name="close" :size="20" />
-          </button>
-          <div class="viewer-counter">
-            {{ (viewerIndex ?? 0) + 1 }} / {{ photos.length }}
-          </div>
-          <div class="viewer-top-spacer" />
-        </header>
-
-        <div class="viewer-stage" @click.self="closeViewer">
-          <span v-if="viewerLoading && !viewerFailed" class="viewer-loading">
-            <AppIcon name="refresh" :size="22" />
-          </span>
-          <div v-if="viewerFailed" class="viewer-failed">
-            <AppIcon name="alert-circle" :size="26" />
-            <span>图片加载失败，可试试保存原图</span>
-          </div>
-          <img
-            v-show="!viewerFailed"
-            :key="viewerPhoto.id"
-            :src="viewerSrc"
-            :alt="viewerPhoto.description || '照片'"
-            class="viewer-img"
-            decoding="async"
-            @load="viewerLoading = false"
-            @error="onViewerError"
-            @click.stop
-          />
-          <button
-            v-if="photos.length > 1"
-            class="viewer-nav prev"
-            type="button"
-            aria-label="上一张"
-            @click.stop="prevPhoto"
-          >
-            <AppIcon name="chevron-left" :size="22" />
-          </button>
-          <button
-            v-if="photos.length > 1"
-            class="viewer-nav next"
-            type="button"
-            aria-label="下一张"
-            @click.stop="nextPhoto"
-          >
-            <AppIcon name="chevron-right" :size="22" />
-          </button>
-        </div>
-
-        <footer class="viewer-bottom">
-          <div class="viewer-info">
-            <div class="viewer-uploader">
-              {{ viewerPhoto.uploader_name || '未知上传者' }}
-              <BaseBadge v-if="!viewerPhoto.is_approved" variant="warning">待审核</BaseBadge>
-            </div>
-            <div v-if="viewerPhoto.description" class="viewer-desc">{{ viewerPhoto.description }}</div>
-            <div class="viewer-hint">左右滑动切换照片</div>
-          </div>
-          <div class="viewer-actions">
-            <BaseButton variant="secondary" @click="saveOriginal(viewerPhoto)">
-              <AppIcon name="download" :size="16" />
-              <span>保存原图</span>
-            </BaseButton>
-            <BaseButton
-              v-if="canApprovePhoto && !viewerPhoto.is_approved"
-              :loading="deletingId === viewerPhoto.id"
-              :disabled="deletingId !== null"
-              @click="approveOne(viewerPhoto)"
-            >
-              <AppIcon name="check" :size="16" />
-              <span>通过</span>
-            </BaseButton>
-            <BaseButton
-              v-if="canDeletePhoto(viewerPhoto)"
-              variant="danger"
-              :loading="deletingId === viewerPhoto.id && viewerPhoto.is_approved"
-              :disabled="deletingId !== null"
-              @click="removePhoto(viewerPhoto)"
-            >
-              <AppIcon name="trash" :size="16" />
-              <span>{{ viewerPhoto.is_approved ? '删除' : '驳回' }}</span>
-            </BaseButton>
-          </div>
-        </footer>
-      </div>
-    </Teleport>
+    <!-- 全屏查看器：统一走公共组件（中图回退、滑动、键盘、滚动锁都在组件内） -->
+    <ImageViewer v-model="viewerOpen" :images="viewerImages" :start-index="viewerStart">
+      <!-- 待审核状态：自写查看器时的角标，改用组件的 #meta 插槽保留 -->
+      <template #meta="{ index: i }">
+        <BaseBadge v-if="photoAt(i) && !photoAt(i)?.is_approved" variant="warning">待审核</BaseBadge>
+      </template>
+      <!-- 相册除了默认的「保存原图 / 删除」，还要「通过审核」，且未审核时文案是「驳回」 -->
+      <template #actions="{ index: i, save }">
+        <BaseButton variant="secondary" @click="save">
+          <AppIcon name="download" :size="16" />
+          <span>保存原图</span>
+        </BaseButton>
+        <BaseButton
+          v-if="photoAt(i) && canApprovePhoto && !photoAt(i)?.is_approved"
+          :loading="deletingId === photoAt(i)?.id"
+          :disabled="deletingId !== null"
+          @click="approveFromViewer(i)"
+        >
+          <AppIcon name="check" :size="16" />
+          <span>通过</span>
+        </BaseButton>
+        <BaseButton
+          v-if="photoAt(i) && canDeletePhoto(photoAt(i))"
+          variant="danger"
+          :loading="deletingId === photoAt(i)?.id"
+          :disabled="deletingId !== null"
+          @click="onViewerDelete(i)"
+        >
+          <AppIcon name="trash" :size="16" />
+          <span>{{ photoAt(i)?.is_approved ? '删除' : '驳回' }}</span>
+        </BaseButton>
+      </template>
+    </ImageViewer>
   </div>
 </template>
 
@@ -933,116 +820,4 @@ function formatDate(t: string): string {
 }
 .cell-badge { position: absolute; left: 4px; top: 4px; }
 
-/* ── 查看器（全屏黑底：暗色语义在这里没有对应令牌，故用局部变量集中管理） ── */
-.viewer {
-  --viewer-bg: rgba(0, 0, 0, 0.94);
-  --viewer-fg: #ffffff;
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-modal);
-  display: flex;
-  flex-direction: column;
-  background: var(--viewer-bg);
-  color: var(--viewer-fg);
-  overscroll-behavior: contain;
-}
-.viewer-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: calc(8px + env(safe-area-inset-top, 0px)) 8px 4px;
-}
-.viewer-btn {
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 50%;
-  background: var(--color-overlay);
-  color: var(--viewer-fg);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.viewer-btn:active { opacity: 0.8; }
-.viewer-counter { flex: 1; text-align: center; font-size: var(--font-size-body); opacity: 0.85; }
-.viewer-top-spacer { width: 44px; flex-shrink: 0; }
-
-.viewer-stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-.viewer-img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  -webkit-user-select: none;
-  user-select: none;
-}
-.viewer-loading {
-  position: absolute;
-  color: var(--viewer-fg);
-  opacity: 0.6;
-  animation: cell-pulse 1.2s ease-in-out infinite;
-}
-.viewer-failed {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--font-size-sm);
-  opacity: 0.75;
-  text-align: center;
-  padding: 0 24px;
-}
-.viewer-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 50%;
-  background: var(--color-overlay);
-  color: var(--viewer-fg);
-  cursor: pointer;
-}
-.viewer-nav.prev { left: 8px; }
-.viewer-nav.next { right: 8px; }
-.viewer-nav:active { opacity: 0.8; }
-
-.viewer-bottom {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 12px 12px calc(12px + var(--safe-bottom, 0px));
-}
-.viewer-info { flex: 1; min-width: 0; }
-.viewer-uploader {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-body);
-  font-weight: 600;
-}
-.viewer-desc {
-  margin-top: 2px;
-  font-size: var(--font-size-sm);
-  opacity: 0.75;
-  word-break: break-word;
-}
-.viewer-hint { margin-top: 4px; font-size: var(--font-size-xs); opacity: 0.5; }
-.viewer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 </style>

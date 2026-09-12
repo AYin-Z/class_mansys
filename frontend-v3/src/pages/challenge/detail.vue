@@ -11,7 +11,7 @@
  *  - 裁判结果不可更改，三个动作加确认；写操作按钮加在途锁；
  *  - emoji（🏆⏳📎⚔️📝✕）→ AppIcon；硬编码色值 → 令牌。
  */
-import { mediaUrl, openMedia, thumbUrl, onThumbError } from '@/utils/media'
+import { mediaUrl, thumbUrl, onThumbError } from '@/utils/media'
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -27,6 +27,8 @@ import StateView from '@/components/ui/StateView.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseBadge from '@/components/ui/BaseBadge.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import ImageViewer from '@/components/ui/ImageViewer.vue'
+import type { ViewerImage } from '@/components/ui/ImageViewer.vue'
 import { showToast, showConfirm } from '@/utils/ui'
 
 const route = useRoute()
@@ -214,6 +216,31 @@ async function handleProofChange(e: Event) {
 }
 function removeProof(i: number) { proofUrls.value.splice(i, 1) }
 
+/* ────────────── 证明图片查看器（统一走公共组件 ImageViewer） ────────────── */
+
+/** 打开的证明图片批次：本次上传的这一批，或某位同学那份申请的全部证明 */
+const proofViewer = ref<{ urls: string[]; index: number; title: string } | null>(null)
+
+const proofViewerOpen = computed({
+  get: () => proofViewer.value !== null,
+  set: (open: boolean) => {
+    if (!open) proofViewer.value = null
+  },
+})
+
+const proofImages = computed<ViewerImage[]>(() =>
+  (proofViewer.value?.urls || []).map((url) => ({
+    url,
+    title: proofViewer.value?.title || '挑战证明',
+  })),
+)
+
+/** 打开某个批次的证明图：从被点的那张开始，同一批可左右滑动连着看 */
+function openProofs(urls: string[], index: number, title: string) {
+  if (urls.length === 0) return
+  proofViewer.value = { urls: urls.slice(), index, title }
+}
+
 function formatDate(t: string) {
   if (!t) return ''
   return new Date(t).toLocaleDateString('zh-CN')
@@ -259,7 +286,7 @@ function formatDate(t: string) {
           <div class="proof-area">
             <div class="proof-list">
               <div v-for="(url, i) in proofUrls" :key="i" class="proof-item">
-                <!-- 上传后的小图预览只拉 480px 缩略图；派生图缺失时回退原图 -->
+                <!-- 上传后的小图预览只拉 480px 缩略图；点开进查看器看中图，可左右滑动 -->
                 <img
                   :src="mediaUrl(thumbUrl(url))"
                   class="proof-thumb"
@@ -267,6 +294,7 @@ function formatDate(t: string) {
                   loading="lazy"
                   decoding="async"
                   @error="onThumbError($event, url)"
+                  @click="openProofs(proofUrls, i, '挑战证明')"
                 />
                 <button class="proof-del" type="button" aria-label="移除证明" @click="removeProof(i)">
                   <AppIcon name="close" :size="13" />
@@ -330,7 +358,7 @@ function formatDate(t: string) {
               <AppIcon name="edit" :size="13" />
               <span>{{ app.notes }}</span>
             </div>
-            <!-- 证明图片：小图只拉缩略图；点开仍在新窗口看原图（保持原行为） -->
+            <!-- 证明图片：小图只拉缩略图；点开进查看器看中图，同一份证明可左右滑动 -->
             <div v-if="parseProofs(app).length > 0" class="app-proofs">
               <img
                 v-for="(url, i) in parseProofs(app)"
@@ -341,7 +369,7 @@ function formatDate(t: string) {
                 loading="lazy"
                 decoding="async"
                 @error="onThumbError($event, url)"
-                @click="openMedia(url)"
+                @click="openProofs(parseProofs(app), i, app.user_name || '挑战证明')"
               />
             </div>
             <div v-if="app.status === 0" class="judge-row">
@@ -365,6 +393,13 @@ function formatDate(t: string) {
         </div>
       </template>
     </StateView>
+
+    <!-- 证明图片查看器：公共组件（中图分级加载 + 失败回退、滑动/键盘/滚动锁） -->
+    <ImageViewer
+      v-model="proofViewerOpen"
+      :images="proofImages"
+      :start-index="proofViewer?.index ?? 0"
+    />
   </div>
 </template>
 
@@ -399,7 +434,7 @@ function formatDate(t: string) {
 .proof-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .proof-item { position: relative; width: 56px; height: 56px; border-radius: var(--radius-sm); overflow: hidden; }
 .upload-status { font-size: var(--font-size-sm); color: var(--color-accent); margin-top: 4px; font-weight: 500; }
-.proof-thumb { width: 100%; height: 100%; object-fit: cover; }
+.proof-thumb { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
 .proof-del {
   position: absolute; top: 0; right: 0; width: 32px; height: 32px; border: none;
   border-radius: 50%; background: rgba(0,0,0,0.6); color: #fff; cursor: pointer;

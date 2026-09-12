@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { thumbUrl, mediumUrl, mediaUrl, onThumbError } from '@/utils/media'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { thumbUrl, mediumUrl, mediaUrl, onThumbError, preloadImage, neighborIndexes, downloadMedia } from '@/utils/media'
 import { setToken } from '@/utils/request'
 
 describe('媒体地址工具（派生图约定 + 回退）', () => {
@@ -27,6 +27,53 @@ describe('媒体地址工具（派生图约定 + 回退）', () => {
     onThumbError({ target: img } as unknown as Event, '/uploads/leaves/a.jpg')
     expect(img.getAttribute('src')).toContain('/uploads/leaves/a.jpg')
     expect(img.getAttribute('src')).not.toContain('_thumb')
+  })
+
+  it('neighborIndexes：返回左右相邻下标并循环，单张时为空', () => {
+    expect(neighborIndexes(0, 3)).toEqual([2, 1])
+    expect(neighborIndexes(1, 3)).toEqual([0, 2])
+    expect(neighborIndexes(2, 3)).toEqual([1, 0])
+    expect(neighborIndexes(0, 1)).toEqual([])
+    expect(neighborIndexes(0, 0)).toEqual([])
+    // 只有两张时左右是同一张，去重
+    expect(neighborIndexes(0, 2)).toEqual([1])
+  })
+
+  it('preloadImage：设置 src 触发预加载，空值/无 Image 环境安全跳过', () => {
+    const seen: string[] = []
+    const RealImage = globalThis.Image
+    class Spy { decoding = ''; set src(v: string) { seen.push(v) } }
+    ;(globalThis as any).Image = Spy
+    try {
+      preloadImage('/uploads/a_medium.jpg')
+      expect(seen).toEqual(['/uploads/a_medium.jpg'])
+      preloadImage('')
+      preloadImage(null)
+      expect(seen).toHaveLength(1)
+    } finally {
+      ;(globalThis as any).Image = RealImage
+    }
+    ;(globalThis as any).Image = undefined
+    try {
+      expect(() => preloadImage('/uploads/x.jpg')).not.toThrow()
+    } finally {
+      ;(globalThis as any).Image = RealImage
+    }
+  })
+
+  it('downloadMedia：用带令牌的原图地址并保留文件名', () => {
+    let href = ''
+    let download = ''
+    const spy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      href = this.getAttribute('href') || ''
+      download = this.getAttribute('download') || ''
+    })
+    expect(downloadMedia('/uploads/albums/a.jpg')).toBe(true)
+    expect(href).toContain('/uploads/albums/a.jpg')
+    expect(href).toContain('token=t')
+    expect(download).toBe('a.jpg')
+    expect(downloadMedia('')).toBe(false)
+    spy.mockRestore()
   })
 
   it('回退只发生一次：即使 src 已被浏览器规范化为绝对地址也不会反复重试', () => {

@@ -55,6 +55,51 @@ export function onThumbError(event: Event, originalPath?: string | null): void {
   el.src = mediaUrl(originalPath)
 }
 
+/**
+ * 预加载一张图片（查看器滑动前先拉相邻图，切过去不用等）
+ * 抽成工具函数是为了可测：直接 stub 全局 Image 即可断言，不必依赖 DOM。
+ */
+export function preloadImage(url?: string | null): void {
+  if (!url) return
+  if (typeof Image === 'undefined') return
+  try {
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = url
+  } catch {
+    /* 预加载失败无影响 */
+  }
+}
+
+/** 给定当前下标与总数，返回需要预加载的相邻下标（循环） */
+export function neighborIndexes(index: number, total: number): number[] {
+  if (!Number.isFinite(total) || total <= 1) return []
+  const i = Math.max(0, Math.min(total - 1, index))
+  const prev = (i - 1 + total) % total
+  const next = (i + 1) % total
+  return prev === next ? [next] : [prev, next]
+}
+
+/**
+ * 下载受保护资源到本地（相册/请假证明/聊天图片的「保存」都用它）
+ *
+ * 历史问题：每个页面各写一遍 <a download> 逻辑，文件名处理还不一致。
+ * 这里统一：带令牌、用 URL 的文件名、可选自定义名。
+ */
+export function downloadMedia(path?: string | null, filename?: string): boolean {
+  const url = mediaUrl(path)
+  if (!url) return false
+  const name = filename || String(path).split('/').pop()?.split('?')[0] || 'download'
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  return true
+}
+
 /** 打开受保护资源（新窗口/下载）时也补上令牌 */
 export function openMedia(path?: string | null): void {
   const url = mediaUrl(path)

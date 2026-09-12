@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { mediaUrl, openMedia, thumbUrl, mediumUrl, onThumbError } from '@/utils/media'
-import { ref, onMounted } from 'vue'
+import { mediaUrl, thumbUrl, onThumbError } from '@/utils/media'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { getLeaveById, cancelLeave } from '@/api/leave'
 import type { LeaveItem } from '@/api/leave'
 import NavBar from '@/components/ui/NavBar.vue'
 import StateView from '@/components/ui/StateView.vue'
+import ImageViewer from '@/components/ui/ImageViewer.vue'
+import type { ViewerImage } from '@/components/ui/ImageViewer.vue'
 import { showConfirm, showToast } from '@/utils/ui'
 import { toastIfNotNotified } from '@/utils/request'
 
@@ -53,8 +55,6 @@ async function handleCancel() {
   }
 }
 
-import { computed } from 'vue'
-
 // 解析方式沿用原实现，仅补返回类型，好让模板里的下标是 number（alt 拼接用）
 const attachments = computed<string[]>(() => {
   try {
@@ -65,9 +65,25 @@ const attachments = computed<string[]>(() => {
   return []
 })
 
-const viewing = ref<string | null>(null)
-function viewImage(url: string) { viewing.value = url }
-function closeView() { viewing.value = null }
+/**
+ * 证明材料查看器：统一走公共组件 ImageViewer
+ * （中图分级加载 + 失败回退原图、左右滑动、键盘、滚动锁都在组件内）
+ */
+const viewerIndex = ref<number | null>(null)
+const viewerOpen = computed({
+  get: () => viewerIndex.value !== null,
+  set: (open: boolean) => {
+    if (!open) viewerIndex.value = null
+  },
+})
+const viewerStart = computed(() => viewerIndex.value ?? 0)
+const viewerImages = computed<ViewerImage[]>(() =>
+  attachments.value.map((url) => ({ url, title: '证明材料' })),
+)
+
+function openViewer(index: number) {
+  viewerIndex.value = index
+}
 
 const statusLabel = (s: number) => ['待审批', '已通过', '已驳回'][s] || '未知'
 const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
@@ -116,7 +132,7 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
             loading="lazy"
             decoding="async"
             @error="onThumbError($event, url)"
-            @click="viewImage(url)"
+            @click="openViewer(i)"
           />
         </div>
       </div>
@@ -129,20 +145,8 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
       <button v-if="leave!.status === 0 && !leave!.is_cancelled"
         class="cancel-btn" @click="handleCancel">销假</button>
 
-      <!-- Image viewer -->
-      <div v-if="viewing" class="viewer-overlay" @click="closeView">
-        <div class="viewer-close" @click="closeView">✕</div>
-        <!-- 全屏查看器：1440px 中图；缺失时回退原图 -->
-        <img
-          :src="mediaUrl(mediumUrl(viewing))"
-          class="viewer-img"
-          alt="证明材料大图"
-          loading="lazy"
-          decoding="async"
-          @error="onThumbError($event, viewing)"
-          @click.stop
-        />
-      </div>
+      <!-- 全屏查看器：公共组件（中图预览 + 滑动切换 + 保存原图） -->
+      <ImageViewer v-model="viewerOpen" :images="viewerImages" :start-index="viewerStart" />
     </div>
     </StateView>
   </div>
@@ -178,16 +182,4 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
 
 .attach-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .attach-img { width: 80px; height: 80px; object-fit: cover; border-radius: var(--radius-sm); cursor: pointer; }
-
-.viewer-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 200;
-  display: flex; align-items: center; justify-content: center;
-}
-.viewer-close {
-  position: absolute; top: 16px; right: 16px; width: 36px; height: 36px;
-  display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 24px; cursor: pointer;
-  background: rgba(255,255,255,0.15); border-radius: 50%; z-index: 10;
-}
-.viewer-img { max-width: 100%; max-height: 80vh; object-fit: contain; }
 </style>

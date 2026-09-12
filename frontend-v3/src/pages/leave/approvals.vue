@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { mediaUrl, openMedia, thumbUrl, mediumUrl, onThumbError } from '@/utils/media'
+import { mediaUrl, thumbUrl, onThumbError } from '@/utils/media'
 import { ref, onMounted, computed } from 'vue'
 import { getAllLeaves, approveLeave, cancelLeave } from '@/api/leave'
 import type { LeaveItem } from '@/api/leave'
@@ -8,7 +8,8 @@ import StateView from '@/components/ui/StateView.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseBadge from '@/components/ui/BaseBadge.vue'
-import AppIcon from '@/components/ui/AppIcon.vue'
+import ImageViewer from '@/components/ui/ImageViewer.vue'
+import type { ViewerImage } from '@/components/ui/ImageViewer.vue'
 import { showConfirm, showToast } from '@/utils/ui'
 import { toastIfNotNotified } from '@/utils/request'
 
@@ -17,7 +18,8 @@ const loading = ref(true)
 const error = ref<unknown>(null)
 const actionLoading = ref<number | null>(null)
 const expandedId = ref<number | null>(null)
-const proofViewUrl = ref<string | null>(null)
+/** 正在查看的证明材料：所属同学的附件快照 + 被点的那张 */
+const proofViewer = ref<{ urls: string[]; index: number; title: string } | null>(null)
 const approvalNote = ref('')
 const cancelling = ref<number | null>(null)
 /** 驳回弹窗（此前用原生 prompt，在 Capacitor 壳里可能返回 null 导致驳回静默失败，还丢掉已填意见） */
@@ -71,7 +73,31 @@ function getAttachments(item: any): string[] {
   return []
 }
 
-function viewProof(url: string) { proofViewUrl.value = url }
+/**
+ * 证明材料查看器：统一走公共组件（中图分级加载 + 失败回退原图、
+ * 左右滑动看同一份证明的多张图、键盘、滚动锁都在组件内）
+ */
+const proofViewerOpen = computed({
+  get: () => proofViewer.value !== null,
+  set: (open: boolean) => {
+    if (!open) proofViewer.value = null
+  },
+})
+const proofImages = computed<ViewerImage[]>(() =>
+  (proofViewer.value?.urls || []).map((url) => ({
+    url,
+    title: proofViewer.value?.title || '证明材料',
+  })),
+)
+
+/** 点小图：打开该同学这一份证明的全部图片，从被点的那张开始 */
+function viewProof(item: LeaveItem, index: number) {
+  proofViewer.value = {
+    urls: getAttachments(item),
+    index,
+    title: item.applicant_name || '证明材料',
+  }
+}
 
 const TABS = ['待审批', '生效中', '已销假', '已驳回']
 const activeTab = ref(0)
@@ -241,7 +267,7 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
                 loading="lazy"
                 decoding="async"
                 @error="onThumbError($event, url)"
-                @click.stop="viewProof(url)"
+                @click.stop="viewProof(item, i)"
               />
             </div>
           </div>
@@ -278,22 +304,12 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
       </template>
     </BaseModal>
 
-    <!-- 图片查看器 -->
-    <div v-if="proofViewUrl" class="viewer-overlay" @click="proofViewUrl = null">
-      <div class="viewer-close" @click="proofViewUrl = null">
-        <AppIcon name="close" :size="22" />
-      </div>
-      <!-- 全屏查看器：1440px 中图；缺失时回退原图 -->
-      <img
-        :src="mediaUrl(mediumUrl(proofViewUrl))"
-        class="viewer-img"
-        alt="证明材料大图"
-        loading="lazy"
-        decoding="async"
-        @error="onThumbError($event, proofViewUrl)"
-        @click.stop
-      />
-    </div>
+    <!-- 证明材料查看器：公共组件（同一位同学的证明材料可左右滑动连着看） -->
+    <ImageViewer
+      v-model="proofViewerOpen"
+      :images="proofImages"
+      :start-index="proofViewer?.index ?? 0"
+    />
   </div>
 </template>
 
@@ -376,7 +392,4 @@ const statusClass = (s: number) => ['pending', 'approved', 'rejected'][s] || ''
 .proof-section { margin-bottom: 12px; }
 .proof-imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .proof-img { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; cursor: pointer; }
-.viewer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 200; display: flex; align-items: center; justify-content: center; }
-.viewer-close { position: absolute; top: 16px; right: 16px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; cursor: pointer; background: rgba(255,255,255,0.15); border-radius: 50%; z-index: 10; }
-.viewer-img { max-width: 100%; max-height: 80vh; object-fit: contain; }
 </style>
