@@ -48,6 +48,117 @@ class AnnouncementController {
     }
   }
 
+  /**
+   * 编辑公告（P3-4）
+   *
+   * 谁能改：
+   *  - 超管：全部
+   *  - 发布者本人（区队长等有 PUBLISH_ANNOUNCEMENT 的角色）：自己发的
+   *  - 其余人拒绝
+   * 每次编辑都会追加一条修订快照，可查看历史、可回退。
+   */
+  static async updateAnnouncement(req, res) {
+    try {
+      const existing = await Announcement.findById(req.params.id);
+      if (!existing) return res.status(404).json({ success: false, error: '公告不存在' });
+
+      const isSuperAdmin = Number(req.user.role) >= 8;
+      const isAuthor = Number(existing.creator_id) === Number(req.user.id);
+      let canPublish = false;
+      try {
+        const { hasPermission } = require('../shared/permissions');
+        canPublish = await hasPermission(req.user, 'PUBLISH_ANNOUNCEMENT');
+      } catch { canPublish = isSuperAdmin; }
+      if (!isSuperAdmin && !(isAuthor && canPublish)) {
+        return res.status(403).json({ success: false, error: '只能修改自己发布的公告' });
+      }
+
+      const { title, content, is_pinned } = req.body || {};
+      if (title !== undefined && !String(title).trim()) {
+        return res.status(400).json({ success: false, error: '标题不能为空' });
+      }
+      if (content !== undefined && !String(content).trim()) {
+        return res.status(400).json({ success: false, error: '内容不能为空' });
+      }
+
+      const patch = {};
+      if (title !== undefined) patch.title = String(title).trim();
+      if (content !== undefined) patch.content = String(content);
+      if (is_pinned !== undefined) patch.is_pinned = !!is_pinned;
+
+      const updated = await Announcement.update(req.params.id, patch, req.user.id);
+      if (!updated) return res.status(404).json({ success: false, error: '公告不存在' });
+      return res.json({ success: true, version: updated.version, message: `已保存（版本 v${updated.version}）` });
+    } catch (e) {
+      console.error('编辑公告失败:', e);
+      return res.status(500).json({ success: false, error: '编辑公告失败' });
+    }
+  }
+
+  /** 修订历史（列表不含正文，避免一次传回所有历史 HTML） */
+  static async listAnnouncementRevisions(req, res) {
+    try {
+      const existing = await Announcement.findById(req.params.id);
+      if (!existing) return res.status(404).json({ success: false, error: '公告不存在' });
+      const revisions = await Announcement.listRevisions(req.params.id);
+      return res.json({ success: true, revisions, currentVersion: revisions[0]?.version || 0 });
+    } catch (e) {
+      console.error('获取修订历史失败:', e);
+      return res.status(500).json({ success: false, error: '获取修订历史失败' });
+    }
+  }
+
+  /** 查看某个修订版本的完整内容 */
+  static async getAnnouncementRevision(req, res) {
+    try {
+      const version = Number(req.params.version);
+      if (!Number.isInteger(version) || version < 1) {
+        return res.status(400).json({ success: false, error: '版本号不合法' });
+      }
+      const revision = await Announcement.getRevision(req.params.id, version);
+      if (!revision) return res.status(404).json({ success: false, error: '该版本不存在' });
+      return res.json({ success: true, revision });
+    } catch (e) {
+      console.error('获取修订版本失败:', e);
+      return res.status(500).json({ success: false, error: '获取修订版本失败' });
+    }
+  }
+
+  /** 回退到某个历史版本（生成新版本，历史不丢） */
+  static async revertAnnouncement(req, res) {
+    try {
+      const existing = await Announcement.findById(req.params.id);
+      if (!existing) return res.status(404).json({ success: false, error: '公告不存在' });
+
+      const isSuperAdmin = Number(req.user.role) >= 8;
+      const isAuthor = Number(existing.creator_id) === Number(req.user.id);
+      let canPublish = false;
+      try {
+        const { hasPermission } = require('../shared/permissions');
+        canPublish = await hasPermission(req.user, 'PUBLISH_ANNOUNCEMENT');
+      } catch { canPublish = isSuperAdmin; }
+      if (!isSuperAdmin && !(isAuthor && canPublish)) {
+        return res.status(403).json({ success: false, error: '只能回退自己发布的公告' });
+      }
+
+      const version = Number(req.params.version);
+      if (!Number.isInteger(version) || version < 1) {
+        return res.status(400).json({ success: false, error: '版本号不合法' });
+      }
+      const result = await Announcement.revert(req.params.id, version, req.user.id);
+      if (!result) return res.status(404).json({ success: false, error: '该版本不存在' });
+      return res.json({
+        success: true,
+        version: result.version,
+        revertedFrom: result.revertedFrom,
+        message: `已回退到 v${version}（生成新版本 v${result.version}）`,
+      });
+    } catch (e) {
+      console.error('回退公告失败:', e);
+      return res.status(500).json({ success: false, error: '回退公告失败' });
+    }
+  }
+
   static async deleteAnnouncement(req, res) {
     try {
       const existing = await Announcement.findById(req.params.id);

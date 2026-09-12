@@ -45,6 +45,72 @@ jobs:
         run: node scripts/migrate.js status
         working-directory: backend
 
+  # 真实浏览器冒烟（P1-1）：三次"手机白屏"单测都没抓到，这个 job 专门覆盖它们：
+  #   - 动态 chunk 404（构建产物缺失）
+  #   - TabBar 路径写错（点 tab 落到兜底路由）
+  #   - 页面渲染失败/内容空白
+  ui-smoke:
+    runs-on: self-hosted
+    needs: [backend]
+    env:
+      NODE_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_NAME: class_manage_sys_test
+      DB_USER: ${{ secrets.CI_DB_USER || 'ci_runner' }}
+      DB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
+      JWT_SECRET: ci_only_test_secret_please_do_not_reuse
+      SMOKE_BASE: http://127.0.0.1:3199
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install backend deps
+        run: npm ci
+        working-directory: backend
+      - name: Install frontend deps
+        run: npm ci --legacy-peer-deps
+        working-directory: frontend-v3
+      - name: 构建 H5
+        run: npm run build
+        working-directory: frontend-v3
+        env:
+          VITE_API_BASE_URL: https://cls.ayinserver.xin
+      - name: 应用测试库迁移
+        run: node scripts/migrate.js up
+        working-directory: backend
+      - name: 准备冒烟账号
+        id: seed
+        run: node tests/seed-smoke-user.js | tee /tmp/smoke-seed.txt
+        working-directory: backend
+      - name: 启动测试实例
+        run: |
+          cd backend
+          PORT=3199 AGENT_LLM_MODE=mock nohup node app.js > /tmp/smoke-server.log 2>&1 &
+          echo $! > /tmp/smoke-server.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3199/health > /dev/null; then echo "服务已就绪"; exit 0; fi
+            sleep 1
+          done
+          echo "::error::测试实例启动超时"; tail -30 /tmp/smoke-server.log; exit 1
+      - name: 浏览器冒烟
+        run: |
+          SMOKE_USER_ID=$(grep -oP 'SMOKE_USER_ID=\K\d+' /tmp/smoke-seed.txt)
+          export SMOKE_USER_ID
+          # 在 backend 目录下签发令牌（那里有 jsonwebtoken 依赖）
+          cd backend
+          SMOKE_TOKEN=$(node -e "const jwt=require('jsonwebtoken');console.log(jwt.sign({id:Number(process.env.SMOKE_USER_ID),role:8},process.env.JWT_SECRET,{expiresIn:'1h'}))")
+          export SMOKE_TOKEN
+          cd ../frontend-v3
+          node scripts/smoke-ui.mjs
+      - name: 收集日志并停止实例
+        if: always()
+        run: |
+          echo "===== 测试实例日志（尾部） ====="
+          tail -40 /tmp/smoke-server.log || true
+          if [ -f /tmp/smoke-server.pid ]; then kill "$(cat /tmp/smoke-server.pid)" 2>/dev/null || true; fi
+
   frontend:
     runs-on: self-hosted
     steps:

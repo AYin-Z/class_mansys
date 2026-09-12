@@ -16,8 +16,11 @@ import {
   getResources, deleteResource,
 } from '@/api/announcement'
 import { uploadFile } from '@/utils/request'
-import type { AnnouncementItem, ResourceItem } from '@/api/announcement'
+import type { AnnouncementItem, AnnouncementRevision, ResourceItem } from '@/api/announcement'
 import NavBar from '@/components/ui/NavBar.vue'
+import { getAnnouncementRevisions, getAnnouncementRevision, revertAnnouncement } from '@/api/announcement'
+import { toastIfNotNotified } from '@/utils/request'
+import { sanitizeHtml } from '@/utils/sanitize'
 import StateView from '@/components/ui/StateView.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -25,7 +28,6 @@ import BaseBadge from '@/components/ui/BaseBadge.vue'
 import FormField from '@/components/ui/FormField.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { showToast, showConfirm } from '@/utils/ui'
-import { toastIfNotNotified } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -84,6 +86,85 @@ onMounted(async () => {
   await loadAnnouncements()
   await loadResources()
 })
+
+// ── 修改记录（P3-4）──
+const revisionsOpen = ref(false)
+const revisionsTarget = ref<AnnouncementItem | null>(null)
+const revisions = ref<AnnouncementRevision[]>([])
+const revisionsLoading = ref(false)
+const revisionsError = ref<unknown>(null)
+const previewing = ref<{ version: number; title: string; content: string; source: string; editor: string; at: string } | null>(null)
+const revertingVersion = ref<number | null>(null)
+
+async function openRevisions(a: AnnouncementItem) {
+  revisionsTarget.value = a
+  revisions.value = []
+  revisionsError.value = null
+  previewing.value = null
+  revisionsOpen.value = true
+  revisionsLoading.value = true
+  try {
+    const res = await getAnnouncementRevisions(a.id)
+    if (res.success) revisions.value = res.revisions || []
+    else revisionsError.value = new Error('加载修改记录失败')
+  } catch (e) {
+    revisionsError.value = e
+  } finally {
+    revisionsLoading.value = false
+  }
+}
+
+/** 查看某个历史版本的完整内容 */
+async function previewRevision(version: number) {
+  if (!revisionsTarget.value) return
+  try {
+    const res = await getAnnouncementRevision(revisionsTarget.value.id, version)
+    if (res.success && res.revision) {
+      previewing.value = {
+        version: res.revision.version,
+        title: res.revision.title,
+        content: res.revision.content,
+        source: res.revision.source,
+        editor: res.revision.editor_name || '—',
+        at: formatDateTime(res.revision.created_at),
+      }
+    }
+  } catch (e) {
+    toastIfNotNotified(e, '加载该版本失败')
+  }
+}
+
+/** 回退到历史版本：会生成新版本，历史保留 */
+async function handleRevert(version: number) {
+  if (!revisionsTarget.value) return
+  const ok = await showConfirm(
+    '回退公告',
+    `《${revisionsTarget.value.title}》回退到 v${version}？`,
+    {
+      confirmText: `回退到 v${version}`,
+      danger: true,
+      hint: '回退会把当前内容替换为该版本，并生成一个新版本（历史不会丢失，可再次回退）',
+    },
+  )
+  if (!ok) return
+  revertingVersion.value = version
+  try {
+    const res = await revertAnnouncement(revisionsTarget.value.id, version)
+    if (res.success) {
+      showToast(res.message || `已回退到 v${version}`, 'success')
+      await Promise.all([loadAnnouncements(), previewRevision(version)])
+      await openRevisions(revisionsTarget.value)
+    }
+  } catch (e) {
+    toastIfNotNotified(e, '回退失败，请稍后重试')
+  } finally {
+    revertingVersion.value = null
+  }
+}
+
+function revisionSourceLabel(source: string): string {
+  return ({ publish: '首次发布', edit: '编辑', revert: '回退' } as Record<string, string>)[source] || source
+}
 
 // ── 公告操作 ──
 function openAnnouncementForm() {
@@ -180,6 +261,13 @@ async function handleDeleteResource(id: number) {
   finally { deletingR.value = null }
 }
 
+function formatDateTime(t: string) {
+  if (!t) return ''
+  const d = new Date(t)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 function formatDate(t: string) {
   if (!t) return ''
   return new Date(t).toLocaleDateString('zh-CN')
@@ -232,8 +320,18 @@ function formatSize(bytes: number): string {
             <div class="card-meta">
               <span>{{ a.creator_name || '' }}</span>
               <span>{{ formatDate(a.created_at) }}</span>
+              <span v-if="a.revision_count">共 {{ a.revision_count }} 个版本</span>
             </div>
           </div>
+          <button
+            v-if="canPublishAnnouncement"
+            class="history-btn"
+            type="button"
+            :aria-label="`查看修改记录：${a.title}`"
+            @click="openRevisions(a)"
+          >
+            <AppIcon name="refresh" :size="17" />
+          </button>
           <button
             v-if="canPublishAnnouncement"
             class="delete-btn"
@@ -258,6 +356,52 @@ function formatSize(bytes: number): string {
         <AppIcon name="plus" :size="24" />
       </button>
     </div>
+
+    <!-- 修改记录（P3-4）：版本列表 + 查看内容 + 回退 -->
+    <BaseModal v-model="revisionsOpen" title="公告修改记录" max-width="420px">
+      <div v-if="revisionsTarget" class="rev-head">
+        <div class="rev-title">{{ revisionsTarget.title }}</div>
+        <div class="rev-sub">共 {{ revisions.length }} 个版本，最新在上</div>
+      </div>
+
+      <div v-if="revisionsLoading" class="rev-loading">加载中…</div>
+      <div v-else-if="revisionsError" class="rev-error">
+        修改记录加载失败
+        <BaseButton variant="text" size="sm" @click="revisionsTarget && openRevisions(revisionsTarget)">重试</BaseButton>
+      </div>
+      <div v-else class="rev-list">
+        <div v-for="r in revisions" :key="r.id" class="rev-item">
+          <div class="rev-line">
+            <span class="rev-ver">v{{ r.version }}</span>
+            <BaseBadge :variant="r.source === 'revert' ? 'warning' : r.source === 'publish' ? 'info' : 'default'">
+              {{ revisionSourceLabel(r.source) }}
+            </BaseBadge>
+            <span class="rev-who">{{ r.editor_name || '—' }}</span>
+            <span class="rev-at">{{ formatDateTime(r.created_at) }}</span>
+          </div>
+          <div class="rev-title-line">{{ r.title }}</div>
+          <div class="rev-actions">
+            <BaseButton variant="text" size="sm" @click="previewRevision(r.version)">查看内容</BaseButton>
+            <BaseButton
+              v-if="r.version !== revisions[0]?.version"
+              variant="ghost"
+              size="sm"
+              :loading="revertingVersion === r.version"
+              @click="handleRevert(r.version)"
+            >回退到此版本</BaseButton>
+            <span v-else class="rev-current">当前版本</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="previewing" class="rev-preview">
+        <div class="rev-preview-head">
+          v{{ previewing.version }} · {{ revisionSourceLabel(previewing.source) }} · {{ previewing.editor }} · {{ previewing.at }}
+        </div>
+        <div class="rev-preview-title">{{ previewing.title }}</div>
+        <div class="rev-preview-body" v-html="sanitizeHtml(previewing.content)"></div>
+      </div>
+    </BaseModal>
 
     <!-- ===== 资源列表 ===== -->
     <div v-if="activeTab === 'resource'">
@@ -369,6 +513,40 @@ function formatSize(bytes: number): string {
 </template>
 
 <style scoped>
+.history-btn {
+  width: 44px; height: 44px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent; color: var(--color-text-3); cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.history-btn:active { background: var(--color-surface-hover); }
+.rev-head { margin-bottom: 10px; }
+.rev-title { font-size: var(--font-size-body); font-weight: 600; color: var(--color-text); }
+.rev-sub { font-size: var(--font-size-xs); color: var(--color-text-3); margin-top: 2px; }
+.rev-loading, .rev-error { font-size: var(--font-size-sm); color: var(--color-text-3); padding: 12px 0; }
+.rev-list { display: flex; flex-direction: column; gap: 8px; max-height: 44vh; overflow-y: auto; }
+.rev-item {
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  padding: 10px 12px; background: var(--color-surface);
+}
+.rev-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rev-ver { font-weight: 700; color: var(--color-text); font-size: var(--font-size-sm); }
+.rev-who { font-size: var(--font-size-xs); color: var(--color-text-2); }
+.rev-at { font-size: var(--font-size-2xs); color: var(--color-text-3); margin-left: auto; }
+.rev-title-line {
+  font-size: var(--font-size-sm); color: var(--color-text); margin-top: 6px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rev-actions { display: flex; align-items: center; gap: 4px; margin-top: 6px; }
+.rev-current { font-size: var(--font-size-2xs); color: var(--color-success); margin-left: auto; }
+.rev-preview {
+  margin-top: 12px; padding: 12px; border-radius: var(--radius-md);
+  background: var(--color-surface-2); max-height: 40vh; overflow-y: auto;
+}
+.rev-preview-head { font-size: var(--font-size-xs); color: var(--color-text-3); margin-bottom: 6px; }
+.rev-preview-title { font-size: var(--font-size-body); font-weight: 600; color: var(--color-text); margin-bottom: 6px; }
+.rev-preview-body { font-size: var(--font-size-sm); color: var(--color-text-2); line-height: 1.6; word-break: break-word; }
+.rev-preview-body :deep(img) { max-width: 100%; }
 .manage-page { min-height: 100vh; background: var(--color-bg); }
 
 .tab-bar {

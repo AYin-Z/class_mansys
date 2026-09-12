@@ -106,6 +106,60 @@ async function makeVariant(srcAbs, variantKey) {
   }
 }
 
+/**
+ * 服务端二次压缩（P1-2）
+ *
+ * 客户端上传前的 canvas 压缩只在"走我们页面"时生效：直接调接口、
+ * 或者以后别的客户端接入，仍可能把 6–25MB 的原图直接落盘。
+ * 这里对落盘的图片做一次兜底优化：
+ *   - 长边 > 2560 → 等比缩到 2560
+ *   - 体积 > 2MB → 以 quality 82 重新编码
+ * 原地替换（先写临时文件再 rename，避免写到一半被读到）。
+ * 任何一步失败都保留原文件，绝不让上传失败。
+ *
+ * @returns {{ optimized: boolean, before: number, after: number }}
+ */
+async function optimizeOriginal(abs, { maxEdge = 2560, minBytes = 2 * 1024 * 1024, quality = 82 } = {}) {
+  let stat;
+  try { stat = await fsp.stat(abs); } catch { return { optimized: false, before: 0, after: 0 }; }
+  const before = stat.size;
+  const dim = await readImageSize(abs);
+  const tooBig = dim ? Math.max(dim.width, dim.height) > maxEdge : false;
+  const tooHeavy = before > minBytes;
+  if (!tooBig && !tooHeavy) return { optimized: false, before, after: before };
+
+  const cmd = await resolveMagick();
+  if (!cmd) return { optimized: false, before, after: before };
+
+  const ext = path.extname(abs).toLowerCase();
+  // 统一输出 jpg（png 若带透明通道则保持 png，避免透明变黑）
+  const keepPng = ext === '.png';
+  const outExt = keepPng ? '.png' : '.jpg';
+  const tmp = abs + '.opt' + outExt;
+
+  const args = [abs, '-auto-orient', '-strip'];
+  if (tooBig) args.push('-resize', `${maxEdge}x${maxEdge}>`);
+  args.push('-quality', String(quality), tmp);
+
+  try {
+    await execFileAsync(cmd, args, { timeout: 60000, maxBuffer: 4 * 1024 * 1024 });
+    const outStat = await fsp.stat(tmp);
+    // 压缩后反而更大就丢弃结果
+    if (!outStat.size || outStat.size >= before) {
+      await fsp.unlink(tmp).catch(() => {});
+      return { optimized: false, before, after: before };
+    }
+    const finalPath = outExt === ext ? abs : abs.slice(0, -ext.length) + outExt;
+    await fsp.rename(tmp, finalPath);
+    if (finalPath !== abs) await fsp.unlink(abs).catch(() => {});
+    return { optimized: true, before, after: outStat.size };
+  } catch (err) {
+    await fsp.unlink(tmp).catch(() => {});
+    console.warn('[media] 原图二次压缩失败（保留原文件）:', err.message);
+    return { optimized: false, before, after: before };
+  }
+}
+
 /** 读取图片尺寸（ImageMagick identify；失败返回 null） */
 async function readImageSize(abs) {
   const cmd = await resolveMagick();
@@ -137,6 +191,12 @@ async function describe(file, meta = {}) {
   let height = null;
 
   if (isImage) {
+    // 先兜底压缩原图，再生成派生图（保证派生图也来自优化后的源）
+    const opt = await optimizeOriginal(abs);
+    if (opt.optimized) {
+      file.size = opt.after;
+      console.log(`[media] 原图压缩 ${(opt.before / 1024 / 1024).toFixed(1)}MB → ${(opt.after / 1024).toFixed(0)}KB`);
+    }
     const thumb = await makeVariant(abs, 'thumb');
     if (thumb) thumbUrl = absPathToUrl(thumb);
     const medium = await makeVariant(abs, 'medium');
@@ -216,6 +276,7 @@ module.exports = {
   absPathToUrl,
   makeVariant,
   describe,
+  optimizeOriginal,
   removeByUrl,
   uniqueName,
   readImageSize,

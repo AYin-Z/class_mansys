@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "smoke:ui": "node scripts/smoke-ui.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
@@ -35,6 +36,7 @@
     "eslint-plugin-vue": "^10.11.0",
     "globals": "^17.12.0",
     "jsdom": "^29.1.1",
+    "playwright-core": "^1.63.0",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0",
