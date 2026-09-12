@@ -97,6 +97,9 @@ async function ask(cat, message) {
     max_tokens: 700,
     temperature: 0.2
   };
+  // Qwen3.5 这类默认开思考的模型：不关思考等于用"推理模式"参加评测，
+  // 延迟高好几倍、且倾向长篇推理后追问而非直接调工具。EVAL_NO_THINK=1 关掉。
+  if (process.env.EVAL_NO_THINK === '1') body.chat_template_kwargs = { enable_thinking: false };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -155,6 +158,8 @@ async function main() {
         continue;
       }
       if (!calls.length) {
+        // allowNoTool：参数确实缺失时，按 persona 规则追问是正确行为，不该算错
+        if (c.allowNoTool) { passed += 1; continue; }
         failures.push({ id: c.id, round, why: '没调工具（改用文字回答）' });
         continue;
       }

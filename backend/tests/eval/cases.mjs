@@ -40,7 +40,11 @@ export const CASES = [
   { id: 'album-list', role: 0, message: '看看相册', expectTools: ['list_albums', 'album'] },
 
   // ---------- 口语 / 错别字 / 简称 ----------
-  { id: 'oral-leave', role: 0, message: '我明儿个有事儿，帮我请个假', expectTools: ['apply_leave', 'leave'], note: '口语+错别字' },
+  {
+    id: 'oral-leave', role: 0, message: '我明儿个有事儿，帮我请个假',
+    expectTools: ['apply_leave', 'leave'], allowNoTool: true,
+    note: '口语+错别字。缺失请假类型/时间，按 persona 规则追问也算正确行为'
+  },
   { id: 'oral-fee', role: 0, message: '帮我看下班费还多少', expectTools: ['my_expenses', 'fee'] },
   { id: 'oral-points', role: 0, message: '我积分咋样了', expectTools: ['my_points', 'points'] },
   { id: 'oral-notice', role: 0, message: '给我瞅瞅有啥通知', expectTools: ['list_notices', 'notice'] },
@@ -134,8 +138,8 @@ export const CASES = [
   { id: 'league-pending', role: 5, message: '有哪些待审批的', expectTools: ['pending_leave_approvals', 'pending_fee_approvals', 'leave', 'fee'] },
 
   // ---------- 系统使用引导（不该调工具，直接答步骤）----------
-  { id: 'howto-leave', role: 0, message: '怎么请假？', noTool: false, expectTools: ['ANY'], note: '可以答步骤，也可以调工具，不强制' },
-  { id: 'howto-fee', role: 0, message: '班费怎么交', expectTools: ['ANY'] },
+  { id: 'howto-leave', role: 0, message: '怎么请假？', expectTools: ['ANY'], allowNoTool: true, note: '答步骤或调工具都行' },
+  { id: 'howto-fee', role: 0, message: '班费怎么交', expectTools: ['ANY'], allowNoTool: true },
 
   // ---------- 建议 / 心理（低风险直接办）----------
   { id: 'suggestion', role: 0, message: '我要提个建议：食堂排队太久，建议增加窗口', expectTools: ['submit_suggestion', 'suggestion'] },
