@@ -98,31 +98,6 @@ function goTo(path: string) {
       <span class="todo-more">查看 ›</span>
     </button>
 
-    <!--
-      置顶公告：公告是"公开告知"性质，必须一眼看到。
-      此前它混在下面那条细窄的滚动条里（和通知挤在一起），存在感太低，
-      因此单独做成首屏卡片（最多 2 条）。
-    -->
-    <div v-if="pinnedAnnouncements.length > 0" class="announce-block">
-      <button
-        v-for="item in pinnedAnnouncements.slice(0, 2)"
-        :key="'ann' + item.id"
-        class="announce-card"
-        type="button"
-        @click="goToAnnouncement(item.id)"
-      >
-        <span class="announce-icon"><AppIcon name="megaphone" :size="18" /></span>
-        <span class="announce-body">
-          <span class="announce-head">
-            <span class="announce-tag">公告</span>
-            <span class="announce-date">{{ item.created_at ? String(item.created_at).slice(0, 10) : '' }}</span>
-          </span>
-          <span class="announce-title">{{ item.title }}</span>
-        </span>
-        <AppIcon name="chevron-right" :size="18" />
-      </button>
-    </div>
-
     <!-- 置顶通知（公告已单独成卡，这里只显示通知，避免重复） -->
     <div v-if="pinnedNotices.length > 0" class="pinned-bar">
       <div class="pinned-inner">
@@ -168,6 +143,31 @@ function goTo(path: string) {
       <div class="action-item" @click="goTo('/pages/features/index')"><AppIcon name="grid" :size="22" /><span class="label">更多</span></div>
     </div>
 
+    <!--
+      置顶公告：放在「快捷功能」与「最新通知」之间（产品指定的位置）。
+      此前它混在置顶通知那条细窄滚动条里，存在感太低，起不到公开告知的作用；
+      现在单独成卡，最多展示 2 条。
+    -->
+    <div v-if="pinnedAnnouncements.length > 0" class="announce-block">
+      <button
+        v-for="item in pinnedAnnouncements.slice(0, 2)"
+        :key="'ann' + item.id"
+        class="announce-card"
+        type="button"
+        @click="goToAnnouncement(item.id)"
+      >
+        <span class="announce-icon"><AppIcon name="megaphone" :size="18" /></span>
+        <span class="announce-body">
+          <span class="announce-head">
+            <span class="announce-tag">公告</span>
+            <span class="announce-date">{{ item.created_at ? String(item.created_at).slice(0, 10) : '' }}</span>
+          </span>
+          <span class="announce-title">{{ item.title }}</span>
+        </span>
+        <AppIcon name="chevron-right" :size="18" />
+      </button>
+    </div>
+
     <!-- Latest Notices -->
     <div class="section-title">最新通知</div>
     <StateView
@@ -208,7 +208,7 @@ function goTo(path: string) {
 /* 置顶公告卡片：公告是公开告知，做成首屏显眼卡片 */
 .announce-block {
   display: flex; flex-direction: column; gap: 8px;
-  padding: 12px 12px 0;
+  padding: 4px 12px 0;
 }
 .announce-card {
   display: flex; align-items: center; gap: 10px;

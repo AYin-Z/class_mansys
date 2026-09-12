@@ -17,7 +17,9 @@ export default [
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: 'module',
-      globals: { ...globals.node }
+      // smoke-ui.mjs 里 page.evaluate() 的回调是在浏览器里执行的，
+      // 因此除 node 全局外还要放行少量浏览器全局
+      globals: { ...globals.node, document: 'readonly', location: 'readonly', window: 'readonly' }
     }
   },
   {
