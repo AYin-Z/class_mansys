@@ -42,7 +42,7 @@ describe('写操作确认卡片：说人话 + 影响面', () => {
   it('发布通知卡片不出现英文字段名，且带真实影响面', async () => {
     const d = await ap.describe(catalog.byName.get('publish_notice'), {
       title: '明天早上8点集合', content: '请全员准时', type: '通知'
-    });
+    }, { id: 1, role: 1, class_id: '1' });
     expect(d.risk).toBe('high');
     expect(d.irreversible).toBe(true);
     expect(d.summary).toContain('明天早上8点集合');
@@ -77,7 +77,7 @@ describe('写操作确认卡片：说人话 + 影响面', () => {
   });
 
   it('卡片文案一律不超长（给人扫一眼，不是给人读全文）', async () => {
-    const d = await ap.describe(catalog.byName.get('publish_notice'), { title: 'x'.repeat(300), content: 'y'.repeat(300) });
+    const d = await ap.describe(catalog.byName.get('publish_notice'), { title: 'x'.repeat(300), content: 'y'.repeat(300) }, { id: 1, role: 1, class_id: '1' });
     expect(d.summary.length).toBeLessThanOrEqual(120);
     expect(d.impact.length).toBeLessThanOrEqual(255);
   });
@@ -97,9 +97,31 @@ describe('确认策略：降噪（不是所有写操作都值得打断）', () =
   });
 
   it('发布通知走 strict，提交建议走 auto', async () => {
-    const notice = await ap.describe(catalog.byName.get('publish_notice'), { title: 'x', content: 'y' });
+    const notice = await ap.describe(catalog.byName.get('publish_notice'), { title: 'x', content: 'y' }, { id: 1, role: 1, class_id: '1' });
     const sugg = await ap.describe(catalog.byName.get('submit_suggestion'), { content: '食堂排队太久' });
     expect(notice.policy).toBe('strict');
     expect(sugg.policy).toBe('auto');
+  });
+});
+
+describe('通知影响面必须按作者作用域算（不能想当然写全中队）', () => {
+  it('区队干部发的通知只有本区队可见', async () => {
+    const d = await ap.describe(
+      catalog.byName.get('publish_notice'),
+      { title: '集合', content: '明天早上8点集合' },
+      { id: 1, role: 1, class_id: '1' }
+    );
+    // 通知归属由服务端按作者作用域盖章（stampClassId），区队干部 → 本区队
+    expect(d.impact).toContain('本区队');
+    expect(d.impact).not.toContain('全中队');
+  });
+
+  it('超管发布是全局可见', async () => {
+    const d = await ap.describe(
+      catalog.byName.get('publish_notice'),
+      { title: '集合', content: '明天早上8点集合' },
+      { id: 8, role: 8, class_id: '1' }
+    );
+    expect(d.impact).toContain('全中队');
   });
 });

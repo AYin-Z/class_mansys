@@ -130,7 +130,7 @@ class AgentService {
         // （模块工具的 action 是真实端点，非 GET 也必须走确认，否则可绕过确认直接写库）
         if (isWriteCall(tool, args)) {
           // 卡片内容走 actionPreview：说人话 + 由后端查真实影响面（见该模块注释）
-          const desc = await actionPreview.describe(tool, args);
+          const desc = await actionPreview.describe(tool, args, user);
           // 降噪：后果无害且只影响自己的操作直接办，不回卡片。
           // 为什么必须降噪——全都弹卡片的结果是全都不看，确认就失去了信号价值。
           if (desc.policy === 'auto') {
@@ -296,7 +296,7 @@ class AgentService {
           continue;
         }
         if (isWriteCall(tool, args)) {
-          const desc = await actionPreview.describe(tool, args);
+          const desc = await actionPreview.describe(tool, args, user);
           // 降噪：低风险直接办（与 chat 路径同理，见 actionPreview.policyFor）
           if (desc.policy === 'auto') {
             const autoResult = await execute(tool, args, { token, userId: user.id, conversationId: convId });

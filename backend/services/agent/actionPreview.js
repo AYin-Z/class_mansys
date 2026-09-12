@@ -14,6 +14,7 @@
  *    绝不让模型自己说——模型说的数字不可信，而这是用户判断要不要点的唯一依据。
  */
 const db = require('../../config/database');
+const { resolveScope } = require('../../shared/scope');
 
 /** 高风险：影响他人 / 不可逆 / 面向全员 */
 const HIGH_RISK_NAMES = new Set([
@@ -79,18 +80,26 @@ function classify(tool, args) {
   return 'medium';
 }
 
-/** 全中队人数 / 某区队人数（影响面用真实数字，不用"全体成员"这种模糊说法） */
-async function recipientCount(args) {
-  const classId = args && (args.class_id || args.classId);
+/**
+ * 通知/公告的可见范围**不是由工具参数决定的**，而是服务端按作者作用域盖章
+ * （`stampClassId('notices', id, scope.writeClassId)`）：
+ *   - 区队干部（role 1-7）与学员 → 归属本区队，**只有本区队可见**
+ *   - 超管/辅导员（role >= 8）→ writeClassId = null，全局可见
+ * 所以影响面必须按**作者的作用域**算，不能想当然写成"全中队"。
+ */
+async function audienceOf(user) {
+  const fallback = { label: '相关成员', count: null };
+  if (!user) return fallback;
   try {
-    if (classId) {
-      const [rows] = await db.query('SELECT COUNT(*) n FROM users WHERE class_id = ?', [Number(classId)]);
-      return rows[0] ? Number(rows[0].n) : null;
+    const scope = await resolveScope(user);
+    if (scope.writeClassId === null || scope.writeClassId === undefined) {
+      const [rows] = await db.query('SELECT COUNT(*) n FROM users');
+      return { label: '全中队', count: rows[0] ? Number(rows[0].n) : null };
     }
-    const [rows] = await db.query('SELECT COUNT(*) n FROM users');
-    return rows[0] ? Number(rows[0].n) : null;
+    const [rows] = await db.query('SELECT COUNT(*) n FROM users WHERE class_id = ?', [scope.writeClassId]);
+    return { label: '本区队', count: rows[0] ? Number(rows[0].n) : null };
   } catch (e) {
-    return null; // 查不到就不编数字，宁可不显示
+    return fallback; // 查不到就不编数字，宁可不显示
   }
 }
 
@@ -98,7 +107,7 @@ async function recipientCount(args) {
  * 生成卡片内容。
  * @returns {{summary:string, impact:string, risk:'low'|'medium'|'high', irreversible:boolean}}
  */
-async function describe(tool, args) {
+async function describe(tool, args, user) {
   const a = args || {};
   const risk = classify(tool, a);
   const name = tool ? tool.name : 'unknown';
@@ -112,16 +121,16 @@ async function describe(tool, args) {
     /\/api\/notice\/create/.test(action);
 
   if (isBroadcast) {
-    const n = await recipientCount(a);
-    const to = a.class_id ? '该区队' : '全中队';
+    const aud = await audienceOf(user);
     // 模型经常只给 content 不给 title，直接显示"(未填标题)"没有信息量——退化成正文前 40 字
     const title = a.title || a.name || (a.content ? short(a.content, 40) : '(未填标题)');
+    const who = aud.count !== null ? aud.label + ' ' + aud.count + ' 人' : aud.label + '成员';
     return {
       risk: 'high',
       policy: 'strict',
       irreversible: true,
       summary: '发布' + (name === 'publish_notice' ? '通知' : '公告') + '：' + short(title, 40),
-      impact: (n !== null ? to + ' ' + n + ' 人' : to + '所有人') + '会立刻收到这条推送，发布后无法撤回'
+      impact: who + '会收到这条推送，发布后无法撤回'
     };
   }
 
