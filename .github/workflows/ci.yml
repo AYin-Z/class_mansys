@@ -112,6 +112,60 @@ jobs:
           tail -40 /tmp/smoke-server.log || true
           if [ -f /tmp/smoke-server.pid ]; then kill "$(cat /tmp/smoke-server.pid)" 2>/dev/null || true; fi
 
+  # 对话助手工具选择评测（模型/提示词/工具表改动后的回归门禁）
+  #
+  # 为什么放在这里：runner 是**自托管**在这台机器上的，能直接访问本地 llama-server，
+  # 所以这个门禁不花钱、也有意义（通用榜单如 BFCL 测的是英文通用函数调用，
+  # 与我们"固定中文工具表 + 算日期填参数 + 权限边界"不是一回事，不能替代）。
+  #
+  # 本地模型没在跑时**跳过而不是失败**：它是可选依赖，不该因为它没起来就阻断全部 CI；
+  # 真挂了会由 class-mansys-agent-usage.timer 的健康告警报出来（见 docs/OPERATIONS.md §14）。
+  agent-eval:
+    runs-on: self-hosted
+    needs: [backend]
+    env:
+      NODE_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_NAME: class_manage_sys_test
+      DB_USER: ${{ secrets.CI_DB_USER || 'ci_runner' }}
+      DB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
+      JWT_SECRET: ci_only_test_secret_please_do_not_reuse
+      EVAL_BASE_URL: http://127.0.0.1:8090/v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install backend deps
+        run: npm ci
+        working-directory: backend
+      - name: 应用测试库迁移
+        run: node scripts/migrate.js up
+        working-directory: backend
+      - name: 本地模型可用性检查
+        id: probe
+        run: |
+          if curl -sf --max-time 5 "$EVAL_BASE_URL/models" > /dev/null; then
+            echo "ready=1" >> "$GITHUB_OUTPUT"
+            echo "本地模型可用，将执行评测"
+          else
+            echo "ready=0" >> "$GITHUB_OUTPUT"
+            echo "::warning::本地模型不可用（$EVAL_BASE_URL），跳过本次评测"
+          fi
+        working-directory: backend
+      - name: 对话助手工具选择评测
+        if: steps.probe.outputs.ready == '1'
+        run: node tests/eval/run.mjs --base-url "$EVAL_BASE_URL" --rounds 2 --min-score 92 --json /tmp/agent-eval.json
+        working-directory: backend
+      - name: 上传评测结果
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-eval-result
+          path: /tmp/agent-eval.json
+          if-no-files-found: ignore
+
   frontend:
     runs-on: self-hosted
     steps:

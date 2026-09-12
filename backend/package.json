@@ -12,7 +12,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "migrate": "node scripts/migrate.js"
+    "migrate": "node scripts/migrate.js",
+    "eval:agent": "node tests/eval/run.mjs --base-url http://127.0.0.1:8090/v1 --rounds 2 --min-score 95"
   },
   "keywords": [
     "nodejs",

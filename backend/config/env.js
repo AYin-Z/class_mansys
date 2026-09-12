@@ -51,6 +51,10 @@ const schema = z.object({
   LLM_MAX_TOKENS: z.coerce.number().int().positive().default(2048),
   // 撤销窗口（默认 30 分钟）。过期后不再提供撤销——太久了用户已经记不清当时发生了什么
   AGENT_UNDO_TTL_MS: z.coerce.number().int().positive().default(1800000),
+  // 微信主动推送纪律：每人每天上限（超过就只落库不发）。聊天的第一风险是变成骚扰源
+  CHANNEL_PUSH_DAILY_MAX: z.coerce.number().int().nonnegative().default(2),
+  // 推送开关（0 = 定时任务空跑，只记录不发）
+  CHANNEL_PUSH_ENABLED: z.string().optional().default('true'),
   LLM_BASE_URL: z.string().optional().default('https://api.deepseek.com'),
   LLM_API_KEY: z.string().optional().default(''),
   LLM_MODEL: z.string().optional().default('deepseek-chat'),
@@ -122,6 +126,8 @@ if (parsed.success) {
     LLM_WARMUP_INTERVAL_MS: Number(process.env.LLM_WARMUP_INTERVAL_MS ?? 300000),
     LLM_MAX_TOKENS: Number(process.env.LLM_MAX_TOKENS ?? 2048),
     AGENT_UNDO_TTL_MS: Number(process.env.AGENT_UNDO_TTL_MS ?? 1800000),
+    CHANNEL_PUSH_DAILY_MAX: Number(process.env.CHANNEL_PUSH_DAILY_MAX ?? 2),
+    CHANNEL_PUSH_ENABLED: process.env.CHANNEL_PUSH_ENABLED || 'true',
     LLM_BASE_URL: process.env.LLM_BASE_URL || 'https://api.deepseek.com',
     LLM_API_KEY: process.env.LLM_API_KEY || '',
     LLM_MODEL: process.env.LLM_MODEL || 'deepseek-chat',
