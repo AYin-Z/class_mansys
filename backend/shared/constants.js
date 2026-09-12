@@ -30,6 +30,20 @@ const ROLES = Object.freeze({
   COUNSELOR: 9,
 });
 
+/** 角色中文名（用于对话助手的「当前用户」提示；前端有自己的一份，这里是后端权威副本） */
+const ROLE_NAMES = Object.freeze({
+  0: '学员',
+  1: '区队长',
+  2: '生活副区队长',
+  3: '学习副区队长',
+  4: '心理副区队长',
+  5: '团支书',
+  6: '组织委员',
+  7: '宣传委员',
+  8: '超级管理员',
+  9: '辅导员'
+});
+
 /** 所有干部/管理角色 ID 集合（role >= 1 且不等同于普通学员即视为干部） */
 const ADMIN_ROLES_SET = new Set([
   ROLES.CLASS_LEADER,
@@ -108,4 +122,5 @@ module.exports = {
   hasRole,
   hasAnyRole,
   hasCompanyView,
+  ROLE_NAMES
 };

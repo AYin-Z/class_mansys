@@ -34,6 +34,18 @@ const schema = z.object({
   // 上游连续失败几次后临时跳过（避免假死时每个请求都白等满超时）
   LLM_BREAKER_THRESHOLD: z.coerce.number().int().positive().default(3),
   LLM_BREAKER_COOLDOWN_MS: z.coerce.number().int().positive().default(60000),
+  // 用量记账的价目表（元/百万 token，可随时改；历史数据存的是原始 token，可重算）
+  LLM_PRICE_CACHE_HIT: z.coerce.number().nonnegative().default(0.5),
+  LLM_PRICE_CACHE_MISS: z.coerce.number().nonnegative().default(2),
+  LLM_PRICE_OUTPUT: z.coerce.number().nonnegative().default(8),
+  // 告警阈值
+  AGENT_ALERT_FALLBACK_RATE: z.coerce.number().nonnegative().default(0.2),
+  AGENT_ALERT_DAILY_COST: z.coerce.number().nonnegative().default(5),
+  AGENT_ALERT_MIN_CALLS: z.coerce.number().int().nonnegative().default(10),
+  // 会话历史 token 预算（0 = 不限制，沿用固定条数）
+  AGENT_HISTORY_TOKEN_BUDGET: z.coerce.number().int().nonnegative().default(4000),
+  // 本地模型预热间隔（毫秒，0 = 关闭）
+  LLM_WARMUP_INTERVAL_MS: z.coerce.number().int().nonnegative().default(300000),
   LLM_BASE_URL: z.string().optional().default('https://api.deepseek.com'),
   LLM_API_KEY: z.string().optional().default(''),
   LLM_MODEL: z.string().optional().default('deepseek-chat'),
@@ -95,6 +107,14 @@ if (parsed.success) {
     LLM_PREFER: process.env.LLM_PREFER || 'local',
     LLM_BREAKER_THRESHOLD: Number(process.env.LLM_BREAKER_THRESHOLD || 3),
     LLM_BREAKER_COOLDOWN_MS: Number(process.env.LLM_BREAKER_COOLDOWN_MS || 60000),
+    LLM_PRICE_CACHE_HIT: Number(process.env.LLM_PRICE_CACHE_HIT ?? 0.5),
+    LLM_PRICE_CACHE_MISS: Number(process.env.LLM_PRICE_CACHE_MISS ?? 2),
+    LLM_PRICE_OUTPUT: Number(process.env.LLM_PRICE_OUTPUT ?? 8),
+    AGENT_ALERT_FALLBACK_RATE: Number(process.env.AGENT_ALERT_FALLBACK_RATE ?? 0.2),
+    AGENT_ALERT_DAILY_COST: Number(process.env.AGENT_ALERT_DAILY_COST ?? 5),
+    AGENT_ALERT_MIN_CALLS: Number(process.env.AGENT_ALERT_MIN_CALLS ?? 10),
+    AGENT_HISTORY_TOKEN_BUDGET: Number(process.env.AGENT_HISTORY_TOKEN_BUDGET ?? 4000),
+    LLM_WARMUP_INTERVAL_MS: Number(process.env.LLM_WARMUP_INTERVAL_MS ?? 300000),
     LLM_BASE_URL: process.env.LLM_BASE_URL || 'https://api.deepseek.com',
     LLM_API_KEY: process.env.LLM_API_KEY || '',
     LLM_MODEL: process.env.LLM_MODEL || 'deepseek-chat',

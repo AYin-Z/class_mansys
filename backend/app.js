@@ -266,6 +266,17 @@ setInterval(() => {
   require('./shared/permissions').loadPermissions().catch(() => {});
 }, 30000).unref();
 
+// 本地模型预热：保持 system prompt + 工具表这段公共前缀留在 llama.cpp 的前缀缓存里。
+// 实测冷缓存时 12 个不同用户要 25.9s，热缓存只要 1.4s——"第一次用很卡"主要是冷缓存。
+// 只在 hybrid 模式且配了本地地址时启动；失败不影响对话。
+try {
+  const { startWarmup } = require('./services/agent/warmup');
+  const agentSvc = require('./services/agent/agentService');
+  startWarmup(app, agentSvc.agentCatalogFor);
+} catch (e) {
+  logger.warn({ err: e.message }, '本地模型预热启动失败');
+}
+
 if (require.main === module) {
   app.listen(PORT, () => {
     logger.info({ port: PORT }, '服务器已启动');

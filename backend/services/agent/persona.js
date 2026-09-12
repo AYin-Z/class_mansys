@@ -1,4 +1,4 @@
-const { ROLES } = require('../../shared/constants');
+const { ROLES, ROLE_NAMES } = require('../../shared/constants');
 const { GUIDES } = require('./guide');
 
 /** 把 guide 渲染成 prompt 里的一段权威操作路径（顺序稳定，利于前缀缓存命中） */
@@ -68,14 +68,36 @@ const STUDENT_GUIDE = [
   '语气：友好、简短、鼓励提问；不确定的功能不要硬答，建议他找区队长或管理员。'
 ];
 
+/**
+ * system prompt —— **必须保持静态**
+ *
+ * 这里曾经把用户名和当天日期拼在第一行，结果实测（12 个不同用户、12 并发、冷缓存）：
+ *   用户名在 system prompt 里 → 墙钟 25.9s，吞吐 0.46 req/s，前缀缓存命中 0%
+ *   静态 system prompt       → 墙钟  1.4s，吞吐 8.84 req/s，前缀缓存命中 99%
+ * 差 19 倍。原因是前缀缓存只能从**第一个 token** 开始匹配，而名字出现在最前面，
+ * 于是每个用户的前缀从第 10 来个 token 就分叉，后面 8000 多 token 的工具表完全无法复用。
+ *
+ * 所以：**用户相关的东西一律不要写进这里**，改用 buildUserContext() 放进当前这条 user 消息。
+ * 唯一允许的分叉是角色大类（学员 / 干部）——那是两组静态文本，组内完全一致。
+ */
 function buildSystemPrompt(user) {
   const role = Number(user && user.role);
   const isCadre = role >= ROLES.CLASS_LEADER && role <= ROLES.COUNSELOR;
-  const head = '你是「区队管理系统」的智能助手，正在为 ' + ((user && user.name) || '用户') + '（role=' + role + (isCadre ? '，干部' : '，学员') + '）服务。今天是 ' + todayStr() + '。';
   const body = isCadre ? CADRE_GUIDE : STUDENT_GUIDE;
   // guide 内容内联：以前靠 system_guide 工具，每用一次要多一轮 LLM 往返（约 0.3s + 一次工具调用），
   // 且小模型会把「帮我请假」误判成「怎么请假」去调它。内联后一次性放进缓存前缀，1 轮出结果。
-  return [head, '', body.join('\n'), '', COMMON_RULES.join('\n'), '', DISAMBIGUATION.join('\n'), '', renderGuides()].join('\n');
+  return [body.join('\n'), '', COMMON_RULES.join('\n'), '', DISAMBIGUATION.join('\n'), '', renderGuides()].join('\n');
 }
 
-module.exports = { buildSystemPrompt, todayStr };
+/**
+ * 每次请求的「当前用户」上下文，拼在**当前这条 user 消息**前面。
+ * 放在这里而不是 system prompt，是为了让 system prompt + 工具表保持静态、跨用户命中前缀缓存。
+ */
+function buildUserContext(user) {
+  const role = Number((user && user.role) || 0);
+  const name = (user && user.name) || '用户';
+  const label = ROLE_NAMES[role] || (role >= ROLES.CLASS_LEADER ? '干部' : '学员');
+  return '【当前用户：' + name + '，role=' + role + '（' + label + '），今天 ' + todayStr() + '】';
+}
+
+module.exports = { buildSystemPrompt, buildUserContext, todayStr };

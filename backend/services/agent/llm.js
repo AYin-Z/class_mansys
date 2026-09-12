@@ -171,6 +171,7 @@ async function chat({ messages, tools }) {
     try {
       const out = await chatOnce(target, { messages, tools });
       breakerOnSuccess(target.name);
+      out.fellBack = target !== targets[0];
       return out;
     } catch (e) {
       lastErr = e;
@@ -245,7 +246,16 @@ async function streamOnce(target, { messages, tools, onDelta }) {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + target.apiKey },
-    body: JSON.stringify({ model: target.model, messages, tools, tool_choice: 'auto', temperature: 0.2, stream: true }),
+    body: JSON.stringify({
+      model: target.model,
+      messages,
+      tools,
+      tool_choice: 'auto',
+      temperature: 0.2,
+      stream: true,
+      // 让上游在最后一帧带上 usage（OpenAI 兼容协议）；不带的话流式路径无法记账
+      stream_options: { include_usage: true }
+    }),
     signal: AbortSignal.timeout ? AbortSignal.timeout(target.timeoutMs) : undefined
   });
   if (!res.ok || !res.body) {
@@ -259,6 +269,7 @@ async function streamOnce(target, { messages, tools, onDelta }) {
   let buffer = '';
   let content = '';
   const toolCalls = [];
+  let usage = null;
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -273,6 +284,8 @@ async function streamOnce(target, { messages, tools, onDelta }) {
       if (!payload || payload === '[DONE]') continue;
       let chunk;
       try { chunk = JSON.parse(payload); } catch (e) { continue; }
+      // usage 可能在最后一帧单独出现（该帧 choices 为空数组）
+      if (chunk.usage) usage = chunk.usage;
       const delta = chunk.choices && chunk.choices[0] && chunk.choices[0].delta;
       if (!delta) continue;
       if (delta.content) {
@@ -293,7 +306,7 @@ async function streamOnce(target, { messages, tools, onDelta }) {
     }
   }
 
-  return { content, tool_calls: toolCalls.filter(Boolean), servedBy: target.name, model: target.model };
+  return { content, tool_calls: toolCalls.filter(Boolean), usage, servedBy: target.name, model: target.model };
 }
 
 /**
@@ -327,6 +340,7 @@ async function chatStream({ messages, tools, onDelta }) {
     try {
       const out = await streamOnce(target, { messages, tools, onDelta: guardedDelta });
       breakerOnSuccess(target.name);
+      out.fellBack = target !== targets[0];
       return out;
     } catch (e) {
       lastErr = e;

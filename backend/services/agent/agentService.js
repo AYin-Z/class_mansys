@@ -2,7 +2,9 @@ const AgentRepo = require('./repo');
 const llm = require('./llm');
 const { buildTools, agentCatalog, toOpenAiTools, isWriteCall } = require('./toolCatalog');
 const { preview, execute } = require('./toolRunner');
-const { buildSystemPrompt } = require('./persona');
+const { buildSystemPrompt, buildUserContext } = require('./persona');
+const usage = require('./usage');
+const { trimHistoryToBudget } = require('./history');
 const { normalize: normalizeAttachments, withAttachmentText } = require('./attachments');
 const { env } = require('../../config/env');
 const logger = require('../../config/logger');
@@ -66,10 +68,15 @@ class AgentService {
 
     const history = await AgentRepo.listMessages(convId, 30);
     const messages = [{ role: 'system', content: buildSystemPrompt(user) }];
-    for (const m of history) {
-      if (m.role === 'user' || m.role === 'assistant') {
-        if (m.content) messages.push({ role: m.role, content: m.content });
-      }
+    const kept = trimHistoryToBudget(history, env.AGENT_HISTORY_TOKEN_BUDGET);
+    for (let i = 0; i < kept.length; i += 1) {
+      const m = kept[i];
+      if (m.role !== 'user' && m.role !== 'assistant') continue;
+      if (!m.content) continue;
+      // 「当前用户」上下文只拼在本轮这条 user 消息上，不进 system prompt（见 persona 注释：
+      // 用户相关的东西写进 system prompt 会让前缀缓存整体失效，实测差 19 倍）
+      const isCurrent = i === kept.length - 1 && m.role === 'user';
+      messages.push({ role: m.role, content: isCurrent ? buildUserContext(user) + '\n' + m.content : m.content });
     }
 
     const tools = toOpenAiTools(catalog);
@@ -77,7 +84,21 @@ class AgentService {
     let pendingAction = null;
 
     for (let step = 0; step < env.AGENT_MAX_STEPS; step += 1) {
+      const startedAt = Date.now();
       const out = await llm.chat({ messages, tools });
+      // 记账是旁路，record() 内部已吞掉异常，不会影响对话
+      usage.record({
+        userId: user.id,
+        role: user.role,
+        conversationId: convId,
+        step,
+        servedBy: out.servedBy,
+        model: out.model,
+        fellBack: out.fellBack,
+        usage: out.usage,
+        latencyMs: Date.now() - startedAt,
+        streamed: false
+      });
       const calls = out.tool_calls || [];
 
       if (!calls.length) {
@@ -204,8 +225,12 @@ class AgentService {
 
     const history = await AgentRepo.listMessages(convId, 30);
     const messages = [{ role: 'system', content: buildSystemPrompt(user) }];
-    for (const m of history) {
-      if ((m.role === 'user' || m.role === 'assistant') && m.content) messages.push({ role: m.role, content: m.content });
+    const kept = trimHistoryToBudget(history, env.AGENT_HISTORY_TOKEN_BUDGET);
+    for (let i = 0; i < kept.length; i += 1) {
+      const m = kept[i];
+      if ((m.role !== 'user' && m.role !== 'assistant') || !m.content) continue;
+      const isCurrent = i === kept.length - 1 && m.role === 'user';
+      messages.push({ role: m.role, content: isCurrent ? buildUserContext(user) + '\n' + m.content : m.content });
     }
 
     const tools = toOpenAiTools(catalog);
@@ -213,7 +238,20 @@ class AgentService {
     let pendingAction = null;
 
     for (let step = 0; step < env.AGENT_MAX_STEPS; step += 1) {
+      const startedAt = Date.now();
       const out = await llm.chatStream({ messages, tools, onDelta: (t) => send({ type: 'delta', content: t }) });
+      usage.record({
+        userId: user.id,
+        role: user.role,
+        conversationId: convId,
+        step,
+        servedBy: out.servedBy,
+        model: out.model,
+        fellBack: out.fellBack,
+        usage: out.usage,
+        latencyMs: Date.now() - startedAt,
+        streamed: true
+      });
       const calls = out.tool_calls || [];
       if (!calls.length) {
         reply = out.content || '（没有更多信息）';
@@ -263,3 +301,4 @@ class AgentService {
 
 module.exports = AgentService;
 module.exports.clearAgentCatalogCache = clearAgentCatalogCache;
+module.exports.agentCatalogFor = agentCatalogFor;
