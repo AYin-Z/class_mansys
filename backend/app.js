@@ -91,9 +91,23 @@ app.use('/apk', express.static(APK_DIR));
 logger.info({ apkDir: APK_DIR }, 'APK 目录');
 
 // 速率限制（仅限API路由，不影响静态资源）
+//
+// ⚠️ 必须放过回环地址，原因（实测踩到）：
+//   助手的工具调用是以"用户身份"调本服务自己的接口（toolRunner 走
+//   http://127.0.0.1:PORT），**同样经过这个中间件**。若把回环也算进配额，
+//   助手每轮要调若干次工具，高峰时会把 127.0.0.1 这个桶吃光 ——
+//   结果是**助手把自己限死**（实测：跑 228 次一致性检查就被 429）。
+//   生产数据里 `127.0.0.1` 一个 IP 记录了 10 个用户的 238 次操作，就是这个来源。
+//
+// 为什么放过回环是安全的：外部请求经 Nginx（loopback 代理）进来，
+// Express 在 `trust proxy: loopback` 下取的是**最右侧不可信地址**（真实客户端），
+// 客户端伪造 `X-Forwarded-For: 127.0.0.1` 也不会让 req.ip 变成回环。
+// 回环请求只可能来自本机进程（助手内部调用、定时任务），已经过 JWT 鉴权。
+const isLoopback = (ip) => ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15分钟
-  max: 600 // 每个IP限制600个API请求
+  max: 600, // 每个外部 IP 限制 600 个 API 请求（约 40/分钟，正常用户远达不到）
+  skip: (req) => isLoopback(req.ip)
 });
 app.use('/api', limiter);
 
