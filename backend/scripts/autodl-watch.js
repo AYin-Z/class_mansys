@@ -28,7 +28,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync, spawnSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
 process.chdir(path.join(__dirname, '..'));
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -151,7 +151,8 @@ function notify(subject, text) {
     console.log('[watch] 下载适配器');
     const local = path.join(HOME, 'class-mansys-artifacts', 'autodl-out');
     fs.mkdirSync(local, { recursive: true });
-    const r = spawnSync('bash', ['-c',
+    // 下载失败不能让流程断掉：下面会根据 list 是否为空决定要不要关机
+    spawnSync('bash', ['-c',
       `ssh ${SSH_ALIAS} 'tar czf - -C /root/autodl-tmp/out qwen3vl-4b-agent-lora 2>/dev/null' | tar xzf - -C ${local}`
     ], { encoding: 'utf8', timeout: 900000 });
     const list = fs.existsSync(local) ? fs.readdirSync(local) : [];
@@ -159,7 +160,7 @@ function notify(subject, text) {
     // 自动关机：AutoDL 官方文档支持在实例内执行 /usr/bin/shutdown（"省钱绝招"一节）。
     // 这一步很关键——**API 关不了普通实例**，如果我们不在这里关，机器会一直计费。
     // 顺序必须是：先下载完适配器，再关机（关了就 SSH 不进去了）。
-    let shutdownNote = '未尝试';
+    let shutdownNote;
     if (list.length) {
       const sd = ssh('nohup /usr/bin/shutdown >/dev/null 2>&1 &  sleep 1; echo shutdown-issued', 60);
       shutdownNote = /shutdown-issued/.test(sd.out) ? '已下发关机命令' : ('关机命令执行异常：' + sd.out.slice(-200));
