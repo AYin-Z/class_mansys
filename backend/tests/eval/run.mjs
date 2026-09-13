@@ -95,7 +95,9 @@ async function ask(cat, message) {
     tools: cat.tools,
     tool_choice: 'auto',
     max_tokens: 700,
-    temperature: 0.2
+    // 采样温度：0 = 确定性。实测"该动手却用文字回答"这类失败**不稳定**
+    // （同一句话时对时错），温度是首先要排查的变量。
+    temperature: Number(process.env.EVAL_TEMPERATURE ?? 0.2)
   };
   // Qwen3.5 这类默认开思考的模型：不关思考等于用"推理模式"参加评测，
   // 延迟高好几倍、且倾向长篇推理后追问而非直接调工具。EVAL_NO_THINK=1 关掉。
