@@ -14,9 +14,10 @@
 #
 # 验收不看这里的 loss，看 backend 那套 155 条评测（见 docs/AGENT_EVAL.md）
 model_name_or_path: /root/autodl-tmp/models/Qwen3-VL-4B-Instruct
-# 模板：VL 模型要用 VL 模板（否则视觉塔/图像占位符处理不对）。
-# ⚠️ 这个值需要在实例上确认：llamafactory-cli 支持的模板名以实例上实际版本为准（见 bootstrap 自检）
-template: qwen3_vl
+# 模板：LLaMA-Factory 0.9.5 里确认存在 qwen3_vl 与 qwen3_vl_nothink（实测 121 个模板中）。
+# 用 **nothink** 是因为线上实测：Qwen3-VL-4B 通过 llama.cpp 推理时**不输出 reasoning_content**
+# （即非思考模式）。训练与推理的模板必须一致，否则等于白训。
+template: qwen3_vl_nothink
 freeze_vision_tower: true      # 只训语言层：保住看图能力，也省显存
 stage: sft
 do_train: true
