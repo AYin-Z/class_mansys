@@ -3,13 +3,21 @@
 # 为什么用 QLoRA 而不是全参：AutoDL 余额只有十几块，QLoRA 在单张 4090 上几十分钟到一两小时，
 # 全参微调既慢又容易 OOM，性价比不对。
 #
+# 目标模型：**Qwen3-VL-4B-Instruct** —— 就是线上跑的那个。
+#   为什么训它而不是训个更小的：小模型的收益是省显存/更快，但容量余量已有 11 倍（前缀缓存修好后），
+#   省下来没地方花；而训线上这个模型是**零架构改动直接上线**，还保住看图能力
+#   （LoRA 只训语言层，视觉塔冻结 —— freeze_vision_tower: true）。
+#
 # 数据：autodl/agent-full.jsonl（1770 条，由 backend/scripts/gen-agent-dataset.js 生成）
 #   - 格式与线上完全一致：真实工具目录 + 真实静态 system prompt + 真实日期锚点
 #   - 与评测集（backend/tests/eval/cases.mjs 的 155 条）**零重叠**——否则验收成绩毫无意义
 #
 # 验收不看这里的 loss，看 backend 那套 155 条评测（见 docs/AGENT_EVAL.md）
-model_name_or_path: /root/autodl-tmp/models/Qwen3-1.7B
-template: qwen3
+model_name_or_path: /root/autodl-tmp/models/Qwen3-VL-4B-Instruct
+# 模板：VL 模型要用 VL 模板（否则视觉塔/图像占位符处理不对）。
+# ⚠️ 这个值需要在实例上确认：llamafactory-cli 支持的模板名以实例上实际版本为准（见 bootstrap 自检）
+template: qwen3_vl
+freeze_vision_tower: true      # 只训语言层：保住看图能力，也省显存
 stage: sft
 do_train: true
 finetuning_type: lora
@@ -22,11 +30,12 @@ quantization_method: bnb
 
 dataset: agent_tool_calling
 dataset_dir: /root/autodl-tmp/llamafactory-data
-cutoff_len: 12288          # 单条样本约 9K token（工具表占大头）
+# 单条样本中位 7177 token（工具表占 6176，是每条都要带全的）
+cutoff_len: 10240
 overwrite_cache: true
 preprocessing_num_workers: 8
 
-output_dir: /root/autodl-tmp/out/qwen3-1.7b-agent-lora
+output_dir: /root/autodl-tmp/out/qwen3vl-4b-agent-lora
 logging_steps: 5
 save_steps: 200
 plot_loss: true

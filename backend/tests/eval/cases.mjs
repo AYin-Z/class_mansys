@@ -67,7 +67,11 @@ export const INTENTS = [
   { id: 'roster-search', role: 0, expectTools: ['roster_search', 'admin', 'users'], phrasings: [
     '查一下张三', '帮我找个人：李四', '名册里有王五吗', '搜一下我的室友'
   ]},
-  { id: 'attendance-company', role: 0, expectTools: ['company_attendance', 'company'], phrasings: [
+  // ⚠️ 角色是 1 不是 0：实测学员调用 company_* 会被控制器拒绝——
+  //    路由权限（矩阵里的 VIEW_COMPANY，含 role 0）与控制器里的硬编码
+  //    COMPANY_VIEW_ROLE_IDS（不含 role 0）互相矛盾。见 docs/AGENT_SYSTEM_ISSUES.md。
+  //    这条不一致没定论前，评测不能拿"学员能查全中队出勤"当期望。
+  { id: 'attendance-company', role: 1, expectTools: ['company_attendance', 'company'], phrasings: [
     '今天出勤怎么样', '咱们队今天有几个人没到', '出勤概览', '今天谁请假了'
   ]},
 

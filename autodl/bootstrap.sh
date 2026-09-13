@@ -26,15 +26,16 @@ fi
 llamafactory-cli version 2>/dev/null | head -3 || true
 
 echo "== [2/5] 准备底座模型（优先 ModelScope，国内快） =="
-if [ ! -d "$MODEL_DIR/Qwen3-1.7B" ]; then
+# 训的是线上那个 VL-4B（零架构改动直接上线，且只训语言层所以保住看图）
+if [ ! -d "$MODEL_DIR/Qwen3-VL-4B-Instruct" ]; then
   pip install -i https://pypi.tuna.tsinghua.edu.cn/simple modelscope >/dev/null 2>&1 || true
   python3 - <<'PY'
 from modelscope import snapshot_download
-p = snapshot_download('Qwen/Qwen3-1.7B', cache_dir='/root/autodl-tmp/models')
+p = snapshot_download('Qwen/Qwen3-VL-4B-Instruct', cache_dir='/root/autodl-tmp/models')
 print('下载到', p)
 PY
   # 统一放到固定路径，训练配置里写死了这个路径
-  [ -d "$MODEL_DIR/Qwen3-1.7B" ] || ln -sfn "$(ls -d $MODEL_DIR/Qwen/Qwen3-1.7B 2>/dev/null | head -1 || echo .)" "$MODEL_DIR/Qwen3-1.7B"
+  [ -d "$MODEL_DIR/Qwen3-VL-4B-Instruct" ] || ln -sfn "$(ls -d $MODEL_DIR/Qwen/Qwen3-VL-4B-Instruct 2>/dev/null | head -1 || echo .)" "$MODEL_DIR/Qwen3-VL-4B-Instruct"
 else
   echo "底座已存在"
 fi
@@ -45,8 +46,24 @@ cp -f "$WORK/agent-train/agent-full.jsonl" "$DATA/agent-full.jsonl"
 cp -f "$WORK/agent-train/agent-smoke.jsonl" "$DATA/agent-smoke.jsonl"
 ls -la "$DATA" | tail -4
 # 条数自检：与生成时对得上才继续（防止上传截断）
-echo "full 条数: $(wc -l < "$DATA/agent-full.jsonl")（应为 1770）"
-echo "smoke 条数: $(wc -l < "$DATA/agent-smoke.jsonl")（应为 98）"
+echo "full 条数: $(wc -l < "$DATA/agent-full.jsonl")"
+echo "smoke 条数: $(wc -l < "$DATA/agent-smoke.jsonl")"
+# 格式自检：VL 模型 + tools 字段这套组合能不能被模板接受，是本次最大的未知数之一。
+# 先在无卡模式下用极小样本干跑一次预处理，几秒就能暴露问题，不用等 GPU。
+python3 - <<'PY'
+import json,sys
+p='/root/autodl-tmp/llamafactory-data/agent-smoke.jsonl'
+bad=0
+for i,l in enumerate(open(p)):
+    d=json.loads(l)
+    if 'tools' not in d or 'conversations' not in d: bad+=1
+    else:
+        # tools 必须是 JSON 字符串，且能被解析成列表
+        try: t=json.loads(d['tools']); assert isinstance(t,list) and t
+        except Exception as e: print('  tools 字段异常:',e); bad+=1
+print('格式自检：异常',bad,'条')
+sys.exit(1 if bad else 0)
+PY
 
 echo "== [4/5] 冒烟（只跑 20 步，验证 pipeline 通不通） =="
 if [ "$MODE" = "smoke" ]; then

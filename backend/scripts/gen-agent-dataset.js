@@ -106,8 +106,9 @@ const INTENTS = [
   {
     id: 'expense-mine', role: 0, tool: 'my_expenses', args: () => ({}),
     say: () => [pick(ASK, rnd), pick(['队费什么情况', '班费那边怎么样', '我报销那笔有信儿了吗', '班费账目'], rnd), pick(TAIL, rnd)].join(''),
-    obs: () => ({ success: true, balance: 1234.5, expenses: [{ amount: 35, purpose: '扫把', status: 1 }] }),
-    sum: (a, o) => `班费余额 **${o.balance}** 元。你最近一笔报销 ${o.expenses[0].amount} 元（${o.expenses[0].purpose}）已通过。`
+    // 形状对齐真实响应（实测）：{success, expenses, data:{expenses}} —— 没有 balance 字段
+    obs: () => ({ success: true, expenses: [{ id: 9, amount: 35, purpose: '买收纳箱', status: 1 }], data: { expenses: [{ id: 9, amount: 35, purpose: '买收纳箱', status: 1 }] } }),
+    sum: (a, o) => `你提交过 ${o.expenses.length} 笔报销，最近一笔 ${o.expenses[0].amount} 元（${o.expenses[0].purpose}）已通过。班费余额可以在班费页看到。`
   },
   {
     id: 'album-list', role: 0, tool: 'list_albums', args: () => ({}),
@@ -136,8 +137,9 @@ const INTENTS = [
   {
     id: 'profile-mine', role: 0, tool: 'my_profile', args: () => ({}),
     say: () => [pick(ASK, rnd), pick(['我的档案信息', '我在哪个班', '账号那边' ], rnd), pick(TAIL, rnd)].join(''),
-    obs: () => ({ success: true, name: '张三', role: 0, class_name: '一区队' }),
-    sum: (a, o) => `你是 ${o.name}，${o.class_name}，身份：学员。`
+    // 形状对齐真实响应（实测）：{success, user:{name,class_id,role,student_id}, permissions:{...}}
+    obs: () => ({ success: true, user: { id: 1, name: '张三', student_id: '202521760001', class_id: '1', role: 0 }, permissions: { ACCESS_DASHBOARD: false, PUBLISH_NOTICE: false } }),
+    sum: (a, o) => `你是 ${o.user.name}，学号 ${o.user.student_id}，区队编号 ${o.user.class_id}，身份：学员。`
   },
   {
     id: 'roster-search', role: 0, tool: 'roster_search', args: () => ({ keyword: pick(['张三', '李四', '王五'], rnd) }),
@@ -145,14 +147,21 @@ const INTENTS = [
       const n = pick(['张三', '李四', '王五'], rnd);
       return [pick(ASK, rnd), pick([`${n}的资料`, `帮我搜${n}`, `${n}是哪个寝室的`, `${n}在册吗`], rnd), pick(TAIL, rnd)].join('');
     },
-    obs: (a) => ({ success: true, members: [{ name: a.keyword, class_name: '一区队', role: 0 }] }),
-    sum: (a, o) => `${o.members[0].name} 在 ${o.members[0].class_name}。`
+    obs: (a) => ({ success: true, page: 1, pageSize: 50, total: 1, members: [{ id: 11, name: a.keyword, student_id: '202521760011', class_id: '1', class_name: '数据警务技术一区队', role: 0, member_type: 'student' }] }),
+    sum: (a, o) => `${o.members[0].name} 在 ${o.members[0].class_name}（学号 ${o.members[0].student_id}）。`
   },
   {
-    id: 'attendance-company', role: 0, tool: 'company_attendance', args: () => ({}),
+    // ⚠️ 角色是 1 不是 0：实测学员调用 company_* 会被控制器拒绝
+    //    （"仅区队管理层可查看中队概览"）。原因见 docs/AGENT_EVAL.md 记的权限不一致问题。
+    //    给学员生成 = 教模型去调一个必然失败的工具。
+    id: 'attendance-company', role: 1, tool: 'company_attendance', args: () => ({}),
     say: () => [pick(ASK, rnd), pick([`今天${pick(TEAM, rnd)}到了多少人`, '在队情况', '缺勤的有几个'], rnd), pick(TAIL, rnd)].join(''),
-    obs: () => ({ success: true, total: 41, on_leave: 3, absent: 0 }),
-    sum: (a, o) => `今天应到 ${o.total} 人，请假 ${o.on_leave} 人，缺席 ${o.absent} 人。`
+    // 形状对齐真实响应（实测）：{success, date, classes:[{class_name,total_members,on_leave,present,...}]}
+    obs: () => ({ success: true, date: dayStr(0), classes: [
+      { class_id: '1', class_name: '数据警务技术一区队', total_members: 32, member_count: 32, on_leave: 0, present: 32, currently_leave: 0, not_returned: 0 },
+      { class_id: '2', class_name: '数据警务技术二区队', total_members: 30, member_count: 30, on_leave: 1, present: 29, currently_leave: 1, not_returned: 0 }
+    ] }),
+    sum: (a, o) => `今日中队出勤：${o.classes.map((c) => `${c.class_name} 在队 ${c.present}/${c.total_members}` + (c.on_leave ? `（请假 ${c.on_leave}）` : '')).join('；')}。`
   },
 
   // ---- 写操作（含日期换算）----
@@ -206,8 +215,8 @@ const INTENTS = [
   {
     id: 'pending-leave', role: 1, tool: 'pending_leave_approvals', args: () => ({}),
     say: () => [pick(ASK, rnd), pick(['今天有什么等我处理', '有没有要我审的', '审批那边堆了多少'], rnd), pick(TAIL, rnd)].join(''),
-    obs: () => ({ success: true, leaves: [{ id: 88, name: '张三', leave_type: '早操' }] }),
-    sum: (a, o) => `有 ${o.leaves.length} 条待审批请假：${o.leaves[0].name}（${o.leaves[0].leave_type}）。需要我批准吗？`
+    obs: () => ({ success: true, leaves: [{ id: 571, user_id: 34, leave_type: '早操', start_time: dayStr(1) + ' 07:00:00', end_time: dayStr(1) + ' 08:00:00', reason: '病假', status: 0 }] }),
+    sum: (a, o) => `有 ${o.leaves.length} 条待审批请假：记录 #${o.leaves[0].id}（${o.leaves[0].leave_type}，${o.leaves[0].start_time}，事由：${o.leaves[0].reason}）。需要我批准吗？`
   },
   {
     id: 'approve-leave', role: 1, tool: 'approve_leave',
@@ -233,8 +242,8 @@ const INTENTS = [
   {
     id: 'company-leave-records', role: 1, tool: 'company_leave_records', args: () => ({}),
     say: () => [pick(ASK, rnd), pick(['今天在假的有谁', '请假明细那边', '谁还在假中'], rnd), pick(TAIL, rnd)].join(''),
-    obs: () => ({ success: true, records: [{ name: '张三', leave_type: '全休' }] }),
-    sum: (a, o) => `今日在假 ${o.records.length} 人：${o.records[0].name}（${o.records[0].leave_type}）。`
+    obs: () => ({ success: true, date: dayStr(0), records: [{ id: 88, user_id: 34, name: '张三', leave_type: '全休', start_time: dayStr(0) + ' 08:00:00', end_time: dayStr(0) + ' 18:00:00' }] }),
+    sum: (a, o) => `今日在假 ${o.records.length} 人：${o.records[0].name}（${o.records[0].leave_type}，${o.records[0].start_time} 起）。`
   }
 ];
 
