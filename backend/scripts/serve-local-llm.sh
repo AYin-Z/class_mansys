@@ -20,6 +20,11 @@
 set -euo pipefail
 
 LLAMA_SERVER="${LLAMA_SERVER:-/home/ayin/llama.cpp/build4/bin/llama-server}"
+# 视觉投影器：我们的模型是 Qwen3-VL（视觉模型），加上它才真的能看图。
+# 实测（2026-09-12）：给一张请假证明照片，模型能读出姓名/类型/时间/事由并直接生成
+# 正确的 apply_leave 调用；热态 1.0~1.5s（纯文本约 0.67s），prompt 多约 1500 token。
+# 首次请求要 28s（加载并初始化视觉编码器），之后正常——所以重启后第一条图片请求会慢。
+MMPROJ="${LOCAL_LLM_MMPROJ:-/home/ayin/models/gguf/mmproj-F16.gguf}"
 MODEL="${LOCAL_LLM_MODEL_PATH:-/home/ayin/models/gguf/Qwen3-VL-4B-Instruct-Q4_K_M.gguf}"
 HOST="${LOCAL_LLM_HOST:-127.0.0.1}"
 PORT="${LOCAL_LLM_PORT:-8090}"
@@ -53,8 +58,17 @@ if [[ ! -f "$MODEL" ]]; then
   exit 1
 fi
 
+MMPROJ_ARGS=()
+# Qwen-VL 官方要求：grounding/文档识别类任务至少给 1024 个图像 token，否则精度会掉
+if [[ -f "$MMPROJ" ]]; then
+  MMPROJ_ARGS=(--mmproj "$MMPROJ" --image-min-tokens 1024)
+else
+  echo "[serve-local-llm] 未找到视觉投影器 $MMPROJ，本次以纯文本模式启动" >&2
+fi
+
 exec "$LLAMA_SERVER" \
   -m "$MODEL" \
+  "${MMPROJ_ARGS[@]}" \
   -ngl 99 \
   --host "$HOST" \
   --port "$PORT" \
