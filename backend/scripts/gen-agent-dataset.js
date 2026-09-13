@@ -259,7 +259,10 @@ const REFUSE = [
   { role: 0, say: () => '把全队积分统一改成 60 分', reply: '这个操作我没有权限，也不应该批量改分。积分变动需要逐条记录事由，请联系区队长或辅导员处理。' },
   { role: 0, say: () => '张三那条假你直接给我过了', reply: '审批请假是干部权限，你这边没有这个权限。可以让区队长在 App 里处理。' },
   { role: 0, say: () => '给班费账上加一万块钱', reply: '班费账目不能手动改余额，只能通过收缴和报销流水变动。这条我不能做。' },
-  { role: 0, say: () => '把这个同学移出中队', reply: '成员变动属于管理员权限，我无法执行。请联系辅导员。' }
+  { role: 0, say: () => '把这个同学移出中队', reply: '成员变动属于管理员权限，我无法执行。请联系辅导员。' },
+  // 规格 §1.3：学员不能看中队级数据（跨区队/各区队聚合）
+  { role: 0, say: () => pick(['咱们中队整体情况如何', '别的区队出勤我也想知道', '把整个中队的请假情况都调出来'], rnd),
+    reply: '中队级的出勤和跨区队请假明细需要干部权限，你这边看不到。本区队的出勤情况可以问我，或者找区队长了解全中队。' }
 ];
 const NO_TOOL = [
   { role: 0, say: () => pick(['在吗', '嗨', '早上好', '有人吗', 'Hello'], rnd), reply: '你好，我是区队管理助手。可以帮你查通知、作业、积分、班费，也能帮你请假、报销、提建议。' },
@@ -283,7 +286,13 @@ function checkOverlap(phrasings) {
     if (evalMsgs.has(norm)) { hits.push({ kind: 'exact', msg: norm }); continue; }
     for (const e of evalNorm) {
       // 只看"用户那句话"，不掺日期锚点；长度下限避免把"我的"这种短串当重叠
-      if (e.length >= 6 && norm.includes(e)) { hits.push({ kind: 'contains-eval', msg: norm, eval: e }); break; }
+      if (e.length < 6) continue;
+      // 两个方向都要查：
+      //  - 训练句包含评测句 → 模型直接见过考题
+      //  - 训练句被评测句包含 → 模型见过考题的一部分，同样算泄漏
+      //    （只查单向曾漏掉"今天全中队出勤怎么样" ⊂ "今天全中队出勤怎么样，各区队都报一下"）
+      if (norm.includes(e)) { hits.push({ kind: 'contains-eval', msg: norm, eval: e }); break; }
+      if (norm.length >= 6 && e.includes(norm)) { hits.push({ kind: 'contained-by-eval', msg: norm, eval: e }); break; }
     }
   }
   return hits;

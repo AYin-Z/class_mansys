@@ -28,9 +28,21 @@ describe('迁移文件规范', () => {
   });
 
   it('每个迁移都应具备幂等写法', () => {
+    // 幂等的写法有几种，不能只认一种：
+    //   IF(...)          —— 先查 information_schema 再决定要不要改（加列/加索引）
+    //   IF NOT EXISTS    —— CREATE TABLE / CREATE INDEX
+    //   INSERT IGNORE    —— 种默认数据，重复跑不覆盖已有配置
+    //   DELETE FROM ... WHERE ...  —— 删除本身幂等（删已删的行是空操作），
+    //                                 029 就是这种（收回某条权限）
+    // 真正不幂等的是"无保护的 INSERT"和"无保护的 ALTER ADD COLUMN"——那两类仍会被拦下。
     const bad = files.filter((f) => {
       const sql = read(f);
-      return !/IF\s*\(/i.test(sql) && !/IF NOT EXISTS/i.test(sql) && !/INSERT IGNORE/i.test(sql);
+      return (
+        !/IF\s*\(/i.test(sql) &&
+        !/IF NOT EXISTS/i.test(sql) &&
+        !/INSERT IGNORE/i.test(sql) &&
+        !/^\s*DELETE\s+FROM\s+\S+\s+WHERE/im.test(sql)
+      );
     });
     expect(bad).toEqual([]);
   });

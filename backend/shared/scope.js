@@ -1,4 +1,5 @@
 const { hasCompanyView, isAdmin } = require('./constants');
+const { hasPermission } = require('./permissions');
 const Company = require('../models/Company');
 const User = require('../models/User');
 
@@ -29,7 +30,15 @@ async function resolveScope(user) {
   const classIdObj = user.class_id ? String(user.class_id) : null;
   const classId = classIdObj && classIdObj !== '0' ? classIdObj : null;
   const isManagement = isAdmin(user);
-  const canViewCompany = hasCompanyView(user);
+  // 「能不能跨区队看中队情况」以**权限矩阵为唯一权威来源**。
+  //
+  // 这里原来是硬编码的 hasCompanyView（role 1..9），于是出现了两套互相矛盾的定义：
+  // 路由中间件按矩阵（后台把 role 0 也加进去了）放行，控制器按硬编码拒绝 →
+  // 「看得见、调不动」，而且后台改矩阵对这些端点无效。
+  //
+  // 兜底：矩阵还没加载出来（启动瞬间）时回落硬编码，避免启动期权限突然全开或全关。
+  const matrixHasEntry = Array.isArray((require('./permissions').currentMatrix() || {}).VIEW_COMPANY);
+  const canViewCompany = matrixHasEntry ? hasPermission(user, 'VIEW_COMPANY') : hasCompanyView(user);
 
   let classIds = null;
   if (role >= 1 && role <= 7) {
