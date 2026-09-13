@@ -1,0 +1,47 @@
+# QLoRA 微调：把"该动手就动手"这个行为契约训进小模型
+#
+# 为什么用 QLoRA 而不是全参：AutoDL 余额只有十几块，QLoRA 在单张 4090 上几十分钟到一两小时，
+# 全参微调既慢又容易 OOM，性价比不对。
+#
+# 数据：autodl/agent-full.jsonl（1770 条，由 backend/scripts/gen-agent-dataset.js 生成）
+#   - 格式与线上完全一致：真实工具目录 + 真实静态 system prompt + 真实日期锚点
+#   - 与评测集（backend/tests/eval/cases.mjs 的 155 条）**零重叠**——否则验收成绩毫无意义
+#
+# 验收不看这里的 loss，看 backend 那套 155 条评测（见 docs/AGENT_EVAL.md）
+model_name_or_path: /root/autodl-tmp/models/Qwen3-1.7B
+template: qwen3
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target: all
+quantization_bit: 4
+quantization_method: bnb
+
+dataset: agent_tool_calling
+dataset_dir: /root/autodl-tmp/llamafactory-data
+cutoff_len: 12288          # 单条样本约 9K token（工具表占大头）
+overwrite_cache: true
+preprocessing_num_workers: 8
+
+output_dir: /root/autodl-tmp/out/qwen3-1.7b-agent-lora
+logging_steps: 5
+save_steps: 200
+plot_loss: true
+overwrite_output_dir: true
+
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 16
+learning_rate: 1.0e-4
+num_train_epochs: 3.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+gradient_checkpointing: true
+
+val_size: 0.05
+per_device_eval_batch_size: 1
+eval_strategy: steps
+eval_steps: 200

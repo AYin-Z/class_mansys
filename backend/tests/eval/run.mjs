@@ -43,7 +43,10 @@ const app = require('../../app');
 const { buildTools, agentCatalog, toOpenAiTools } = require('../../services/agent/toolCatalog');
 const { buildSystemPrompt, buildUserContext } = require('../../services/agent/persona');
 
-function buildCatalogs() {
+async function buildCatalogs() {
+  // 权限矩阵异步加载：不等它完成就构造目录，受 requirePermission 控制的工具会全部消失，
+  // 于是评测会误判成"模型选不出工具"。app.js 启动时会 loadPermissions()，这里显式等一次。
+  await require('../../shared/permissions').loadPermissions();
   const full = buildTools(app);
   const byRole = {};
   for (const role of [0, 1, 5]) {
@@ -123,7 +126,7 @@ async function ask(cat, message) {
 }
 
 async function main() {
-  const catalogs = buildCatalogs();
+  const catalogs = await buildCatalogs();
   // 参数 schema 源：超管目录覆盖全部工具
   const schemaOf = {};
   for (const cat of Object.values(catalogs)) {

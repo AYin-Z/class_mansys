@@ -1,0 +1,14 @@
+{
+  "agent_tool_calling": {
+    "file_name": "agent-full.jsonl",
+    "formatting": "sharegpt",
+    "columns": { "messages": "conversations", "system": "system", "tools": "tools" },
+    "tags": { "role": "user", "content": "value", "function_call": "function_call", "observation": "observation" }
+  },
+  "agent_smoke": {
+    "file_name": "agent-smoke.jsonl",
+    "formatting": "sharegpt",
+    "columns": { "messages": "conversations", "system": "system", "tools": "tools" },
+    "tags": { "role": "user", "content": "value", "function_call": "function_call", "observation": "observation" }
+  }
+}
