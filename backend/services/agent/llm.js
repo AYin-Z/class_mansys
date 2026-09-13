@@ -1,5 +1,6 @@
 const { env } = require('../../config/env');
 const { GUIDES } = require('./guide');
+const { stripImageParts } = require('./vision');
 const logger = require('../../config/logger');
 const { HttpError } = require('../../shared/http');
 
@@ -77,7 +78,9 @@ function resolveTargets() {
     model: env.LLM_MODEL,
     apiKey: env.LLM_API_KEY,
     timeoutMs: env.LLM_TIMEOUT_MS,
-    available: !!env.LLM_API_KEY
+    available: !!env.LLM_API_KEY,
+    // DeepSeek 的 deepseek-chat 看不了图；带 vision 的上游才会收到 image_url 内容块
+    vision: String(env.LLM_REMOTE_VISION) === 'true'
   };
   const local = env.LLM_LOCAL_BASE_URL
     ? {
@@ -86,7 +89,9 @@ function resolveTargets() {
         model: env.LLM_LOCAL_MODEL || env.LLM_MODEL || 'local',
         apiKey: env.LLM_API_KEY || 'local',
         timeoutMs: env.LLM_LOCAL_TIMEOUT_MS,
-        available: true
+        available: true,
+        // 本地是 Qwen3-VL（配合 --mmproj 真能看图）
+        vision: String(env.LLM_LOCAL_VISION) === 'true'
       }
     : null;
 
@@ -108,6 +113,8 @@ function resolveTargets() {
 
 async function chatOnce(target, { messages, tools }) {
   const url = target.baseUrl + '/chat/completions';
+  // 不支持视觉的上游：把图片内容块剥成文本，避免上游报 400 或静默忽略
+  const safeMessages = target.vision ? messages : messages.map((m) => (Array.isArray(m.content) ? { ...m, content: stripImageParts(m.content) } : m));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), target.timeoutMs);
   try {
@@ -119,7 +126,7 @@ async function chatOnce(target, { messages, tools }) {
       },
       body: JSON.stringify({
         model: target.model,
-        messages,
+        messages: safeMessages,
         tools,
         tool_choice: 'auto',
         temperature: 0.2,
@@ -249,7 +256,7 @@ async function streamOnce(target, { messages, tools, onDelta }) {
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + target.apiKey },
     body: JSON.stringify({
       model: target.model,
-      messages,
+      messages: target.vision ? messages : messages.map((m) => (Array.isArray(m.content) ? { ...m, content: stripImageParts(m.content) } : m)),
       tools,
       tool_choice: 'auto',
       temperature: 0.2,

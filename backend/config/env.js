@@ -49,6 +49,10 @@ const schema = z.object({
   // 显式限制生成长度：不设的话行为随上游默认值变（DeepSeek 4096 / llama-server 按剩余上下文），
   // 既不可预期，也可能把每槽上下文吃光拖慢并发
   LLM_MAX_TOKENS: z.coerce.number().int().positive().default(2048),
+  // 视觉：本地模型是 Qwen3-VL，能看图；远端（DeepSeek deepseek-chat）不能，会自动降级成文本链接。
+  // 关掉它则完全不发图片内容块（省 token／排障用）。
+  LLM_LOCAL_VISION: z.string().optional().default('true'),
+  LLM_REMOTE_VISION: z.string().optional().default('false'),
   // 撤销窗口（默认 30 分钟）。过期后不再提供撤销——太久了用户已经记不清当时发生了什么
   AGENT_UNDO_TTL_MS: z.coerce.number().int().positive().default(1800000),
   // 微信主动推送纪律：每人每天上限（超过就只落库不发）。聊天的第一风险是变成骚扰源
@@ -125,6 +129,8 @@ if (parsed.success) {
     AGENT_HISTORY_TOKEN_BUDGET: Number(process.env.AGENT_HISTORY_TOKEN_BUDGET ?? 4000),
     LLM_WARMUP_INTERVAL_MS: Number(process.env.LLM_WARMUP_INTERVAL_MS ?? 300000),
     LLM_MAX_TOKENS: Number(process.env.LLM_MAX_TOKENS ?? 2048),
+    LLM_LOCAL_VISION: process.env.LLM_LOCAL_VISION || 'true',
+    LLM_REMOTE_VISION: process.env.LLM_REMOTE_VISION || 'false',
     AGENT_UNDO_TTL_MS: Number(process.env.AGENT_UNDO_TTL_MS ?? 1800000),
     CHANNEL_PUSH_DAILY_MAX: Number(process.env.CHANNEL_PUSH_DAILY_MAX ?? 2),
     CHANNEL_PUSH_ENABLED: process.env.CHANNEL_PUSH_ENABLED || 'true',

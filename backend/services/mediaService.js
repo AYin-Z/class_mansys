@@ -280,5 +280,6 @@ module.exports = {
   removeByUrl,
   uniqueName,
   readImageSize,
+  resolveMagick,
   _internals: { resolveMagick, magickProbed },
 };

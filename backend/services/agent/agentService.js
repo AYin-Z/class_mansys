@@ -4,6 +4,7 @@ const { buildTools, agentCatalog, toOpenAiTools, isWriteCall } = require('./tool
 const { preview, execute, callApi, resolveTarget } = require('./toolRunner');
 const undo = require('./undo');
 const argGuard = require('./argGuard');
+const vision = require('./vision');
 const actionPreview = require('./actionPreview');
 const { buildSystemPrompt, buildUserContext } = require('./persona');
 const usage = require('./usage');
@@ -95,6 +96,9 @@ class AgentService {
     const history = await AgentRepo.listMessages(convId, 30);
     const messages = [{ role: 'system', content: buildSystemPrompt(user) }];
     const kept = trimHistoryToBudget(history, env.AGENT_HISTORY_TOKEN_BUDGET);
+    // 本轮消息里的图片 → 真正发给模型（见 services/agent/vision.js）。
+    // 只发本轮的，不发历史里的：否则每轮都重发图片，token 与延迟翻倍。
+    const imageParts = atts.length ? await vision.buildImageParts(atts) : [];
     for (let i = 0; i < kept.length; i += 1) {
       const m = kept[i];
       if (m.role !== 'user' && m.role !== 'assistant') continue;
@@ -102,7 +106,8 @@ class AgentService {
       // 「当前用户」上下文只拼在本轮这条 user 消息上，不进 system prompt（见 persona 注释：
       // 用户相关的东西写进 system prompt 会让前缀缓存整体失效，实测差 19 倍）
       const isCurrent = i === kept.length - 1 && m.role === 'user';
-      messages.push({ role: m.role, content: isCurrent ? buildUserContext(user) + '\n' + m.content : m.content });
+      const text = isCurrent ? buildUserContext(user) + '\n' + m.content : m.content;
+      messages.push({ role: m.role, content: isCurrent && imageParts.length ? [{ type: 'text', text }].concat(imageParts) : text });
     }
 
     const tools = toOpenAiTools(catalog);
@@ -345,11 +350,13 @@ class AgentService {
     const history = await AgentRepo.listMessages(convId, 30);
     const messages = [{ role: 'system', content: buildSystemPrompt(user) }];
     const kept = trimHistoryToBudget(history, env.AGENT_HISTORY_TOKEN_BUDGET);
+    const imageParts = atts.length ? await vision.buildImageParts(atts) : [];
     for (let i = 0; i < kept.length; i += 1) {
       const m = kept[i];
       if ((m.role !== 'user' && m.role !== 'assistant') || !m.content) continue;
       const isCurrent = i === kept.length - 1 && m.role === 'user';
-      messages.push({ role: m.role, content: isCurrent ? buildUserContext(user) + '\n' + m.content : m.content });
+      const text = isCurrent ? buildUserContext(user) + '\n' + m.content : m.content;
+      messages.push({ role: m.role, content: isCurrent && imageParts.length ? [{ type: 'text', text }].concat(imageParts) : text });
     }
 
     const tools = toOpenAiTools(catalog);
