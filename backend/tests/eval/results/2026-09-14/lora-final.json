@@ -1,0 +1,41 @@
+{
+ "baseUrl": "http://127.0.0.1:8095/v1",
+ "model": "eval",
+ "rounds": 1,
+ "total": 156,
+ "passed": 150,
+ "score": 96.2,
+ "failures": [
+  {
+   "id": "notice-list",
+   "round": 1,
+   "why": "选错工具 → announcement"
+  },
+  {
+   "id": "leave-mine",
+   "round": 1,
+   "why": "选错工具 → pending_leave_approvals"
+  },
+  {
+   "id": "attendance-company",
+   "round": 1,
+   "why": "选错工具 → company_leave_records"
+  },
+  {
+   "id": "expense-create",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "cadre-pending-leave",
+   "round": 1,
+   "why": "选错工具 → list_notices"
+  },
+  {
+   "id": "cadre-attendance",
+   "round": 1,
+   "why": "选错工具 → company_leave_records"
+  }
+ ],
+ "at": "2026-09-14T11:14:56.731Z"
+}
