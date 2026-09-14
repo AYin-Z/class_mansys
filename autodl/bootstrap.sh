@@ -5,8 +5,9 @@
 # 所以这里每步都先检查"有没有"，没有才装。装依赖尽量走国内源。
 #
 # 用法（在实例上）：
-#   bash /root/autodl-tmp/agent-train/bootstrap.sh smoke   # 先验证流程（几分钟）
-#   bash /root/autodl-tmp/agent-train/bootstrap.sh full    # 正式训练
+#   bash /root/autodl-tmp/agent-train/bootstrap.sh smoke     # 先验证流程（几分钟）
+#   bash /root/autodl-tmp/agent-train/bootstrap.sh memtest   # 最坏情况显存测试（单条最长样本）
+#   bash /root/autodl-tmp/agent-train/bootstrap.sh full      # 正式训练
 set -euo pipefail
 MODE="${1:-smoke}"
 WORK=/root/autodl-tmp
@@ -16,6 +17,10 @@ PY=/root/miniconda3/bin/python
 PIP="$PY -m pip"
 PIP_ARGS="-i https://pypi.tuna.tsinghua.edu.cn/simple"
 export PATH=/root/miniconda3/bin:$PATH
+# ⚠️ 2026-09-13 实测：正式训练在第 1 步 OOM，报错是分配器碎片化
+#    （"Tried to allocate 5.66 GiB ... 5.88 GiB is reserved by PyTorch but unallocated"）。
+#    这行是报错信息自己推荐的解法，能显著减少大块内存碎片。24G 卡上跑 8k 上下文必须开着。
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 DATA=$WORK/llamafactory-data
 MODEL_DIR=$WORK/models
 mkdir -p "$DATA" "$MODEL_DIR" "$WORK/out"
@@ -171,14 +176,65 @@ fi
 
 echo "== [4/5] 冒烟（只跑 20 步，验证 pipeline 通不通） =="
 if [ "$MODE" = "smoke" ]; then
-  $PY -m llamafactory.cli train "$WORK/agent-train/train_qlora.yaml" \
-    --dataset agent_smoke --max_steps 20 --num_train_epochs 1 \
-    --output_dir "$WORK/out/smoke" --save_steps 100000 --eval_strategy no --plot_loss false
+  # ⚠️ 2026-09-13 实测踩坑：llamafactory 0.9.5 + transformers 5.6.0 下，
+  #    `train xxx.yaml --key value` 这条**命令行覆盖**路径直接崩：
+  #    ValueError: Some keys are not used by the HfArgumentParser: ['--dataset', 'agent_smoke', ...]
+  #    （纯 YAML 路径、Python dict 路径实测都正常，只有命令行合并坏掉）
+  #    所以冒烟改成生成一份独立 YAML 来表达覆盖项，不再往命令行塞参数。
+  $PY - <<PY
+import yaml
+cfg = yaml.safe_load(open("$WORK/agent-train/train_qlora.yaml"))
+cfg.update({
+    "dataset": "agent_smoke",
+    "max_steps": 20,
+    "num_train_epochs": 1,
+    "output_dir": "$WORK/out/smoke",
+    "save_steps": 100000,
+    "eval_strategy": "no",
+    "plot_loss": False,
+})
+yaml.safe_dump(cfg, open("$WORK/agent-train/train_smoke.yaml", "w"),
+               allow_unicode=True, sort_keys=False)
+print("已生成 train_smoke.yaml（此版本下命令行覆盖不可用）")
+PY
+  $PY -m llamafactory.cli train "$WORK/agent-train/train_smoke.yaml"
   echo "✅ 冒烟通过。确认没问题后跑：bash $0 full"
+  exit 0
+fi
+
+# 最坏情况显存测试：只喂**最长的那一条**样本，只跑 1 个优化步。
+# 2026-09-13 实测教训：正式训练在第 1 步就 OOM（报错明确指向分配器碎片化：
+# "5.88 GiB is reserved by PyTorch but unallocated"），而按 102 条样本的冒烟却看不出问题——
+# 因为长度分布极窄（6803~8235），冒烟并不能代表峰值。这个测试直接打峰值，几分钟出结论。
+if [ "$MODE" = "memtest" ]; then
+  echo "== 最坏情况显存测试（单条最长样本，1 个优化步） =="
+  cp -f "$WORK/agent-train/agent-longest.jsonl" "$DATA/agent-longest.jsonl"
+  $PY - <<PY
+import yaml
+cfg = yaml.safe_load(open("$WORK/agent-train/train_qlora.yaml"))
+cfg.update({
+    "dataset": "agent_longest",
+    "max_steps": 1,
+    "gradient_accumulation_steps": 1,
+    "num_train_epochs": 1,
+    "output_dir": "$WORK/out/memtest",
+    "save_steps": 100000,
+    "eval_strategy": "no",
+    # ⚠️ 必须显式置 0：这个数据集只有 1 条样本，继承 train_qlora.yaml 的 val_size=0.05
+    #    会让 datasets.train_test_split 直接报 "resulting train set will be empty"（实测踩到）。
+    "val_size": 0,
+    "plot_loss": False,
+})
+yaml.safe_dump(cfg, open("$WORK/agent-train/train_memtest.yaml", "w"),
+               allow_unicode=True, sort_keys=False)
+print("已生成 train_memtest.yaml（单条最长样本）")
+PY
+  $PY -m llamafactory.cli train "$WORK/agent-train/train_memtest.yaml"
+  echo "✅ 显存测试通过：最长样本能完整跑完前向+反向+优化步"
   exit 0
 fi
 
 echo "== [5/5] 正式训练 =="
 $PY -m llamafactory.cli train "$WORK/agent-train/train_qlora.yaml"
-echo "✅ 训练完成，产物在 $WORK/out/qwen3-1.7b-agent-lora"
-echo "下载：在本地执行  ssh <实例> 'tar czf - -C $WORK/out qwen3-1.7b-agent-lora' | tar xzf - -C ./out"
+echo "✅ 训练完成，产物在 $WORK/out/qwen3vl-4b-agent-lora"
+echo "下载：在本地执行  ssh autodl 'tar czf - -C $WORK/out qwen3vl-4b-agent-lora' | tar xzf - -C ~/class-mansys-artifacts/autodl-out"
