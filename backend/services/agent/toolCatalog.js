@@ -296,7 +296,13 @@ function toOpenAiTools(catalog) {
     const props = {};
     const required = [];
     for (const k of t.pathParams || []) {
-      props[k] = { type: 'string', description: k };
+      // ⚠️ 别写成纯 string（2026-09-14 实测踩坑）：
+      // 模型经常把 id 写成裸数字（{"id": 3}），llama.cpp 在参数不符合 schema 时会**内部重试**，
+      // 把"参数非法"当成新一轮对话喂回去；我们的模型会接着续写这段对话，
+      // 一路生成到 max_tokens 才停（finish_reason=length，参数解析出来是一堆垃圾）。
+      // 实测把类型放宽成 string|number 后同一请求立刻正常返回 {"id": 3}。
+      // id 最终是拼进 URL 路径的，数字与字符串等价，放宽没有副作用。
+      props[k] = { type: ['string', 'number'], description: k };
       required.push(k);
     }
     // 布尔字段给明确的 boolean 类型，模型填错时前端/后端也更容易发现
@@ -308,7 +314,8 @@ function toOpenAiTools(catalog) {
       else if (!t.required && ['type', 'start_time', 'end_time', 'amount', 'content', 'purpose'].includes(k)) required.push(k);
     }
     for (const k of t.query || []) {
-      props[k] = { type: 'string', description: k };
+      // 同 pathParams：查询参数也放宽成 string|number，避免模型填数字就被判非法
+      props[k] = { type: ['string', 'number'], description: k };
     }
     return {
       type: 'function',
