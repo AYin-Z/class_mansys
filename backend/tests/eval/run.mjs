@@ -116,6 +116,13 @@ async function ask(cat, message) {
     });
     if (!res.ok) return { error: 'HTTP ' + res.status };
     const data = await res.json();
+    // 调试用：EVAL_DUMP_RAW=<文件> 时把请求体和原始响应写出来
+    // （只报"参数不是合法 JSON"定位不了问题，得看模型真正吐了什么）
+    if (process.env.EVAL_DUMP_RAW) {
+      const fs = await import('node:fs');
+      fs.appendFileSync(process.env.EVAL_DUMP_RAW,
+        JSON.stringify({ body, data }) + '\n');
+    }
     const msg = (data.choices && data.choices[0] && data.choices[0].message) || {};
     return { toolCalls: msg.tool_calls || [], content: msg.content || '', usage: data.usage || null };
   } catch (e) {
@@ -173,7 +180,11 @@ async function main() {
       if (!allowed) { failures.push({ id: c.id, round, why: '选错工具 → ' + name }); continue; }
       let args;
       try { args = JSON.parse(calls[0].function.arguments || '{}'); } catch {
-        failures.push({ id: c.id, round, why: '参数不是合法 JSON' }); continue;
+        // 把原始参数带出来：只说"不是合法 JSON"定位不了（单引号？中文引号？夹了说明文字？）
+        const raw = String(calls[0].function.arguments || '');
+        failures.push({ id: c.id, round, why: '参数不是合法 JSON', raw: raw.slice(0, 200) });
+        console.log(`   · ${c.id} 原始参数: ${JSON.stringify(raw.slice(0, 160))}`);
+        continue;
       }
       const probs = argProblems(name, args, schemaOf);
       if (probs.length) { failures.push({ id: c.id, round, why: '参数问题: ' + probs.join('; ') }); continue; }
