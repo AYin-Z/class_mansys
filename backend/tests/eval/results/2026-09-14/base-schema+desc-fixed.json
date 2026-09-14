@@ -1,0 +1,81 @@
+{
+ "baseUrl": "http://127.0.0.1:8090/v1",
+ "model": "eval",
+ "rounds": 1,
+ "total": 161,
+ "passed": 147,
+ "score": 91.3,
+ "failures": [
+  {
+   "id": "notice-list",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "announcement-list",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "profile-mine",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "leave-apply-tomorrow",
+   "round": 1,
+   "why": "参数取值不对 → {\"action\":\"GET /api/leave/types\"}"
+  },
+  {
+   "id": "leave-apply-vague",
+   "round": 1,
+   "why": "选错工具 → auth"
+  },
+  {
+   "id": "leave-cancel",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "leave-cancel",
+   "round": 1,
+   "why": "选错工具 → my_leaves"
+  },
+  {
+   "id": "leave-cancel",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "expense-create-vague",
+   "round": 1,
+   "why": "选错工具 → my_profile"
+  },
+  {
+   "id": "leave-records-company",
+   "round": 1,
+   "why": "选错工具 → admin"
+  },
+  {
+   "id": "cadre-pending-leave",
+   "round": 1,
+   "why": "选错工具 → admin"
+  },
+  {
+   "id": "cadre-approve-leave",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "multi-one-blocked",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "typo-notice",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  }
+ ],
+ "at": "2026-09-14T11:38:12.705Z"
+}

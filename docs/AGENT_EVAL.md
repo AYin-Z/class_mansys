@@ -91,18 +91,42 @@ node tests/eval/run.mjs --base-url ... --only date-
 | + LoRA（最终，321 步） | 150/156 | **96.2%** ✅ |
 | + LoRA（中间 checkpoint-200） | 150/156 | 96.2% |
 
-**净提升 +6.5 个点，过了 95% 门禁线。** 主要修掉的正是老失败模式"该动手却用文字回答"
-（base 有 11 条这类失败，微调后只剩 1 条 `expense-create`）。
+### 第二轮：只改工具描述（不重训）→ 98.8%
 
-剩余 6 条失败（都是真实的选择错误，不是格式问题）：
+微调后剩下的失败集中在两处**工具混淆**（通知/公告、出勤/请假明细），先试成本最低的路线：
+改 `toolCatalog.js` 的描述 + 补一个缺失工具，**不重训**。同时修掉两处**用例自相矛盾**的地方。
+
+| 改动 | 说明 |
+|---|---|
+| 补 `list_announcements`（GET /api/announcement） | 公告是真实独立功能，目录里原本没有 → 模型只能**编一个不存在的工具名**来答"看看公告" |
+| `list_notices` 描述去掉"待办" | 原描述含"待办"，把"有没有待办"（干部审批）吸走了 |
+| `pending_leave_approvals` 描述点明"干部审批用、本人请假走 my_leaves" | 原描述"查看全部请假记录"字面撞上"我请的假批下来了吗" |
+| `company_attendance` / `company_leave_records` 描述写死分工 | 前者＝人数统计，后者＝人员名单明细 |
+| `create_expense` 描述补触发语 | "我要报销35元，买的是扫把"原本被答成文字反问 |
+| 用例：`attendance-company` 里的"今天谁请假了"挪到请假明细 | 原期望（出勤概览）与字面（谁在请假）**直接冲突**，模型不可能两边都对 |
+| 用例：新增 `announcement-list`、拆出 `expense-create-vague`（allowNoTool） | 缺金额/用途时**追问才是对的**，不该判错 |
+
+**结果（161 条，同一套用例）：**
+
+| 模型 | 通过 | 成绩 |
+|---|---|---|
+| base（同样修了 schema 与描述） | 147/161 | **91.3%** |
+| **+ LoRA** | 159/161 | **98.8%** ✅ |
+
+**净提升 +7.5 个点**，其中"修 schema + 改描述"这两项**不需要重训**就拿到了大部分收益
+（LoRA 从 91.7% → 98.8%）。
+
+剩余 2 条（都是模型层面的真混淆，需要更多针对性训练数据，不是描述能修的）：
 
 | 用例 | 错成 | 性质 |
 |---|---|---|
-| notice-list | announcement | **通知 vs 公告**的语义混淆（目录描述需要区分） |
-| cadre-pending-leave | list_notices | 同上 |
-| attendance-company / cadre-attendance | company_leave_records | **考勤 vs 请假记录**混淆 |
-| leave-mine | pending_leave_approvals | "我的请假" vs "待审批" |
-| expense-create | （没调工具） | 决策摇摆，老问题残留 |
+| leave-records-company | company_attendance | 出勤概览 vs 请假名单（描述已写死分工，仍偶发） |
+| cadre-pending-leave | list_notices | "有没有待办"这类模糊说法 |
+
+### 第一轮的失败构成（供对照，已被上面两轮修掉）
+
+只修 schema、还没动描述时，LoRA 的 6 条失败是：通知/公告混淆、出勤/请假明细混淆、
+"我的请假"与"待审批"混淆，以及 `expense-create` 决策摇摆。这正是第二轮改描述的靶子。
 
 ## ⚠️ 一个会坑所有模型的 schema 坑（2026-09-14 发现并修复）
 
