@@ -35,7 +35,13 @@ export const INTENTS = [
     '积分排行榜给我看看', '咱们队谁分最高', '积分排名', '看看排行榜', '我排第几'
   ]},
   { id: 'notice-list', role: 0, expectTools: ['list_notices', 'notice'], phrasings: [
-    '最近有什么通知', '给我瞅瞅有啥通知', '通知在哪看', '有新通知吗', '看看公告'
+    '最近有什么通知', '给我瞅瞅有啥通知', '通知在哪看', '有新通知吗'
+  ]},
+  // 原先把"看看公告"挂在通知用例下（期望 list_notices）——但 /api/announcement 是**独立功能**，
+  // 模型当时只能编一个不存在的工具名（announcement）来答。2026-09-14 补了 list_announcements
+  // 工具后，把这条说法挪到它自己的用例里，验证模型能否落到真实工具上。
+  { id: 'announcement-list', role: 0, expectTools: ['list_announcements', 'announcement'], phrasings: [
+    '看看公告', '最近有什么公告', '公告在哪看', '有啥新公告吗'
   ]},
   { id: 'homework-list', role: 0, expectTools: ['my_homework', 'homework'], phrasings: [
     '这周作业什么时候交', '作业啥时候交啊', '有啥作业', '作业列表', '我的作业还有哪些没交'
@@ -71,8 +77,11 @@ export const INTENTS = [
   //    路由权限（矩阵里的 VIEW_COMPANY，含 role 0）与控制器里的硬编码
   //    COMPANY_VIEW_ROLE_IDS（不含 role 0）互相矛盾。见 docs/AGENT_SYSTEM_ISSUES.md。
   //    这条不一致没定论前，评测不能拿"学员能查全中队出勤"当期望。
+  // ⚠️ 原先把"今天谁请假了"放在出勤用例里（期望 company_attendance），但它字面就是
+  // "谁在请假"＝请假明细，和 leave-records-company 的期望直接冲突——模型不可能两边都对。
+  // 2026-09-14 挪到请假明细用例里。
   { id: 'attendance-company', role: 1, expectTools: ['company_attendance', 'company'], phrasings: [
-    '今天出勤怎么样', '咱们队今天有几个人没到', '出勤概览', '今天谁请假了'
+    '今天出勤怎么样', '咱们队今天有几个人没到', '出勤概览', '今天有多少人未销假'
   ]},
 
   // ================= 学员：办理类 =================
@@ -102,8 +111,15 @@ export const INTENTS = [
     '我回来了，销假', '帮我销假', '我不请假了，销假'
   ]},
   { id: 'expense-create', role: 0, expectTools: ['create_expense', 'fee'], phrasings: [
-    '我要报销35元，买的是扫把', '报销一下，买打扫工具花了 20 块', '我要提交班费报销'
+    '我要报销35元，买的是扫把', '报销一下，买打扫工具花了 20 块'
   ]},
+  {
+    // 只说要报销、不给金额和用途 → create_expense 的 amount/purpose 是必填，硬调必然失败；
+    // 按 persona 规则追问补齐才是正确答案（与 leave-apply-vague 同一类）。
+    id: 'expense-create-vague', role: 0, expectTools: ['create_expense', 'fee'], allowNoTool: true,
+    phrasings: ['我要提交班费报销', '我想报销个东西'],
+    note: '缺金额/用途，追问也算正确'
+  },
   { id: 'suggestion-create', role: 0, expectTools: ['submit_suggestion', 'suggestion'], phrasings: [
     '我要提个建议：食堂排队太久，建议增加窗口', '给个建议：宿舍热水太晚才有', '反馈一下，操场灯坏了'
   ]},
@@ -114,7 +130,7 @@ export const INTENTS = [
     '通知 3 的详情', '帮我打开第 2 条通知', '看看第五条通知的内容'
   ]},
   { id: 'leave-records-company', role: 1, expectTools: ['company_leave_records', 'company'], phrasings: [
-    '今天中队的请假明细', '跨区队请假都有谁', '今日在假人员名单'
+    '今天中队的请假明细', '跨区队请假都有谁', '今日在假人员名单', '今天谁请假了'
   ]},
 
   // ================= 干部 =================
