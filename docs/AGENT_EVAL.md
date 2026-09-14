@@ -78,6 +78,47 @@ node tests/eval/run.mjs --base-url ... --only date-
 而不是知识或推理问题——这正是 SFT 最擅长修的东西，而且现在有了可量化的靶子
 （85.8% → 95%+）。此前基于 40 条得出的"微调没有收益空间"是被小样本误导的结论。
 
+## 微调后成绩（2026-09-14，LoRA 落地）
+
+自建数据集（1800 条，33 个意图 × 多种说法）在 AutoDL 4090 上 QLoRA 微调 3 epoch（8.9 小时，¥21），
+产物 `~/class-mansys-artifacts/autodl-out/qwen3vl-4b-agent-lora`，转成 GGUF 用 `llama-server --lora` 挂载评测。
+
+**同一套评测、同一温度（0，关闭思考）、先修掉下面那个 schema 坑之后：**
+
+| 模型 | 通过 | 成绩 |
+|---|---|---|
+| base `Qwen3-VL-4B-Instruct-Q4_K_M`（生产在用） | 140/156 | **89.7%** |
+| + LoRA（最终，321 步） | 150/156 | **96.2%** ✅ |
+| + LoRA（中间 checkpoint-200） | 150/156 | 96.2% |
+
+**净提升 +6.5 个点，过了 95% 门禁线。** 主要修掉的正是老失败模式"该动手却用文字回答"
+（base 有 11 条这类失败，微调后只剩 1 条 `expense-create`）。
+
+剩余 6 条失败（都是真实的选择错误，不是格式问题）：
+
+| 用例 | 错成 | 性质 |
+|---|---|---|
+| notice-list | announcement | **通知 vs 公告**的语义混淆（目录描述需要区分） |
+| cadre-pending-leave | list_notices | 同上 |
+| attendance-company / cadre-attendance | company_leave_records | **考勤 vs 请假记录**混淆 |
+| leave-mine | pending_leave_approvals | "我的请假" vs "待审批" |
+| expense-create | （没调工具） | 决策摇摆，老问题残留 |
+
+## ⚠️ 一个会坑所有模型的 schema 坑（2026-09-14 发现并修复）
+
+`toolCatalog.js` 里 `pathParams`/`query` 原本声明成**纯 `type: 'string'`**。
+模型（尤其是小模型）经常把 id 写成裸数字 `{"id": 3}` → **llama.cpp 判定参数不合 schema 后
+会内部重试**，把"参数非法"当成新一轮对话喂回模型；模型接着续写这段对话，
+一路生成到 `max_tokens` 才停（`finish_reason: length`，参数被解析成 `{"id": "}}</tool_call>` 之类的垃圾）。
+
+实测证据：同一个请求，schema 严格时 `finish=length` + 垃圾参数；把类型放宽成 `['string','number']`
+后立刻 `finish=tool_calls` + `{"id": 3}`。这一个坑在旧口径下压掉了 base 约 4 个点、LoRA 约 4.5 个点
+（LoRA 91.7% → 96.2%，base 85.8% → 89.7%），而且**表现为"参数不是合法 JSON"，很容易误判成模型的锅**。
+
+修法：`pathParams`/`query` 一律放宽成 `['string','number']`（id 最终拼进 URL，数字与字符串等价）。
+**教训**：评测里出现"参数不是合法 JSON"时，先看模型的**原始输出**（`run.mjs` 现在会打印原始参数，
+并支持 `EVAL_DUMP_RAW=<文件>` 导出完整请求/响应），不要直接归因于模型能力。
+
 ## 用例来源（诚实标注）
 
 本系统助手真实用量极低（上线至今个位数消息），所以**这些用例是按使用场景编写的，
