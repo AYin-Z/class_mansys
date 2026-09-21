@@ -85,7 +85,10 @@ async function runScenario(sc, cat) {
   const unknownTools = [];
   let reply = '';
   for (const turn of sc.turns) {
-    messages.push({ role: 'user', content: cat.ctx + '\n' + turn });
+    // ⚠️ 必须按**当轮消息**构造上下文：线上只有在用户提到相对时间时才注入日期块
+    //    （不传 message 会一直带着日期，导致 bare-list 这类用例测出来是假象）
+    const ctx = buildUserContext({ name: '评测', role: sc.role }, turn);
+    messages.push({ role: 'user', content: ctx + '\n' + turn });
     for (let step = 0; step < MAX_STEPS; step += 1) {
       const out = await callModel(messages, cat.tools);
       if (out.error) return { chain, unknownTools, reply, error: out.error };

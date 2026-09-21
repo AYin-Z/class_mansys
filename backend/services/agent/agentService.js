@@ -106,7 +106,7 @@ class AgentService {
       // 「当前用户」上下文只拼在本轮这条 user 消息上，不进 system prompt（见 persona 注释：
       // 用户相关的东西写进 system prompt 会让前缀缓存整体失效，实测差 19 倍）
       const isCurrent = i === kept.length - 1 && m.role === 'user';
-      const text = isCurrent ? buildUserContext(user) + '\n' + m.content : m.content;
+      const text = isCurrent ? buildUserContext(user, m.content) + '\n' + m.content : m.content;
       messages.push({ role: m.role, content: isCurrent && imageParts.length ? [{ type: 'text', text }].concat(imageParts) : text });
     }
 
@@ -355,7 +355,7 @@ class AgentService {
       const m = kept[i];
       if ((m.role !== 'user' && m.role !== 'assistant') || !m.content) continue;
       const isCurrent = i === kept.length - 1 && m.role === 'user';
-      const text = isCurrent ? buildUserContext(user) + '\n' + m.content : m.content;
+      const text = isCurrent ? buildUserContext(user, m.content) + '\n' + m.content : m.content;
       messages.push({ role: m.role, content: isCurrent && imageParts.length ? [{ type: 'text', text }].concat(imageParts) : text });
     }
 

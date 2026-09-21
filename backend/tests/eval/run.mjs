@@ -88,12 +88,14 @@ function argProblems(name, args, schemaOf) {
   return probs;
 }
 
-async function ask(cat, message) {
+async function ask(cat, message, role) {
+  // 线上按消息决定是否注入日期块，评测必须一致（否则测的不是线上行为）
+  const ctx = buildUserContext({ name: '评测', role: role === undefined ? cat.role : role }, message);
   const body = {
     model: MODEL,
     messages: [
       { role: 'system', content: cat.sys },
-      { role: 'user', content: cat.ctx + '\n' + message }
+      { role: 'user', content: ctx + '\n' + message }
     ],
     tools: cat.tools,
     tool_choice: 'auto',
@@ -149,7 +151,7 @@ async function main() {
   for (let round = 1; round <= ROUNDS; round += 1) {
     for (const c of cases) {
       const cat = catalogs[c.role] || catalogs[0];
-      const out = await ask(cat, c.message);
+      const out = await ask(cat, c.message, c.role);
       total += 1;
       if (out.error) { failures.push({ id: c.id, round, why: '请求失败: ' + out.error }); continue; }
       const calls = out.toolCalls;
