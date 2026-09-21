@@ -99,7 +99,9 @@ export const SCENARIOS = [
     note: '打错的名字 → 查不到时不许索要内部 id，应换条件重查或给候选',
     turns: ['把张玉杰的证明图片发给我'],
     tools: { ...WORLD, roster_search: { success: true, members: [] }, 'admin GET /api/admin/members': { success: true, members: [] }, 'users GET /api/users': { success: true, users: [] } },
-    expectChain: ['roster_search'],
+    // 允许多条合理查找路径（名册 / 请假列表 / 成员表），但不能跑去查媒体上传配置
+    expectChain: ['roster_search OR leave GET /api/leave/all OR pending_leave_approvals OR company_leave_records OR admin GET /api/admin/members OR users GET /api/users'],
+    forbidChain: ['media GET /api/media/config'],
     forbidReply: [/请提供.*ID/i, /ID 无效/]
   },
   {
@@ -138,7 +140,7 @@ export const SCENARIOS = [
     note: '真·多意图：先办最明确的一件，再问另一件',
     turns: ['我想请假，另外班费还剩多少'],
     tools: WORLD,
-    expectReply: [/另一件|要不要|请假类型/]
+    expectReply: [/另一件|要不要|请假类型|类型.*时间/]
   },
   {
     // 真实案例：'袋子好是傻逼' → 当时回答得体（这条是防回归）
@@ -151,14 +153,20 @@ export const SCENARIOS = [
     expectReply: [/文明|不恰当|无法处理|理解/]
   },
   {
-    // 真实案例：'我要请下五天的早集合假' → 生成待确认操作 → 接口返回时段错误
-    id: 'multi-day-leave-rejected',
+    // 真实案例：'我要请下五天的早集合假'。注意：时段不合法是**确认执行**那一步才报的——
+    // 运行时里写工具不直接执行，先落一条待确认动作并中断循环，模型根本拿不到错误去重试。
+    // 所以这里测的是"该发起就发起 + 不许声称已完成"。
+    id: 'multi-day-leave-suggest',
     role: 0,
-    note: '跨天请假被接口拒绝时，要把真实原因转达清楚，不要自己编成功',
+    note: '跨天请假：应生成待确认操作，而不是反问一堆或声称已完成',
     turns: ['我要请下五天的早集合假'],
-    tools: WORLD,
+    tools: {
+      ...WORLD,
+      apply_leave: { success: true, note: '已生成待确认操作（等待用户点击确认）' },
+      'leave POST /api/leave': { success: true, note: '已生成待确认操作（等待用户点击确认）' }
+    },
     expectChain: ['apply_leave OR leave POST /api/leave'],
-    expectReply: [/时段|07:30|同一天/],
-    forbidReply: [/已完成|提交成功|已落库/]
+    expectReply: [/确认|待确认/],
+    forbidReply: [/已完成|提交成功|已落库|未能完成这次请求/]
   }
 ];

@@ -1,0 +1,91 @@
+{
+ "baseUrl": "http://127.0.0.1:8090/v1",
+ "model": "eval",
+ "rounds": 1,
+ "total": 165,
+ "passed": 149,
+ "score": 90.3,
+ "failures": [
+  {
+   "id": "announcement-list",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "profile-mine",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "attendance-company",
+   "round": 1,
+   "why": "选错工具 → company_leave_records"
+  },
+  {
+   "id": "leave-apply-tomorrow",
+   "round": 1,
+   "why": "参数取值不对 → {\"action\":\"GET /api/leave/types\"}"
+  },
+  {
+   "id": "leave-apply-tomorrow",
+   "round": 1,
+   "why": "参数取值不对 → {\"action\":\"GET /api/leave/types\"}"
+  },
+  {
+   "id": "leave-apply-vague",
+   "round": 1,
+   "why": "选错工具 → roster_search"
+  },
+  {
+   "id": "leave-apply-vague",
+   "round": 1,
+   "why": "选错工具 → auth"
+  },
+  {
+   "id": "leave-cancel",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "leave-cancel",
+   "round": 1,
+   "why": "选错工具 → my_leaves"
+  },
+  {
+   "id": "expense-create-vague",
+   "round": 1,
+   "why": "选错工具 → my_profile"
+  },
+  {
+   "id": "expense-create-vague",
+   "round": 1,
+   "why": "选错工具 → my_profile"
+  },
+  {
+   "id": "leave-records-company",
+   "round": 1,
+   "why": "选错工具 → admin"
+  },
+  {
+   "id": "cadre-pending-leave",
+   "round": 1,
+   "why": "选错工具 → list_notices"
+  },
+  {
+   "id": "cadre-approve-leave",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "date-today",
+   "round": 1,
+   "why": "参数取值不对 → {\"type\":\"全休\",\"start_time\":\"2026-09-22 14:00:00\",\"end_time\":\"2026-09-22 22:00:00\",\"reason\":\"去医院\",\"attachments\":\"\"}"
+  },
+  {
+   "id": "typo-notice",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  }
+ ],
+ "at": "2026-09-21T12:25:11.369Z"
+}
