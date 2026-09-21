@@ -158,12 +158,22 @@ jobs:
         if: steps.probe.outputs.ready == '1'
         run: node tests/eval/run.mjs --base-url "$EVAL_BASE_URL" --rounds 2 --min-score 92 --json /tmp/agent-eval.json
         working-directory: backend
+      # 多步/多轮行为评测：run.mjs 只发一轮、测不到"会不会串联"。
+      # 2026-09-21 加入，基线（原版 base）6/9 = 66.7%，目标 90%。
+      # 门禁先设在基线上防回归，每修好一条往上调一次：bare-list / two-intents-must-ask /
+      # multi-day-leave-rejected 三条待修。
+      - name: 对话助手多步行为评测
+        if: steps.probe.outputs.ready == '1'
+        run: node tests/eval/multistep.mjs --base-url "$EVAL_BASE_URL" --min-score 60 --json /tmp/agent-multistep.json
+        working-directory: backend
       - name: 上传评测结果
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: agent-eval-result
-          path: /tmp/agent-eval.json
+          path: |
+            /tmp/agent-eval.json
+            /tmp/agent-multistep.json
           if-no-files-found: ignore
 
   frontend:
