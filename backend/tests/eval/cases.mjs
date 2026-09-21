@@ -211,6 +211,19 @@ export const SPECIAL = [
   { id: 'vague-that', role: 0, message: '那个东西怎么样了', expectTools: ['ANY'], allowNoTool: true, note: '信息不足，追问合理' },
   { id: 'vague-num', role: 0, message: '帮我看看 3 号那个', expectTools: ['ANY'], allowNoTool: true },
 
+  // ================= 真实投诉回归（2026-09-21）=================
+  // 用户原话："这助手蠢的令人发指"。复盘发现这两类输入**根本没进过评测集**：
+  // 只发一个人名、或者要内部 id 的东西。线上表现是零工具调用 + 反问用户/索要数据库 ID。
+  // 期望统一为：**先自己去查**（调任意工具都算动起来了），禁止一句都不查就反问。
+  { id: 'bare-name', role: 1, message: '张驭捷', expectTools: ['ANY'],
+    note: '只给一个人名 → 必须先去查这个人（旧行为：反问"请问要办什么业务"）' },
+  { id: 'bare-name-student', role: 0, message: '孙铭阳', expectTools: ['ANY'],
+    note: '学员版同理' },
+  { id: 'name-to-detail', role: 1, message: '把张驭捷的请假证明发给我', expectTools: ['ANY'],
+    note: '要证明图片 → 必须先按姓名查（旧行为：索要"请假记录 ID"）' },
+  { id: 'name-plus-vague', role: 1, message: '李锦川', expectTools: ['ANY'],
+    note: '另一个只给名字的变体' },
+
   // ---- 长文本里埋意图 ----
   { id: 'long-buried-leave', role: 0,
     message: '我今天早上六点就起来了，跑完操吃完饭，然后想起来我下午要去医院复查，所以想跟你请个假，就今天下午的，理由是复查',
