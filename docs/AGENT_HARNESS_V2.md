@@ -103,11 +103,13 @@ awaiting_confirm ──确认执行成功──> completed
 
 合并规则：
 
-1. 只有**同一 tool 且状态为 collecting/awaiting_confirm/failed** 时才继承旧字段。
-2. 模型本轮显式给出的非空值覆盖旧值；没给的字段保留。
-3. 附件按 URL 去重累积。
-4. 换工具、`completed` 后重新发起 → 开新草稿，**不继承旧附件**（避免把上一次请假的证明挂到新申请）。
-5. 每次草稿变更 `state_version + 1`；写工具缺字段时也会落草稿，下一轮仍能续上。
+1. 只有**同一 tool（模块工具还要求同一 action）且状态为 collecting/awaiting_confirm/failed** 时才继承旧字段。
+2. 模型本轮显式给出的值覆盖旧值（包括空数组/空字符串用于清空）；没给的字段保留。
+3. `mergeArgs()` 会把草稿字段**真正并入 preflight 与 action 参数**：curated 合并到顶层，module 合并到 `params`，并保留 `action`；不是只注入 prompt。
+4. 附件单独存放，不写进 `fields`；默认按 URL 去重累积。模型显式给 `attachments`（含 `[]`）时是**权威替换值**，可替换/清空。
+5. 换工具、换 action、`completed` 后重新发起 → 开新草稿，**不继承旧附件**（避免把上一次请假的证明挂到新申请）。
+6. 用户先补图但还没说办什么时，允许 `tool=null` 的 collecting 草稿承载附件；后续选工具时继承附件、不继承字段。
+7. 每次草稿变更 `state_version + 1`；写工具缺字段时也会落草稿，下一轮仍能续上。
 
 注入方式：`persona.buildUserContext(user, message, extra)` 把「真实请假配置 + 本周附件 + 草稿 + last_error」拼在**当前 user 消息**里，不写进 system prompt（保护前缀缓存）。用 `【用户原话】` 与辅助上下文分隔，避免辅助信息被当作用户意图（mock 模式尤其明显）。
 
@@ -150,21 +152,32 @@ awaiting_confirm ──确认执行成功──> completed
 `AgentService.confirm`：
 
 ```sql
-UPDATE agent_actions
-SET status='executing', claim_token=?, claimed_at=NOW()
-WHERE id=? AND user_id=? AND status='pending'
-  AND expires_at > NOW() AND state_version=?
+UPDATE agent_actions a
+LEFT JOIN agent_conversations c ON c.id = a.conversation_id
+SET a.status='executing', a.claim_token=?, a.claimed_at=NOW()
+WHERE a.id=? AND a.user_id=? AND a.status='pending'
+  AND a.expires_at > NOW() AND a.state_version=?
+  AND (a.conversation_id IS NULL OR (
+       c.id IS NOT NULL AND c.closed_at IS NULL AND c.state_version = a.state_version
+  ))
 ```
+
+**版本自增语义**：`createPendingAction` 先把会话推进到 `awaiting_confirm`（`state_version` 从 V 变 V+1），再用 V+1 创建 action。因此 `action.state_version === conversation.state_version`，确认时可在同一条 UPDATE 里原子校验二者相等。
+
+**原子边界**：抢占动作、会话版本、`closed_at` 在同一个 UPDATE JOIN 中判定；只要本轮消息改口/补图/预校验失败/会话重置推进了版本或关闭了会话，旧 action 的 affectedRows 必为 0。抢占失败后再读最新 action/conversation 做幂等分类。
 
 - `affectedRows=1` 才获得执行权；否则按最新行状态幂等回复：
   - `executed` → 「已经执行过，没有重复执行」
   - `superseded / invalidated` → 「信息已更新，请重新确认」
   - `executing` → 「正在执行，请勿重复提交」
   - `cancelled / failed / expired` → 对应说明
-- 抢占成功后用**最新** `leave_config` 复验 `action.params`：
+- 抢占成功后用**最新** `leave_config` 复验 `action.params`：`preflight.validate({ freshConfig: true })` 绕过 60s 缓存。
   - 预校验失败、`params_hash` 不符、`config_hash` 不符 → 标 `invalidated`，零副作用；
   - 通过才 `execute`；成功 `executed`，失败 `failed`。
-- 生成新 action 前，同会话旧 `pending` 统一标 `superseded`（改口后旧卡片不能执行）。
+- **任何新的 chat/渠道入站轮次**（即使模型没有生成新卡片）都会先把旧 `pending` 标 `superseded`、把草稿状态改回 `collecting` 并推进 `state_version`；补图、改口、预校验失败都不会留下可执行旧卡。
+- 会话 `closed_at`（`/新会话`、解绑、12h/7d 轮换）会作废旧 pending；确认返回 `CONVERSATION_CLOSED`。
+- 取消：worker/网关把 action 标 `cancelled`；确认返回 `ACTION_CANCELLED`，不执行。
+- 生成新 action 前，同会话旧 `pending` 统一标 `superseded`。
 - 确认成功把会话草稿置 `completed`；失败置 `failed` + `last_error`，允许用户补正。
 
 日志：`confirm_conflict`、`preflight_failed`。
@@ -185,6 +198,9 @@ WHERE id=? AND user_id=? AND status='pending'
 - `authorize` 严格：未登记或 `user_id` 不匹配都 403，错误码 `ATTACHMENT_NOT_REGISTERED / ATTACHMENT_NOT_OWNED`。
 - 预校验再次限制 `apply_leave.attachments` 只能来自本轮/当前草稿，防止模型从历史消息里翻出旧证明。
 - 新任务不继承旧附件；`completed` 后重新发起的申请从空附件开始。
+- **替换**：模型在 `attachments` 里显式给出新列表（curated 顶层 / module `params.attachments`）时按权威值替换，不再与旧草稿合并。
+- **撤回**：显式 `attachments: []` 清空；用户发送 `/撤回附件 | /清除附件 | /删除附件` 时不调用模型，直接清空草稿附件、作废旧确认卡片。
+- **无工具轮次补图**：即使模型这一轮只回文字，`prepareTurn` 也会把本轮附件并入草稿（`tool=null` 的 collecting 草稿），并推进版本使旧确认失效。
 
 ## 9. 模型回退与视觉边界
 
@@ -241,11 +257,11 @@ DB_NAME=class_manage_sys_test npm run migrate -- status   # 030 applied，待应
 
 ```text
 $ npm run lint
-✖ 14 problems (0 errors, 14 warnings)      # 全部为历史 warning，无 error
+✖ 13 problems (0 errors, 13 warnings)      # 全部为历史 warning，无 error
 
-$ npx vitest run tests/unit tests/api
+$ NODE_ENV=test DB_NAME=class_manage_sys_test JWT_SECRET=test_secret_1234567 npm test
 Test Files  43 passed (43)
-     Tests  354 passed (354)
+     Tests  371 passed (371)
 
 $ node tests/setup-test-db.js class_manage_sys_test   # 需要时重建测试库
 $ DB_NAME=class_manage_sys_test NODE_ENV=test AGENT_LLM_MODE=mock \
@@ -259,13 +275,13 @@ PASS: 108  FAIL: 0
 （含真实上传落盘、只发附件对话、确认幂等；e2e 已按新语义更新）
 ```
 
-新增/扩展用例（共 354 项）：
+新增/扩展用例（共 371 项）：
 
 - `tests/unit/agentPreflight.test.js`：数字 type、过期日期、固定窗口、跨天、反向区间、>30 天、空事由、附件来源、销假/审批 id/status、动态配置哈希、参数哈希稳定性。
-- `tests/unit/agentTaskState.test.js`：同工具合并、新值覆盖、附件去重、换工具/完成不继承、失败可补正、确认完成、草稿附件注入、prompt 块。
+- `tests/unit/agentTaskState.test.js`：同工具合并、新值覆盖、附件去重、换工具/完成不继承、失败可补正、确认完成、草稿附件注入、prompt 块、`mergeArgs` curated/module 嵌套、模块 action 隔离、附件替换/清空、tool=null 补图草稿。
 - `tests/unit/agentChannelSession.test.js`：连续续接、`/新会话` 轮换、12h 过期、A/B 换绑、解绑关闭、状态乐观锁、入站去重、附件 owner 403。
 
-- `tests/api/agentHarness.test.js`：数字 type/错误窗口两次纠错后明确失败；补图→缺事由→补正→附件保留→确认成功（真实调用请假 API）；并发确认只执行一次；改口 supersede 旧 action 且确认被拒；配置哈希变化 invalidated；流式 pending；A/B 确认与附件隔离。
+- `tests/api/agentHarness.test.js`：数字 type/错误窗口两次纠错后明确失败；补图→缺事由→补正→附件保留→确认成功（真实调用请假 API）；并发确认只执行一次；改口 supersede 旧 action 且确认被拒；配置哈希变化 invalidated；流式 pending；A/B 确认与附件隔离；**跨 chat/微信入站多轮续接**；改口无新卡/预校验失败/取消/重置/closed_at；草稿字段跨轮并入 curated 与 module 参数；确认强制最新配置；无工具补图；附件替换/清空/`/撤回附件`。
 - `tests/channel-smoke.js`：渠道链路 15 项断言。
 - `tests/unit/vision.test.js`：图片占位与 `_meta` 清理。
 
@@ -277,14 +293,79 @@ CI run `39728415499`（最终代码 `57e2f8e`）：
 
 | job | 结果 | 说明 |
 |---|---|---|
-| backend | pass | `npm run lint` + `npm test`（354 项） |
+| backend | pass | `npm run lint` + `npm test`（371 项） |
 | frontend | pass | 未改前端，沿用既有门禁 |
 | ui-smoke | pass | 未改 UI |
 | agent-eval | pass | 工具选择 307/330 = **93%**（门禁 90%）；多步行为 7/9=77.8% 为观测项 |
 
 说明：本分支同时修正了评测工具表（`tests/eval/run.mjs`、`multistep.mjs`）使用真实 `leave_config` 生成 `apply_leave.type` enum，并在工具描述中明确「不要先调 GET /api/leave/types」，使工具选择评测从 86.7% 提升到 93%。
 
-## 14. 未验证项与剩余风险
+## 14. Hermes 独立验收补修（RED → GREEN）
+
+Hermes 验收指出 5 类问题，均已先用失败用例复现，再修复到绿：
+
+### 14.1 RED（修复前）
+
+```text
+$ NODE_ENV=test DB_NAME=class_manage_sys_test ... npx vitest run tests/api/agentHarness.test.js -t "RED→GREEN"
+Test Files  1 failed (1)
+     Tests  11 failed | 7 skipped (18)
+```
+
+典型失败：
+
+- 草稿第二轮只给 `reason` → `pendingAction=null`（字段只进 prompt，没进 preflight/action）；
+- 模块工具 `leave` 的 `params` 未合并草稿字段；
+- 动作创建后 `action.state_version` 比 `conversation.state_version` 小 1；
+- 改口无新卡后旧 action 仍 `pending`，confirm 直接执行成功；
+- 预校验失败后旧 action 仍可确认；
+- 关闭会话后 confirm 仍执行成功；
+- 修改 `leave_config` 后 confirm 吃 60s 缓存，仍按旧窗口执行；
+- 无工具轮次补图后草稿附件为空、旧确认仍有效；
+- 显式 `attachments:[B]`/`[]` 仍与旧附件合并；
+- `/撤回附件` 未生效；
+- 跨 chat/微信多轮第二轮拿不到合并后的 pending。
+
+### 14.2 GREEN（修复后）
+
+```text
+$ npx vitest run tests/api/agentHarness.test.js -t "RED→GREEN"
+Test Files  1 passed (1)
+     Tests  11 passed | 7 skipped (18)
+
+$ npx vitest run tests/api/agentHarness.test.js
+Test Files  1 passed (1)
+     Tests  20 passed (20)
+
+$ npm test
+Test Files  43 passed (43)
+     Tests  371 passed (371)
+```
+
+### 14.3 修复点
+
+1. `taskState.mergeArgs()`：草稿字段真正并入 curated 顶层 / module `params`；模块工具按 `action` 隔离，避免 apply 字段串到 cancel/approve。
+2. `createPendingAction`：先 `markState` 推进到 `awaiting_confirm` 得到 V+1，再用 V+1 建 action；确认的 UPDATE JOIN 同时校验 `action.state_version = conversation.state_version` 与 `closed_at IS NULL`。
+3. 任何新 chat/渠道轮次先作废旧 pending、把草稿改回 collecting 并推进版本；旧卡无处可逃。
+4. `confirm` 使用 `preflight.validate({ freshConfig: true })` 强制读最新 `leave_config`。
+5. 无工具轮次也会把本轮附件写入草稿；显式 `attachments` 为权威替换值（`[]` 即清空），但仍逐条校验 `agent_attachments` owner（模型塞他人 URL 也 403）；`/撤回附件` 直接清空并作废旧卡。
+6. DB 依赖用例改为 fail-loud：`DB_NAME=class_manage_sys_test_missing` 时直接抛「测试库不可用…」而不是 7 个 skip。
+7. 新增真实跨 chat/微信入站多轮：同一 `conversationId` 经 `ChannelService.handleInbound` 与 `AgentService.chat` 交替续接，草稿合并、确认只执行一次。
+
+### 14.4 并发原子边界
+
+```sql
+UPDATE agent_actions a LEFT JOIN agent_conversations c ON c.id = a.conversation_id
+SET a.status='executing', a.claim_token=?, a.claimed_at=NOW()
+WHERE a.id=? AND a.user_id=? AND a.status='pending' AND a.expires_at>NOW()
+  AND a.state_version=?
+  AND (a.conversation_id IS NULL OR (
+       c.id IS NOT NULL AND c.closed_at IS NULL AND c.state_version=a.state_version))
+```
+
+动作、会话版本、关闭状态在同一行级 UPDATE 中判定；并发确认只有一个 affectedRows=1，其余按 executed/superseded/invalidated/cancelled/expired/closed 幂等回复。
+
+## 15. 未验证项与剩余风险
 
 1. **未部署、未重启生产**：本次只提交代码/迁移/测试，未对 `/srv/apps/class-mansys` 执行迁移或重启；线上仍是 `410f319` 旧行为。部署需按 `docs/OPERATIONS.md` 单独授权。
 2. **未用真实微信账号回放**：渠道链路用 `AGENT_LLM_MODE=mock` + 测试库验证；真实 iLink 的 `msg_id` 字段名可能是 `msg_id/message_id/id`，代码已做兼容，但未在真实下行消息上验证。没有稳定 id 时**不去重**，宁可不吞消息。
@@ -295,7 +376,7 @@ CI run `39728415499`（最终代码 `57e2f8e`）：
 7. **附件 URL 全局唯一**：媒体文件名由 `mediaService.uniqueName` 保证；若未来出现同 URL 复用，`ON DUPLICATE KEY` 只更新元数据、不转移 owner（保守，避免所有权被覆盖）。
 8. **真实并发压测未做**：并发确认用 2 个 Promise 验证，未做多进程/高并发压测。
 
-## 15. 涉及文件
+## 16. 涉及文件
 
 - 迁移：`backend/migrations/030_agent_harness.sql`
 - 仓储：`backend/services/agent/repo.js`
