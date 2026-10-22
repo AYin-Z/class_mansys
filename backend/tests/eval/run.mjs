@@ -41,6 +41,7 @@ if (!BASE_URL) {
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 const app = require('../../app');
 const { buildTools, agentCatalog, toOpenAiTools } = require('../../services/agent/toolCatalog');
+const preflight = require('../../services/agent/preflight');
 const { buildSystemPrompt, buildUserContext } = require('../../services/agent/persona');
 
 async function buildCatalogs() {
@@ -48,10 +49,12 @@ async function buildCatalogs() {
   // 于是评测会误判成"模型选不出工具"。app.js 启动时会 loadPermissions()，这里显式等一次。
   await require('../../shared/permissions').loadPermissions();
   const full = buildTools(app);
+  // 与生产一致：apply_leave.type 用真实 leave_config 生成 enum + 窗口描述
+  const leaveTypes = (await preflight.loadLeaveConfig()).list;
   const byRole = {};
   for (const role of [0, 1, 5]) {
     byRole[role] = {
-      tools: toOpenAiTools(agentCatalog(full, { role })),
+      tools: toOpenAiTools(agentCatalog(full, { role }), { leaveTypes }),
       sys: buildSystemPrompt({ role }),
       ctx: buildUserContext({ name: '评测', role })
     };

@@ -29,6 +29,7 @@ const require = createRequire(import.meta.url);
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 const app = require('../../app');
 const { buildTools, agentCatalog, toOpenAiTools } = require('../../services/agent/toolCatalog');
+const preflight = require('../../services/agent/preflight');
 const { buildSystemPrompt, buildUserContext } = require('../../services/agent/persona');
 
 const arg = (name, def) => {
@@ -130,7 +131,7 @@ async function main() {
   const catalogs = {};
   for (const role of [0, 1, 8]) {
     catalogs[role] = {
-      tools: toOpenAiTools(agentCatalog(full, { role })),
+      tools: toOpenAiTools(agentCatalog(full, { role }), { leaveTypes: (await preflight.loadLeaveConfig()).list }),
       sys: buildSystemPrompt({ role }),
       ctx: buildUserContext({ name: '评测', role })
     };
