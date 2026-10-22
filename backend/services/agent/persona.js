@@ -138,14 +138,18 @@ function buildSystemPrompt(user) {
  */
 const DATE_HINT = /今[天日]|明[天日]|后[天日]|昨[天日]|前[天日]|下个?周|本周|这周|周末|周[一二三四五六日天]|星期[一二三四五六日天]|几号|日期/;
 
-function buildUserContext(user, message) {
+function buildUserContext(user, message, extra) {
   const role = Number((user && user.role) || 0);
   const name = (user && user.name) || '用户';
   const label = ROLE_NAMES[role] || (role >= ROLES.CLASS_LEADER ? '干部' : '学员');
   // 没给 message（比如旧调用）时保持原行为，避免静默改变语义
   const needDate = message === undefined ? true : DATE_HINT.test(String(message || ''));
-  return '【当前用户：' + name + '，role=' + role + '（' + label + '）】' +
-    (needDate ? '\n' + dateAnchors() : '');
+  const parts = ['【当前用户：' + name + '，role=' + role + '（' + label + '）】'];
+  if (needDate) parts.push(dateAnchors());
+  // 任务草稿 / 真实配置 / 附件清单等本轮事实，只拼在当前 user 消息上（不进 system prompt，
+  // 否则前缀缓存会因每个用户/每个任务不同而整体失效，见 buildSystemPrompt 注释）
+  if (extra) parts.push(String(extra));
+  return parts.join('\n');
 }
 
 /**

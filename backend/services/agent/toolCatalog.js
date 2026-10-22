@@ -86,9 +86,9 @@ const CURATED = [
   { name: 'my_leaves', label: '我的请假记录', method: 'GET', path: '/api/leave/my', desc: '查看本人全部请假记录（含状态）' },
   {
     name: 'apply_leave', label: '提交请假申请', method: 'POST', path: '/api/leave/apply', write: true,
-    desc: '提交请假申请。type 必须是后端配置的请假类型（如 早操/早集合/午集合/收假集合/晚自习/中队会/全休/其他），start_time/end_time 为 YYYY-MM-DD HH:mm:ss',
+    desc: '提交请假申请。type 必须是后端启用的真实请假类型（不能写数字或别名），start_time/end_time 为 YYYY-MM-DD HH:mm:ss，reason 必填',
     body: ['type', 'start_time', 'end_time', 'reason', 'attachments'],
-    required: ['type', 'start_time', 'end_time']
+    required: ['type', 'start_time', 'end_time', 'reason']
   },
   { name: 'cancel_leave', label: '销假', method: 'PUT', path: '/api/leave/cancel/{id}', pathParams: ['id'], write: true, desc: '对本人某条请假记录销假（id 为请假记录 id）' },
   { name: 'my_expenses', label: '我的班费报销', method: 'GET', path: '/api/fee/expenses/my', desc: '查看本人提交的班费报销申请与审批状态' },
@@ -270,8 +270,17 @@ function isWriteCall(tool, args) {
 }
 
 
-/** 转成 OpenAI function-calling 工具格式 */
-function toOpenAiTools(catalog) {
+function leaveTypeHint(leaveTypes) {
+  if (!Array.isArray(leaveTypes) || !leaveTypes.length) return '';
+  return leaveTypes
+    .map((t) => (t.is_fixed && t.start_time && t.end_time
+      ? t.type_name + ' ' + String(t.start_time).slice(0, 5) + '-' + String(t.end_time).slice(0, 5) + '（同日）'
+      : t.type_name + '（不限固定时段）'))
+    .join('；');
+}
+
+/** 转成 OpenAI function-calling 工具格式；leaveTypes 为真实启用配置（60s TTL，见 preflight） */
+function toOpenAiTools(catalog, opts) {
   return catalog.tools.map((t) => {
     if (t.kind === 'module') {
       return {
@@ -323,6 +332,20 @@ function toOpenAiTools(catalog) {
       if (t.required && t.required.includes(k)) required.push(k);
       else if (!t.required && ['type', 'start_time', 'end_time', 'amount', 'content', 'purpose'].includes(k)) required.push(k);
     }
+    // apply_leave.type：用真实配置生成 enum + 窗口描述，避免模型猜数字/别名。
+    // 动态配置在请求时传入（60s TTL），权限目录仍按角色缓存。
+    if (t.name === 'apply_leave' && opts && Array.isArray(opts.leaveTypes) && opts.leaveTypes.length) {
+      const hint = leaveTypeHint(opts.leaveTypes);
+      props.type = {
+        type: 'string',
+        enum: opts.leaveTypes.map((x) => x.type_name),
+        description: '必须是后端启用的请假类型：' + opts.leaveTypes.map((x) => x.type_name).join('、') + '。真实时段：' + hint
+      };
+      if (!required.includes('reason')) required.push('reason');
+      const windows = '可用的请假类型与固定时段：' + hint;
+      const f = { name: t.name, description: (t.label ? t.label + '：' : '') + (t.desc || '') + '。' + windows, parameters: { type: 'object', properties: props, required } };
+      return { type: 'function', function: f };
+    }
     for (const k of t.query || []) {
       // 同 pathParams：查询参数也放宽成 string|number，避免模型填数字就被判非法
       props[k] = { type: ['string', 'number'], description: k };
@@ -338,4 +361,4 @@ function toOpenAiTools(catalog) {
   });
 }
 
-module.exports = { buildTools, agentCatalog, toOpenAiTools, isWriteCall, CURATED, CADRE_CURATED, LOCAL_TOOLS, MODULE_META, QUERY_KEYS };
+module.exports = { buildTools, agentCatalog, toOpenAiTools, isWriteCall, leaveTypeHint, CURATED, CADRE_CURATED, LOCAL_TOOLS, MODULE_META, QUERY_KEYS };

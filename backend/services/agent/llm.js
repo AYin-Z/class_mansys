@@ -1,6 +1,6 @@
 const { env } = require('../../config/env');
 const { GUIDES } = require('./guide');
-const { stripImageParts } = require('./vision');
+const { stripImageParts, sanitizeParts, hasImageParts } = require('./vision');
 const logger = require('../../config/logger');
 const { HttpError } = require('../../shared/http');
 
@@ -111,10 +111,22 @@ function resolveTargets() {
   return remote.baseUrl ? [remote] : [];
 }
 
+function prepareMessages(target, messages) {
+  const hadImages = messages.some((m) => hasImageParts(m.content));
+  const safeMessages = target.vision
+    ? messages.map((m) => (Array.isArray(m.content) ? { ...m, content: sanitizeParts(m.content) } : m))
+    : messages.map((m) => (Array.isArray(m.content) ? { ...m, content: stripImageParts(m.content) } : m));
+  // 非视觉上游回退：不静默丢图，显式记录一次（不记图片内容）
+  if (hadImages && !target.vision) {
+    logger.info({ event: 'vision_unavailable', target: target.name, images: messages.reduce((n, m) => n + (hasImageParts(m.content) ? 1 : 0), 0) }, 'image parts replaced by text placeholder');
+  }
+  return safeMessages;
+}
+
 async function chatOnce(target, { messages, tools }) {
   const url = target.baseUrl + '/chat/completions';
-  // 不支持视觉的上游：把图片内容块剥成文本，避免上游报 400 或静默忽略
-  const safeMessages = target.vision ? messages : messages.map((m) => (Array.isArray(m.content) ? { ...m, content: stripImageParts(m.content) } : m));
+  // 不支持视觉的上游：图片内容块替换成显式文本占位，避免上游报 400 或静默丢图
+  const safeMessages = prepareMessages(target, messages);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), target.timeoutMs);
   try {
@@ -199,7 +211,11 @@ async function chat({ messages, tools }) {
 function mockChat(messages) {
   const lastTool = [...messages].reverse().find((m) => m.role === 'tool');
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
-  const text = String((lastUser && lastUser.content) || '');
+  const raw = String((lastUser && lastUser.content) || '');
+  // buildUserContext 会在用户原话前注入身份/日期/真实配置/草稿；mock 只看用户原话，
+  // 否则配置里的「中队会」会让任何一句话都命中出勤意图。
+  const marker = raw.lastIndexOf('【用户原话】');
+  const text = marker >= 0 ? raw.slice(marker + '【用户原话】'.length).trim() : raw;
 
   if (lastTool) {
     return { content: '（mock）已获取到结果，详见上方返回数据。', tool_calls: [] };
@@ -231,6 +247,18 @@ function mockChat(messages) {
     if (content.length >= 5) return call('submit_suggestion', { content });
   }
   if (/请假|销假/.test(text)) {
+    // 渠道冒烟/离线回归需要一个真实的写候选（会走预校验 + 确认卡片）。
+    // 只在 mock 模式生效，生产不走这里；日期取明天，固定窗口用真实配置的常见值。
+    const type = ['早操', '早集合', '午集合', '收假集合', '晚自习'].find((t) => text.includes(t));
+    if (type) {
+      const windows = { 早操: ['07:00:00', '07:40:00'], 早集合: ['07:30:00', '08:00:00'], 午集合: ['13:00:00', '13:30:00'], 收假集合: ['18:00:00', '18:30:00'], 晚自习: ['19:00:00', '19:30:00'] };
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      const p2 = (n) => String(n).padStart(2, '0');
+      const day = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate());
+      const reason = (text.match(/事由[：:]\s*([^，。\s]+)/) || [])[1] || '临时事由';
+      return call('apply_leave', { type, start_time: day + ' ' + windows[type][0], end_time: day + ' ' + windows[type][1], reason });
+    }
     return {
       content:
         '（mock 模式）我可以帮你提交请假申请。请按「请假：类型=早操 日期=2026-09-12 开始=06:00 结束=06:30 事由=病假」这样的格式告诉我，' +
@@ -256,7 +284,7 @@ async function streamOnce(target, { messages, tools, onDelta }) {
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + target.apiKey },
     body: JSON.stringify({
       model: target.model,
-      messages: target.vision ? messages : messages.map((m) => (Array.isArray(m.content) ? { ...m, content: stripImageParts(m.content) } : m)),
+      messages: prepareMessages(target, messages),
       tools,
       tool_choice: 'auto',
       temperature: 0.2,
@@ -361,4 +389,4 @@ async function chatStream({ messages, tools, onDelta }) {
   throw lastErr instanceof HttpError ? lastErr : new HttpError(502, '模型服务请求失败，请稍后再试', 'LLM_ERROR');
 }
 
-module.exports = { chat, chatStream, resolveMode, resolveTargets, resetBreakers };
+module.exports = { chat, chatStream, prepareMessages, resolveMode, resolveTargets, resetBreakers };

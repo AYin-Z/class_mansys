@@ -82,7 +82,12 @@ async function buildImageParts(attachments) {
         if (small) { file = small; stat = fs.statSync(file); }
       }
       const b64 = fs.readFileSync(file).toString('base64');
-      parts.push({ type: 'image_url', image_url: { url: 'data:' + mimeOf(file) + ';base64,' + b64 } });
+      parts.push({
+        type: 'image_url',
+        image_url: { url: 'data:' + mimeOf(file) + ';base64,' + b64 },
+        // 只用于纯文本回退时生成「图片不可见」占位；发给视觉上游前会被 sanitizeParts 剥掉
+        _meta: { name: att.name || String(att.url || '').split('/').pop(), url: att.url || '' }
+      });
       logger.info({ url: att.url, bytes: stat.size }, 'vision attachment attached');
     } catch (e) {
       logger.warn({ err: e && e.message, url: att && att.url }, 'vision attachment failed');
@@ -91,11 +96,43 @@ async function buildImageParts(attachments) {
   return parts;
 }
 
-/** 把消息内容里的图片块剥掉，只留文本（回落纯文本模型时用） */
+/** 发给视觉上游前剥掉内部元数据（只保留 OpenAI 兼容字段） */
+function sanitizeParts(content) {
+  if (!Array.isArray(content)) return content;
+  return content.map((p) => {
+    if (!p || p.type !== 'image_url') return p;
+    const out = { type: 'image_url', image_url: { url: p.image_url && p.image_url.url } };
+    if (p.image_url && p.image_url.detail) out.image_url.detail = p.image_url.detail;
+    return out;
+  });
+}
+
+/**
+ * 把消息内容里的图片块换成**显式文本占位**（回落纯文本模型时用）。
+ * 旧实现直接丢掉图片，用户说「那是我的请假证明」时模型完全不知道有附件存在。
+ * 现在保留文件名/路径，至少能回答「图我看到了，但当前模型看不了内容」并继续问字段。
+ */
 function stripImageParts(content) {
   if (!Array.isArray(content)) return content;
-  const texts = content.filter((p) => p && p.type === 'text').map((p) => p.text || '');
-  return texts.join('\n');
+  const out = [];
+  for (const p of content) {
+    if (!p) continue;
+    if (p.type === 'text') {
+      if (p.text) out.push(p.text);
+      continue;
+    }
+    if (p.type === 'image_url') {
+      const meta = p._meta || {};
+      const label = meta.name ? meta.name : '图片';
+      const path = meta.url ? '（' + meta.url + '）' : '';
+      out.push('[图片不可见：' + label + path + '；当前模型不支持视觉，请让用户确认图片内容]');
+    }
+  }
+  return out.join('\n');
+}
+
+function hasImageParts(content) {
+  return Array.isArray(content) && content.some((p) => p && p.type === 'image_url');
 }
 
 /** 该上游是否支持视觉 */
@@ -103,4 +140,4 @@ function targetSupportsVision(target) {
   return !!(target && target.vision);
 }
 
-module.exports = { buildImageParts, stripImageParts, targetSupportsVision, isImage, MAX_IMAGES, MAX_BYTES, MAX_EDGE };
+module.exports = { buildImageParts, stripImageParts, sanitizeParts, hasImageParts, targetSupportsVision, isImage, MAX_IMAGES, MAX_BYTES, MAX_EDGE };
