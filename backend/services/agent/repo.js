@@ -74,8 +74,13 @@ class AgentRepo {
    * 否则说明有并发写入（同一会话两条消息），调用方应重读后再合并。
    */
   static async saveConversationState(id, state, expectedVersion) {
+    // CAS + 执行互斥：有 action 处于 executing（5 分钟内）时禁止推进会话版本。
+    // 这样「确认已抢占」与「用户改口」不会同时成立：谁先写谁赢，另一方 affectedRows=0。
+    // 5 分钟是崩溃兜底窗口，避免进程崩溃后 executing 永久阻塞会话。
     const [r] = await db.query(
-      'UPDATE agent_conversations SET state = ?, state_version = state_version + 1, updated_at = NOW() WHERE id = ? AND state_version = ?',
+      'UPDATE agent_conversations c SET c.state = ?, c.state_version = c.state_version + 1, c.updated_at = NOW() ' +
+        'WHERE c.id = ? AND c.state_version = ? ' +
+        "AND NOT EXISTS (SELECT 1 FROM agent_actions a WHERE a.conversation_id = c.id AND a.status = 'executing' AND a.claimed_at > DATE_SUB(NOW(), INTERVAL 5 MINUTE))",
       [state ? JSON.stringify(state) : null, id, Number(expectedVersion) || 0]
     );
     return r.affectedRows > 0;
@@ -261,6 +266,16 @@ class AgentRepo {
       [channel, externalId, String(messageId).slice(0, 160)]
     );
     return r.affectedRows > 0;
+  }
+
+  /** 处理异常时释放去重占位，让 iLink 重投可以真正重试（at-least-once） */
+  static async clearInboundSeen(channel, externalId, messageId) {
+    if (!messageId) return 0;
+    const [r] = await db.query(
+      'DELETE FROM agent_inbound_dedup WHERE channel = ? AND external_id = ? AND message_id = ?',
+      [channel, externalId, String(messageId).slice(0, 160)]
+    );
+    return r.affectedRows;
   }
 
   // ---- 附件 ----

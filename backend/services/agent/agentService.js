@@ -120,6 +120,9 @@ async function prepareTurn(user, { conversationId, message, attachments }, app) 
       }
       return next;
     });
+    if (!saved.changed) {
+      throw new HttpError(409, '有操作正在执行或会话状态已变化，请稍后重试', 'CONVERSATION_BUSY');
+    }
     stateRef = { state: saved.state, version: saved.version };
   }
 
@@ -201,7 +204,7 @@ async function markState(convId, stateRef, mutator) {
   const saved = await AgentRepo.mutateConversationState(convId, (prev) => mutator(prev));
   stateRef.state = saved.state;
   stateRef.version = saved.version;
-  return saved.state;
+  return saved;
 }
 
 /** 生成 action 前：旧 pending 作废 + 动作版本/哈希绑定 */
@@ -209,9 +212,12 @@ async function createPendingAction({ convId, user, tool, args, stateRef, desc, p
   await AgentRepo.supersedePendingActions(convId, user.id);
   // 版本语义：先把会话推进到 awaiting_confirm，拿到新 version，再用同一个 version 创建动作。
   // 这样 action.state_version === conversation.state_version，确认时可在一条 UPDATE 里原子校验。
-  await markState(convId, stateRef, (prev) =>
+  const awaiting = await markState(convId, stateRef, (prev) =>
     taskState.toAwaitingConfirm(prev || { tool: tool.name, fields: {}, attachments: [], revision: 0 }, args, (prev && prev.attachments) || [])
   );
+  if (!awaiting.changed) {
+    throw new HttpError(409, '有操作正在执行或会话状态已变化，请稍后重试', 'CONVERSATION_BUSY');
+  }
   const boundVersion = stateRef.version;
   const target = resolveTarget(tool, args);
   let actionId;
@@ -658,7 +664,14 @@ class AgentService {
     }
     for (const a of (conv && conv.state && conv.state.attachments) || []) allowedUrls.add(a.url);
 
-    const pre = await preflight.validate({ tool, args: action.params || {}, user, allowedAttachmentUrls: allowedUrls, freshConfig: true });
+    let pre;
+    try {
+      pre = await preflight.validate({ tool, args: action.params || {}, user, allowedAttachmentUrls: allowedUrls, freshConfig: true });
+    } catch (e) {
+      // 复验基础设施失败也必须释放执行权，避免 executing 卡死会话
+      await AgentRepo.markAction(action.id, 'failed', { error: e.message, code: 'PREFLIGHT_ERROR' });
+      throw e;
+    }
     const paramsChanged = action.params_hash && action.params_hash !== pre.paramsHash;
     const configChanged = action.config_hash && pre.configHash && action.config_hash !== pre.configHash;
     if (!pre.ok || paramsChanged || configChanged) {

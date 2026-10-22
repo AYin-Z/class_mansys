@@ -75,7 +75,27 @@ async function resolveSession({ channel, externalId, userId, title, reset, now }
       status: 'active'
     });
   } else {
-    await AgentRepo.createChannelSession({ channel, externalId, userId, conversationId, expiresAt });
+    try {
+      await AgentRepo.createChannelSession({ channel, externalId, userId, conversationId, expiresAt });
+    } catch (e) {
+      // 首条消息并发：两个请求都看不到行，只有唯一键的赢家能落库。
+      // 输家关掉自己刚建的会话，改用赢家的会话；不能让 unique 冲突冒成用户可见错误。
+      if (e && e.code === 'ER_DUP_ENTRY') {
+        await AgentRepo.closeConversation(conversationId, userId);
+        const winner = await AgentRepo.findChannelSession(channel, externalId);
+        if (winner && Number(winner.user_id) === Number(userId) && winner.status === 'active') {
+          await AgentRepo.touchChannelSession(winner.id);
+          return {
+            conversationId: Number(winner.conversation_id),
+            isNew: false,
+            rotated: false,
+            reason: 'concurrent',
+            session: winner
+          };
+        }
+      }
+      throw e;
+    }
   }
 
   if (reason !== 'new') {
