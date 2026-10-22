@@ -87,6 +87,8 @@ App 上传与微信入站落盘后立即登记；上传时 `conversation_id` 为
 - `expires_at = 建立时 + 7d`，每次轮换重置；`updated_at` 用于 12h 空闲判断。
 - 关闭旧会话写 `closed_at`，历史消息仍保留、仍可读，但不再接受新消息（App 显式带旧 ID 会得到 `CONVERSATION_CLOSED`）。
 - `AgentService.chat` 仍二次校验 `conversation.user_id === 当前用户`，渠道指针不是权限来源。
+- 首条消息并发：两个请求同时看不到 session 时，只有唯一键赢家能落库；输家关闭自己刚建的会话并复用赢家，不把 `ER_DUP_ENTRY` 冒给用户。
+- 入站去重：先 `INSERT IGNORE` 占位；处理抛错/业务失败时 `clearInboundSeen` 释放占位，iLink 重投可真正重试（at-least-once），确认幂等兜住重复执行。
 - 日志：`session_rotated`（reason=`reset|expired|user_changed`）、`dedup_hit`。
 
 ## 5. 任务草稿状态机
@@ -261,7 +263,7 @@ $ npm run lint
 
 $ NODE_ENV=test DB_NAME=class_manage_sys_test JWT_SECRET=test_secret_1234567 npm test
 Test Files  43 passed (43)
-     Tests  371 passed (371)
+     Tests  373 passed (373)
 
 $ node tests/setup-test-db.js class_manage_sys_test   # 需要时重建测试库
 $ DB_NAME=class_manage_sys_test NODE_ENV=test AGENT_LLM_MODE=mock \
@@ -275,7 +277,7 @@ PASS: 108  FAIL: 0
 （含真实上传落盘、只发附件对话、确认幂等；e2e 已按新语义更新）
 ```
 
-新增/扩展用例（共 371 项）：
+新增/扩展用例（共 373 项）：
 
 - `tests/unit/agentPreflight.test.js`：数字 type、过期日期、固定窗口、跨天、反向区间、>30 天、空事由、附件来源、销假/审批 id/status、动态配置哈希、参数哈希稳定性。
 - `tests/unit/agentTaskState.test.js`：同工具合并、新值覆盖、附件去重、换工具/完成不继承、失败可补正、确认完成、草稿附件注入、prompt 块、`mergeArgs` curated/module 嵌套、模块 action 隔离、附件替换/清空、tool=null 补图草稿。
@@ -293,7 +295,7 @@ CI run `39790613711`（复核补修代码 `c73e00b`）：
 
 | job | 结果 | 说明 |
 |---|---|---|
-| backend | pass | `npm run lint` + `npm test`（371 项） |
+| backend | pass | `npm run lint` + `npm test`（373 项） |
 | frontend | pass | 未改前端，沿用既有门禁 |
 | ui-smoke | pass | 未改 UI |
 | agent-eval | pass | 工具选择 306/330 = **92.7%**（门禁 90%）；多步行为 7/9=77.8% 为观测项 |
@@ -339,7 +341,7 @@ Test Files  1 passed (1)
 
 $ npm test
 Test Files  43 passed (43)
-     Tests  371 passed (371)
+     Tests  373 passed (373)
 ```
 
 ### 14.3 修复点
@@ -351,6 +353,8 @@ Test Files  43 passed (43)
 5. 无工具轮次也会把本轮附件写入草稿；显式 `attachments` 为权威替换值（`[]` 即清空），但仍逐条校验 `agent_attachments` owner（模型塞他人 URL 也 403）；`/撤回附件` 直接清空并作废旧卡。
 6. DB 依赖用例改为 fail-loud：`DB_NAME=class_manage_sys_test_missing` 时直接抛「测试库不可用…」而不是 7 个 skip。
 7. 新增真实跨 chat/微信入站多轮：同一 `conversationId` 经 `ChannelService.handleInbound` 与 `AgentService.chat` 交替续接，草稿合并、确认只执行一次。
+8. 渠道会话首条消息并发 unique 冲突：输家关闭自建会话并复用赢家，不抛 `ER_DUP_ENTRY`。
+9. 入站去重占位在工作流失败/业务失败时释放，允许 iLink 重投真正重试；`agent_inbound_dedup` 单测覆盖 mark→clear→mark。
 
 ### 14.4 并发原子边界
 
@@ -365,13 +369,15 @@ WHERE a.id=? AND a.user_id=? AND a.status='pending' AND a.expires_at>NOW()
 
 动作、会话版本、关闭状态在同一行级 UPDATE 中判定；并发确认只有一个 affectedRows=1，其余按 executed/superseded/invalidated/cancelled/expired/closed 幂等回复。
 
+此外，`saveConversationState` 的 CAS 带 `NOT EXISTS (executing within 5min)`：确认已抢占时，新轮次无法推进会话版本（返回 409 `CONVERSATION_BUSY`）；改口先到则确认的 UPDATE JOIN 看到新版本而失败。两者不会同时成立，且不跨 HTTP 持长事务。5 分钟只是进程崩溃后的解锁窗口。
+
 ## 15. 未验证项与剩余风险
 
 1. **未部署、未重启生产**：本次只提交代码/迁移/测试，未对 `/srv/apps/class-mansys` 执行迁移或重启；线上仍是 `410f319` 旧行为。部署需按 `docs/OPERATIONS.md` 单独授权。
-2. **未用真实微信账号回放**：渠道链路用 `AGENT_LLM_MODE=mock` + 测试库验证；真实 iLink 的 `msg_id` 字段名可能是 `msg_id/message_id/id`，代码已做兼容，但未在真实下行消息上验证。没有稳定 id 时**不去重**，宁可不吞消息。
+2. **未用真实微信账号回放**：渠道链路用 `AGENT_LLM_MODE=mock` + 测试库验证；真实 iLink 的 `msg_id` 字段名可能是 `msg_id/message_id/id`，代码已做兼容，但未在真实下行消息上验证。没有稳定 id 时**不去重**，宁可不吞消息。去重改为失败释放占位（at-least-once），极端情况下重复处理由确认幂等兜底。
 3. **模型视觉内容未复验**：图片是否识别正确仍取决于模型；本次只保证图片能送到视觉上游、回退时有占位，不保证 OCR 正确。
 4. **App 前端未展示草稿状态**：前端未改；`state` 只在后端与 prompt 生效，App 仍按原消息/确认卡片交互。
-5. **执行中崩溃**：confirm 抢占后进程崩溃会留下 `status='executing'`。当前不自动回收，需要人工/后续定时任务处理；这是有意的保守选择（避免重复执行）。
+5. **执行中崩溃**：confirm 抢占后进程崩溃会留下 `status='executing'`。当前不自动回收 action，但会话状态 CAS 的 5 分钟窗口会让会话重新可写；建议后续加定时任务把超时 executing 标 failed（避免永久占用）。
 6. **配置缓存 60s**：管理员改 `leave_config` 后最多 1 分钟生效；期间确认会因 `config_hash` 变化被作废（零副作用），不会按旧配置执行。
 7. **附件 URL 全局唯一**：媒体文件名由 `mediaService.uniqueName` 保证；若未来出现同 URL 复用，`ON DUPLICATE KEY` 只更新元数据、不转移 owner（保守，避免所有权被覆盖）。
 8. **真实并发压测未做**：并发确认用 2 个 Promise 验证，未做多进程/高并发压测。
