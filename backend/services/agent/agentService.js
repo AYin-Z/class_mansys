@@ -53,6 +53,11 @@ function draftArgsOf(tool, args) {
   return args || {};
 }
 
+/** 显式撤回草稿附件（不调用模型）；用户说「证明不传了 / 撤回附件」 */
+function isAttachmentClearCommand(message) {
+  return /^[/／](?:撤回附件|清除附件|删除附件)$/.test(String(message || '').trim());
+}
+
 /**
  * 建立/校验本轮上下文：会话归属、附件所有权、历史、任务草稿与真实配置注入。
  * chat 与 chatStream 共用，避免两条链路行为分叉。
@@ -83,11 +88,45 @@ async function prepareTurn(user, { conversationId, message, attachments }, app) 
 
   if (atts.length) await AgentRepo.bindAttachmentsToConversation(user.id, atts.map((a) => a.url), convId);
 
+  // 新一轮消息：旧确认立即失效（改口/预校验失败/补图/取消后再说话都不能留下可执行旧卡），
+  // 并把本轮附件并入草稿（即使模型这一轮不调工具）。附件撤回命令清空草稿附件。
+  let stateRef = { state: conv.state || null, version: Number(conv.state_version || 0) };
+  const clearAttachments = isAttachmentClearCommand(message);
+  const wasAwaiting = !!(stateRef.state && stateRef.state.status === 'awaiting_confirm');
+  let attachmentCleared = false;
+  if (wasAwaiting || clearAttachments || atts.length) {
+    if (wasAwaiting || clearAttachments) {
+      await AgentRepo.invalidatePendingActions(convId, user.id, 'superseded');
+      if (wasAwaiting) {
+        logger.info({ event: 'confirm_conflict', userId: user.id, conversationId: convId, code: 'NEW_TURN' }, 'old action invalidated by new turn');
+      }
+    }
+    const saved = await AgentRepo.mutateConversationState(convId, (prev) => {
+      let next = prev;
+      if (next && next.status === 'awaiting_confirm') {
+        next = {
+          ...next,
+          status: 'collecting',
+          last_error: { code: 'SUPERSEDED_BY_NEW_TURN', message: '用户开始了新一轮消息，旧确认已失效' },
+          revision: Number(next.revision || 0) + 1
+        };
+      }
+      if (clearAttachments) {
+        attachmentCleared = true;
+        return taskState.clearAttachments(next);
+      }
+      if (atts.length) {
+        return taskState.mergeDraft(next, { tool: (next && next.tool) || null, args: {}, attachments: atts });
+      }
+      return next;
+    });
+    stateRef = { state: saved.state, version: saved.version };
+  }
+
   await AgentRepo.addMessage(convId, 'user', userContent);
   await AgentRepo.touchConversation(convId);
 
   const history = await AgentRepo.listMessages(convId, 30);
-  const stateRef = { state: conv.state || null, version: Number(conv.state_version || 0) };
   const runtimeContext = await buildRuntimeContext(stateRef.state, atts);
   const messages = [{ role: 'system', content: buildSystemPrompt(user) }];
   const kept = trimHistoryToBudget(history, env.AGENT_HISTORY_TOKEN_BUDGET);
@@ -112,7 +151,7 @@ async function prepareTurn(user, { conversationId, message, attachments }, app) 
     messages.push({ role: m.role, content: isCurrent && imageParts.length ? [{ type: 'text', text }].concat(imageParts) : text });
   }
 
-  return { convId, catalog, messages, atts, stateRef };
+  return { convId, catalog, messages, atts, stateRef, attachmentCleared };
 }
 
 /** 本轮注入：真实配置 + 任务草稿 + 附件清单（确定性事实，不依赖模型记忆） */
@@ -142,9 +181,16 @@ function preflightErrorText(error) {
 }
 
 /** 保存草稿状态；冲突由 repo 的读改写重试处理 */
-async function commitDraft(convId, stateRef, tool, args, atts) {
+async function commitDraft(convId, stateRef, tool, args, atts, replaceAttachments) {
+  const action = tool.kind === 'module' ? String((args && args.action) || '') : null;
   const saved = await AgentRepo.mutateConversationState(convId, (prev) =>
-    taskState.mergeDraft(prev, { tool: tool.name, args: draftArgsOf(tool, args), attachments: atts })
+    taskState.mergeDraft(prev, {
+      tool: tool.name,
+      action,
+      args: draftArgsOf(tool, args),
+      attachments: atts,
+      replaceAttachments: !!replaceAttachments
+    })
   );
   stateRef.state = saved.state;
   stateRef.version = saved.version;
@@ -161,23 +207,34 @@ async function markState(convId, stateRef, mutator) {
 /** 生成 action 前：旧 pending 作废 + 动作版本/哈希绑定 */
 async function createPendingAction({ convId, user, tool, args, stateRef, desc, pre, undoCtx }) {
   await AgentRepo.supersedePendingActions(convId, user.id);
+  // 版本语义：先把会话推进到 awaiting_confirm，拿到新 version，再用同一个 version 创建动作。
+  // 这样 action.state_version === conversation.state_version，确认时可在一条 UPDATE 里原子校验。
+  await markState(convId, stateRef, (prev) =>
+    taskState.toAwaitingConfirm(prev || { tool: tool.name, fields: {}, attachments: [], revision: 0 }, args, (prev && prev.attachments) || [])
+  );
+  const boundVersion = stateRef.version;
   const target = resolveTarget(tool, args);
-  const actionId = await AgentRepo.createAction({
-    conversationId: convId,
-    userId: user.id,
-    tool: tool.name,
-    method: target.method,
-    path: target.path,
-    params: args,
-    preview: desc.summary,
-    risk: desc.risk,
-    impact: desc.impact,
-    ttlMs: env.AGENT_ACTION_TTL_MS,
-    stateVersion: stateRef.version,
-    paramsHash: pre ? pre.paramsHash : preflight.paramsHash(args),
-    configHash: pre ? pre.configHash : null
-  });
-  await markState(convId, stateRef, (prev) => taskState.toAwaitingConfirm(prev || { tool: tool.name, fields: {}, attachments: [], revision: 0 }, args, (prev && prev.attachments) || []));
+  let actionId;
+  try {
+    actionId = await AgentRepo.createAction({
+      conversationId: convId,
+      userId: user.id,
+      tool: tool.name,
+      method: target.method,
+      path: target.path,
+      params: args,
+      preview: desc.summary,
+      risk: desc.risk,
+      impact: desc.impact,
+      ttlMs: env.AGENT_ACTION_TTL_MS,
+      stateVersion: boundVersion,
+      paramsHash: pre ? pre.paramsHash : preflight.paramsHash(args),
+      configHash: pre ? pre.configHash : null
+    });
+  } catch (e) {
+    await markState(convId, stateRef, (prev) => taskState.markFailed(prev, { code: 'ACTION_CREATE_FAILED', message: e.message }));
+    throw e;
+  }
   if (undoCtx) undoCtx.actionId = actionId;
   return actionId;
 }
@@ -220,9 +277,20 @@ async function processToolCall({ call, catalog, user, token, convId, stateRef, m
     return { blocked: false };
   }
 
-  // ---- 写操作：先落草稿（跨轮保留），再预校验，最后才生成确认卡片 ----
-  const draft = await commitDraft(convId, stateRef, tool, args, counters.currentAtts);
-  let effectiveArgs = taskState.withDraftAttachments(tool, args, (draft && draft.attachments) || []);
+  // ---- 写操作：先落草稿（跨轮保留），再把草稿字段并入本次参数，最后才预校验/生成卡片 ----
+  const explicitAttachments = taskState.hasExplicitAttachments(tool, args);
+  const explicitUrls = explicitAttachments
+    ? (tool.kind === 'module' ? (args.params && args.params.attachments) : args.attachments) || []
+    : null;
+  // 显式 attachments 是权威替换值（可清空），但仍必须逐条验证所有权：
+  // 模型可能把别人的 /uploads URL 塞进参数，不能因为「显式给了」就绕过 agent_attachments owner 校验。
+  const explicitAuthorized = explicitAttachments
+    ? await attachmentAuth.authorize(user.id, explicitUrls.map((u) => (typeof u === 'string' ? { url: u } : u)))
+    : null;
+  // 没给才使用本轮消息附件并入草稿
+  const draft = await commitDraft(convId, stateRef, tool, args, explicitAttachments ? explicitAuthorized : counters.currentAtts, explicitAttachments);
+  let effectiveArgs = taskState.mergeArgs(tool, draft, args);
+  effectiveArgs = taskState.withDraftAttachments(tool, effectiveArgs, (draft && draft.attachments) || []);
 
   const allowedUrls = new Set([
     ...counters.currentAtts.map((a) => a.url),
@@ -348,6 +416,12 @@ class AgentService {
   static async chat(user, token, { conversationId, message, attachments }, app) {
     const turn = await prepareTurn(user, { conversationId, message, attachments }, app);
     const { convId, catalog, messages, atts, stateRef } = turn;
+    if (turn.attachmentCleared) {
+      const reply = '已撤回草稿中的附件。';
+      await AgentRepo.addMessage(convId, 'assistant', reply);
+      await AgentRepo.touchConversation(convId);
+      return { conversationId: convId, reply, pendingAction: null };
+    }
     let tools;
     try {
       const cfg = await preflight.loadLeaveConfig();
@@ -409,6 +483,12 @@ class AgentService {
   static async chatStream(user, token, { conversationId, message, attachments }, app, send) {
     const turn = await prepareTurn(user, { conversationId, message, attachments }, app);
     const { convId, catalog, messages, atts, stateRef } = turn;
+    if (turn.attachmentCleared) {
+      const reply = '已撤回草稿中的附件。';
+      await AgentRepo.addMessage(convId, 'assistant', reply);
+      await AgentRepo.touchConversation(convId);
+      return { conversationId: convId, reply, pendingAction: null };
+    }
     let tools;
     try {
       const cfg = await preflight.loadLeaveConfig();
@@ -476,8 +556,18 @@ class AgentService {
     if (!tool) throw new BadRequestError('该动作对应的工具已不可用');
 
     const idempotent = (reply, extra) => ({ reply, success: !!(extra && extra.success), already: true, status: extra && extra.status, result: null, undoId: null, ...extra });
+    const actionConv = action.conversation_id ? await AgentRepo.getConversationById(action.conversation_id) : null;
+    const conversationClosed = !!(actionConv && actionConv.closed_at);
+
     if (action.status === 'executed') {
       return idempotent('该操作已经执行过，本次没有重复执行。', { success: true, status: 'executed' });
+    }
+    if (conversationClosed) {
+      if (action.status === 'pending') {
+        await AgentRepo.markAction(action.id, 'invalidated', { error: '会话已结束', code: 'CONVERSATION_CLOSED' });
+      }
+      logger.info({ event: 'confirm_conflict', userId: user.id, actionId: action.id, code: 'CONVERSATION_CLOSED' }, 'agent confirm rejected: conversation closed');
+      return idempotent('会话已结束，旧确认卡片已失效，请开始新会话。', { success: false, status: 'closed', code: 'CONVERSATION_CLOSED' });
     }
     if (action.status === 'superseded' || action.status === 'invalidated') {
       logger.info({ event: 'confirm_conflict', userId: user.id, actionId: action.id, status: action.status }, 'agent confirm rejected');
@@ -497,6 +587,13 @@ class AgentService {
       return idempotent('这次操作的确认已过期，请重新发起。', { success: false, status: 'expired', code: 'ACTION_EXPIRED' });
     }
 
+    // 预检：动作必须绑定会话**当前**版本；改口/补图/预校验失败只要推进了版本，旧卡就作废
+    if (actionConv && actionConv.state_version !== action.state_version) {
+      await AgentRepo.markAction(action.id, 'invalidated', { error: '会话状态版本已推进', code: 'STATE_VERSION_CHANGED' });
+      logger.info({ event: 'confirm_conflict', userId: user.id, actionId: action.id, code: 'STATE_VERSION_CHANGED' }, 'agent confirm rejected: stale state version');
+      return idempotent('这次操作的信息已经更新，旧确认卡片已失效，请重新确认最新版本。', { success: false, status: 'invalidated', code: 'ACTION_INVALIDATED' });
+    }
+
     const claimToken = crypto.randomUUID();
     const claimed = await AgentRepo.claimAction({
       id: action.id,
@@ -507,26 +604,61 @@ class AgentService {
     if (!claimed) {
       logger.info({ event: 'confirm_conflict', userId: user.id, actionId: action.id }, 'agent confirm claim lost');
       const latest = await AgentRepo.findAction(action.id);
-      const status = latest ? latest.status : 'unknown';
-      const reply = status === 'executed'
-        ? '该操作已经执行过，本次没有重复执行。'
-        : status === 'superseded' || status === 'invalidated'
-          ? '这次操作的信息已经更新，旧确认卡片已失效，请重新确认最新版本。'
-          : '这次操作正在执行或已被处理，请勿重复提交。';
-      return idempotent(reply, { success: status === 'executed', status, code: status === 'executed' ? undefined : 'ACTION_CONFLICT' });
+      const latestConv = latest && latest.conversation_id ? await AgentRepo.getConversationById(latest.conversation_id) : null;
+      let status = latest ? latest.status : 'unknown';
+      let code = 'ACTION_CONFLICT';
+      let reply = '这次操作正在执行或已被处理，请勿重复提交。';
+      if (status === 'executed') {
+        code = undefined;
+        reply = '该操作已经执行过，本次没有重复执行。';
+      } else if (latestConv && latestConv.closed_at) {
+        status = 'closed';
+        code = 'CONVERSATION_CLOSED';
+        reply = '会话已结束，旧确认卡片已失效，请开始新会话。';
+      } else if (status === 'superseded' || status === 'invalidated') {
+        code = 'ACTION_INVALIDATED';
+        reply = '这次操作的信息已经更新，旧确认卡片已失效，请重新确认最新版本。';
+      } else if (status === 'pending' && latestConv && latestConv.state_version !== latest.state_version) {
+        await AgentRepo.markAction(latest.id, 'invalidated', { error: '会话状态版本已推进', code: 'STATE_VERSION_CHANGED' });
+        status = 'invalidated';
+        code = 'ACTION_INVALIDATED';
+        reply = '这次操作的信息已经更新，旧确认卡片已失效，请重新确认最新版本。';
+      } else if (status === 'cancelled') {
+        code = 'ACTION_CANCELLED';
+        reply = '这次操作已被取消，不会执行。';
+      } else if (status === 'failed') {
+        code = 'ACTION_FAILED';
+        reply = '这次操作上次执行失败，未重复执行。';
+      }
+      return idempotent(reply, { success: status === 'executed', status, code });
     }
 
-    // 抢占成功：用最新配置复验参数（配置/参数变了就作废，零副作用）
+    // 抢占成功后重读一次会话，做一次防御性校验（claim 的 JOIN 已经原子保证，这里是兜底）
     const conv = action.conversation_id ? await AgentRepo.getConversationById(action.conversation_id) : null;
+    if (conv && (conv.closed_at || conv.state_version !== action.state_version)) {
+      const code = conv.closed_at ? 'CONVERSATION_CLOSED' : 'STATE_VERSION_CHANGED';
+      await AgentRepo.markAction(action.id, 'invalidated', { error: '会话已关闭或版本已推进', code });
+      logger.info({ event: 'confirm_conflict', userId: user.id, actionId: action.id, code }, 'agent confirm rejected after claim');
+      return idempotent(
+        conv.closed_at ? '会话已结束，旧确认卡片已失效，请开始新会话。' : '这次操作的信息已经更新，旧确认卡片已失效，请重新确认最新版本。',
+        { success: false, status: conv.closed_at ? 'closed' : 'invalidated', code: conv.closed_at ? 'CONVERSATION_CLOSED' : 'ACTION_INVALIDATED' }
+      );
+    }
+
+    // 抢占成功：**强制读最新 leave_config**（不用 60s 缓存）复验参数；配置/参数变了就作废，零副作用
     const dbAtts = action.conversation_id ? await AgentRepo.listAttachmentsByConversation(action.conversation_id, 100) : [];
     const allowedUrls = new Set(dbAtts.map((a) => a.url));
-    for (const a of (action.params && action.params.attachments) || []) {
+    const actionAttachments = [
+      ...((action.params && action.params.attachments) || []),
+      ...((action.params && action.params.params && action.params.params.attachments) || [])
+    ];
+    for (const a of actionAttachments) {
       if (typeof a === 'string') allowedUrls.add(a);
       else if (a && a.url) allowedUrls.add(a.url);
     }
     for (const a of (conv && conv.state && conv.state.attachments) || []) allowedUrls.add(a.url);
 
-    const pre = await preflight.validate({ tool, args: action.params || {}, user, allowedAttachmentUrls: allowedUrls });
+    const pre = await preflight.validate({ tool, args: action.params || {}, user, allowedAttachmentUrls: allowedUrls, freshConfig: true });
     const paramsChanged = action.params_hash && action.params_hash !== pre.paramsHash;
     const configChanged = action.config_hash && pre.configHash && action.config_hash !== pre.configHash;
     if (!pre.ok || paramsChanged || configChanged) {
@@ -535,7 +667,7 @@ class AgentService {
       logger.warn({ event: 'confirm_conflict', userId: user.id, actionId: action.id, code }, 'agent confirm revalidation failed');
       await AgentRepo.markAction(action.id, 'invalidated', { error: message, code });
       if (action.conversation_id) {
-        await markState(action.conversation_id, { state: conv ? conv.state : null, version: conv ? conv.state_version : 0 }, (prev) => taskState.markFailed(prev, { code, message }));
+        await AgentRepo.mutateConversationState(action.conversation_id, (prev) => taskState.markFailed(prev, { code, message }));
         await AgentRepo.addMessage(action.conversation_id, 'assistant', '这次操作的信息已更新，旧确认已失效：' + message + '\n请重新发起并确认。');
         await AgentRepo.touchConversation(action.conversation_id);
       }
@@ -548,7 +680,7 @@ class AgentService {
     } catch (e) {
       await AgentRepo.markAction(action.id, 'failed', { error: e.message });
       if (action.conversation_id) {
-        await markState(action.conversation_id, { state: conv ? conv.state : null, version: conv ? conv.state_version : 0 }, (prev) => taskState.markFailed(prev, { code: 'EXECUTION_FAILED', message: e.message }));
+        await AgentRepo.mutateConversationState(action.conversation_id, (prev) => taskState.markFailed(prev, { code: 'EXECUTION_FAILED', message: e.message }));
         await AgentRepo.addMessage(action.conversation_id, 'assistant', '执行未成功：' + e.message + '\n可以补正后重新提交。');
       }
       throw e;
@@ -567,8 +699,7 @@ class AgentService {
     }
 
     if (action.conversation_id) {
-      const target = conv ? { state: conv.state, version: conv.state_version } : { state: null, version: 0 };
-      await markState(action.conversation_id, target, (prev) =>
+      await AgentRepo.mutateConversationState(action.conversation_id, (prev) =>
         success ? taskState.markCompleted(prev) : taskState.markFailed(prev, { code: 'EXECUTION_FAILED', message: (result.data && result.data.error) || '执行未成功' })
       );
       await AgentRepo.addMessage(action.conversation_id, 'user', '确认执行');

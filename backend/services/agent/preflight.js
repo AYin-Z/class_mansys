@@ -164,13 +164,14 @@ function validateAttachments(list, allowedUrls) {
  *   { ok:true, args, paramsHash, configHash }
  *   { ok:false, error:{code,message,allowed_types,windows,today,hint}, paramsHash, configHash }
  */
-async function validate({ tool, args, now, allowedAttachmentUrls } = {}) {
+async function validate({ tool, args, now, allowedAttachmentUrls, freshConfig } = {}) {
   const a = args || {};
   const hash = paramsHash(a);
   const kind = leaveKind(tool, a);
 
   if (kind === 'apply') {
-    const cfg = await loadLeaveConfig();
+    // 确认阶段必须强制读最新配置（freshConfig=true），不能吃 60s 缓存
+    const cfg = await loadLeaveConfig(!!freshConfig);
     const payload = payloadOf(tool, a);
     const allowed = cfg.list.map((c) => c.type_name);
     const today = todayStr(now);

@@ -59,6 +59,13 @@ class AgentRepo {
         (userId ? ' AND user_id = ?' : ''),
       userId ? [id, userId] : [id]
     );
+    if (r.affectedRows > 0) {
+      // 会话关闭后旧卡片一律不可确认（confirm 还会用 closed_at 做原子兜底）
+      await db.query(
+        "UPDATE agent_actions SET status = 'invalidated', invalidated_at = NOW() WHERE conversation_id = ? AND status = 'pending'",
+        [id]
+      );
+    }
     return r.affectedRows > 0;
   }
 
@@ -138,14 +145,19 @@ class AgentRepo {
     return r.insertId;
   }
 
-  /** 同一会话内生成新动作前，把旧的 pending 标为 superseded（改口后旧卡片不能再执行） */
-  static async supersedePendingActions(conversationId, userId) {
+  /** 把同一会话内旧的 pending 作废（改口/新动作/新轮次都不能再执行） */
+  static async invalidatePendingActions(conversationId, userId, status = 'superseded') {
     if (!conversationId) return 0;
+    const finalStatus = status === 'invalidated' ? 'invalidated' : 'superseded';
     const [r] = await db.query(
-      "UPDATE agent_actions SET status = 'superseded', invalidated_at = NOW() WHERE conversation_id = ? AND user_id = ? AND status = 'pending'",
-      [conversationId, userId]
+      "UPDATE agent_actions SET status = ?, invalidated_at = NOW() WHERE conversation_id = ? AND user_id = ? AND status = 'pending'",
+      [finalStatus, conversationId, userId]
     );
     return r.affectedRows;
+  }
+
+  static async supersedePendingActions(conversationId, userId) {
+    return AgentRepo.invalidatePendingActions(conversationId, userId, 'superseded');
   }
 
   /**
@@ -153,9 +165,13 @@ class AgentRepo {
    * affectedRows=0 表示已被别人执行/已失效/已过期。
    */
   static async claimAction({ id, userId, stateVersion, claimToken }) {
+    // 原子边界：action 自身版本 + 会话当前 state_version + closed_at 必须在同一条 UPDATE 里成立。
+    // 这样「改口/预校验失败/补图/重置」只要推进了会话版本或关闭会话，旧 action 就不可能被抢占。
     const [r] = await db.query(
-      "UPDATE agent_actions SET status = 'executing', claim_token = ?, claimed_at = NOW() " +
-        "WHERE id = ? AND user_id = ? AND status = 'pending' AND expires_at > NOW() AND state_version = ?",
+      "UPDATE agent_actions a LEFT JOIN agent_conversations c ON c.id = a.conversation_id " +
+        "SET a.status = 'executing', a.claim_token = ?, a.claimed_at = NOW() " +
+        "WHERE a.id = ? AND a.user_id = ? AND a.status = 'pending' AND a.expires_at > NOW() AND a.state_version = ? " +
+        'AND (a.conversation_id IS NULL OR (c.id IS NOT NULL AND c.closed_at IS NULL AND c.state_version = a.state_version))',
       [claimToken, id, userId, Number(stateVersion) || 0]
     );
     return r.affectedRows > 0;
@@ -181,6 +197,8 @@ class AgentRepo {
       sql += ' AND conversation_id = ?';
       params.push(conversationId);
     }
+    // 会话已推进版本 / 已关闭时，旧卡片不再作为「可确认」返回
+    sql += ' AND (conversation_id IS NULL OR EXISTS (SELECT 1 FROM agent_conversations c WHERE c.id = agent_actions.conversation_id AND c.state_version = agent_actions.state_version AND c.closed_at IS NULL))';
     sql += ' ORDER BY id DESC LIMIT 1';
     const [rows] = await db.query(sql, params);
     return normalizeAction(rows[0]);
