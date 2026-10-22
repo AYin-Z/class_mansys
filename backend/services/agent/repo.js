@@ -1,7 +1,29 @@
 const db = require('../../config/database');
 
-/** Agent 会话/消息/待确认动作 数据访问 */
+/** 会话 state 的安全解析（旧行/异常值一律视为空草稿） */
+function parseState(raw) {
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'object') return raw;
+  try {
+    const v = JSON.parse(raw);
+    return v && typeof v === 'object' ? v : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function normalizeConversation(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    state: parseState(row.state),
+    state_version: Number(row.state_version || 0)
+  };
+}
+
+/** Agent 会话/消息/待确认动作/渠道会话/附件 数据访问 */
 class AgentRepo {
+  // ---- 会话 ----
   static async createConversation(userId, title) {
     const [r] = await db.query('INSERT INTO agent_conversations (user_id, title) VALUES (?, ?)', [userId, title || null]);
     return r.insertId;
@@ -9,7 +31,13 @@ class AgentRepo {
 
   static async getConversation(id, userId) {
     const [rows] = await db.query('SELECT * FROM agent_conversations WHERE id = ? AND user_id = ?', [id, userId]);
-    return rows[0] || null;
+    return normalizeConversation(rows[0]);
+  }
+
+  /** 内部使用：不校验归属（confirm 复验时已经拿动作行校验过 user_id） */
+  static async getConversationById(id) {
+    const [rows] = await db.query('SELECT * FROM agent_conversations WHERE id = ?', [id]);
+    return normalizeConversation(rows[0]);
   }
 
   static async listConversations(userId, limit = 20) {
@@ -24,6 +52,49 @@ class AgentRepo {
     await db.query('UPDATE agent_conversations SET updated_at = NOW() WHERE id = ?', [id]);
   }
 
+  static async closeConversation(id, userId) {
+    if (!id) return false;
+    const [r] = await db.query(
+      'UPDATE agent_conversations SET closed_at = NOW(), updated_at = NOW() WHERE id = ? AND closed_at IS NULL' +
+        (userId ? ' AND user_id = ?' : ''),
+      userId ? [id, userId] : [id]
+    );
+    return r.affectedRows > 0;
+  }
+
+  /**
+   * 乐观锁保存任务状态。expectedVersion 必须与当前 state_version 一致，
+   * 否则说明有并发写入（同一会话两条消息），调用方应重读后再合并。
+   */
+  static async saveConversationState(id, state, expectedVersion) {
+    const [r] = await db.query(
+      'UPDATE agent_conversations SET state = ?, state_version = state_version + 1, updated_at = NOW() WHERE id = ? AND state_version = ?',
+      [state ? JSON.stringify(state) : null, id, Number(expectedVersion) || 0]
+    );
+    return r.affectedRows > 0;
+  }
+
+  /**
+   * 读-改-写任务状态（最多重试 3 次）。mutator(state, version) 返回新 state
+   * 或 null（表示不修改）。返回 { state, version, changed }。
+   */
+  static async mutateConversationState(id, mutator) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const conv = await AgentRepo.getConversationById(id);
+      if (!conv) return { state: null, version: 0, changed: false };
+      const next = mutator(conv.state, conv.state_version);
+      if (next === null || next === undefined) {
+        return { state: conv.state, version: conv.state_version, changed: false };
+      }
+      const ok = await AgentRepo.saveConversationState(id, next, conv.state_version);
+      if (ok) return { state: next, version: conv.state_version + 1, changed: true };
+    }
+    // 冲突不是致命错误：本轮不写状态，动作仍会用旧版本生成，确认时会被版本校验拦下
+    const latest = await AgentRepo.getConversationById(id);
+    return { state: latest ? latest.state : null, version: latest ? latest.state_version : 0, changed: false };
+  }
+
+  // ---- 消息 ----
   static async addMessage(conversationId, role, content, toolCalls) {
     const payload = toolCalls ? JSON.stringify(toolCalls) : null;
     const [r] = await db.query(
@@ -52,15 +123,48 @@ class AgentRepo {
     return Number(rows[0]?.c || 0);
   }
 
-  static async createAction({ conversationId, userId, tool, method, path, params, preview, risk, impact, ttlMs }) {
+  // ---- 待确认动作 ----
+  static async createAction({ conversationId, userId, tool, method, path, params, preview, risk, impact, ttlMs, stateVersion, paramsHash, configHash }) {
     const [r] = await db.query(
-      'INSERT INTO agent_actions (conversation_id, user_id, tool, method, path, params, preview, risk, impact, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND))',
+      'INSERT INTO agent_actions (conversation_id, user_id, tool, method, path, params, params_hash, config_hash, preview, risk, impact, state_version, expires_at) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND))',
       [
         conversationId || null, userId, tool, method, path, JSON.stringify(params || {}),
-        preview || null, risk || 'medium', impact || null, Math.round((ttlMs || 300000) / 1000)
+        paramsHash || null, configHash || null,
+        preview || null, risk || 'medium', impact || null, Number(stateVersion) || 0,
+        Math.round((ttlMs || 300000) / 1000)
       ]
     );
     return r.insertId;
+  }
+
+  /** 同一会话内生成新动作前，把旧的 pending 标为 superseded（改口后旧卡片不能再执行） */
+  static async supersedePendingActions(conversationId, userId) {
+    if (!conversationId) return 0;
+    const [r] = await db.query(
+      "UPDATE agent_actions SET status = 'superseded', invalidated_at = NOW() WHERE conversation_id = ? AND user_id = ? AND status = 'pending'",
+      [conversationId, userId]
+    );
+    return r.affectedRows;
+  }
+
+  /**
+   * 原子抢占：只有 pending、未过期、状态版本完全一致的请求能拿到执行权。
+   * affectedRows=0 表示已被别人执行/已失效/已过期。
+   */
+  static async claimAction({ id, userId, stateVersion, claimToken }) {
+    const [r] = await db.query(
+      "UPDATE agent_actions SET status = 'executing', claim_token = ?, claimed_at = NOW() " +
+        "WHERE id = ? AND user_id = ? AND status = 'pending' AND expires_at > NOW() AND state_version = ?",
+      [claimToken, id, userId, Number(stateVersion) || 0]
+    );
+    return r.affectedRows > 0;
+  }
+
+  /** 任意状态的动作（confirm 冲突分类/幂等回复用） */
+  static async findAction(id) {
+    const [rows] = await db.query('SELECT * FROM agent_actions WHERE id = ?', [id]);
+    return normalizeAction(rows[0]);
   }
 
   /**
@@ -70,72 +174,118 @@ class AgentRepo {
    * 映射就没了，用户回复「确认」会被告知"没有待确认操作"——而卡片明明还在聊天记录里。
    * 改从库里查，天然跨重启，也避免同一用户多条待确认时张冠李戴。
    */
-  static async latestPendingAction(userId) {
-    const [rows] = await db.query(
-      "SELECT * FROM agent_actions WHERE user_id = ? AND status = 'pending' AND expires_at > NOW() ORDER BY id DESC LIMIT 1",
-      [userId]
-    );
-    const row = rows[0];
-    if (!row) return null;
-    return { ...row, params: typeof row.params === 'string' ? safeParse(row.params) : row.params };
+  static async latestPendingAction(userId, conversationId) {
+    const params = [userId];
+    let sql = "SELECT * FROM agent_actions WHERE user_id = ? AND status = 'pending' AND expires_at > NOW()";
+    if (conversationId) {
+      sql += ' AND conversation_id = ?';
+      params.push(conversationId);
+    }
+    sql += ' ORDER BY id DESC LIMIT 1';
+    const [rows] = await db.query(sql, params);
+    return normalizeAction(rows[0]);
   }
 
-  /** 记一条可撤销操作 */
-  static async createUndo({ userId, actionId, conversationId, tool, label, method, path, params, ttlMs }) {
+  static async markAction(id, status, result, opts) {
+    const extra = opts || {};
+    const sets = ['status = ?', 'result = ?'];
+    const params = [status, result ? JSON.stringify(result).slice(0, 8000) : null];
+    if (status === 'executed' || status === 'failed') sets.push('executed_at = NOW()');
+    if (status === 'invalidated' || status === 'superseded') sets.push('invalidated_at = NOW()');
+    if (extra.clearClaim) sets.push('claim_token = NULL');
+    params.push(id);
+    await db.query('UPDATE agent_actions SET ' + sets.join(', ') + ' WHERE id = ?', params);
+  }
+
+  // ---- 渠道会话 ----
+  static async findChannelSession(channel, externalId) {
+    const [rows] = await db.query(
+      'SELECT * FROM agent_channel_sessions WHERE channel = ? AND external_id = ?',
+      [channel, externalId]
+    );
+    return rows[0] || null;
+  }
+
+  static async createChannelSession({ channel, externalId, userId, conversationId, expiresAt }) {
     const [r] = await db.query(
-      'INSERT INTO agent_undo (user_id, action_id, conversation_id, tool, label, method, path, params, expires_at)' +
-        ' VALUES (?,?,?,?,?,?,?,?, DATE_ADD(NOW(), INTERVAL ? SECOND))',
-      [
-        userId, actionId || null, conversationId || null, tool, label, method, path,
-        JSON.stringify(params || {}), Math.round((ttlMs || 1800000) / 1000)
-      ]
+      "INSERT INTO agent_channel_sessions (channel, external_id, user_id, conversation_id, status, expires_at) VALUES (?, ?, ?, ?, 'active', ?)",
+      [channel, externalId, userId, conversationId, expiresAt]
     );
     return r.insertId;
   }
 
-  /** 某用户最近一条仍可撤销的操作 */
-  static async latestUndo(userId) {
-    const [rows] = await db.query(
-      "SELECT * FROM agent_undo WHERE user_id = ? AND status = 'available' AND expires_at > NOW()" +
-        ' ORDER BY id DESC LIMIT 1',
-      [userId]
+  static async updateChannelSession(id, { userId, conversationId, expiresAt, status }) {
+    await db.query(
+      'UPDATE agent_channel_sessions SET user_id = ?, conversation_id = ?, status = ?, expires_at = ?, created_at = NOW(), updated_at = NOW() WHERE id = ?',
+      [userId, conversationId, status || 'active', expiresAt, id]
     );
-    const row = rows[0];
-    if (!row) return null;
-    return { ...row, params: typeof row.params === 'string' ? safeParse(row.params) : row.params };
   }
 
-  static async getUndo(id, userId) {
-    const [rows] = await db.query(
-      "SELECT * FROM agent_undo WHERE id = ? AND user_id = ? AND status = 'available' AND expires_at > NOW()",
-      [id, userId]
+  static async touchChannelSession(id) {
+    await db.query('UPDATE agent_channel_sessions SET updated_at = NOW() WHERE id = ?', [id]);
+  }
+
+  /** 解绑/换绑时关闭渠道会话指针；默认只关该 external 的 active 会话 */
+  static async closeChannelSession(channel, externalId, status = 'closed') {
+    const [r] = await db.query(
+      "UPDATE agent_channel_sessions SET status = ?, updated_at = NOW() WHERE channel = ? AND external_id = ? AND status = 'active'",
+      [status, channel, externalId]
     );
-    const row = rows[0];
-    if (!row) return null;
-    return { ...row, params: typeof row.params === 'string' ? safeParse(row.params) : row.params };
+    return r.affectedRows > 0;
   }
 
-  static async markUndo(id, status) {
-    await db.query('UPDATE agent_undo SET status = ?, used_at = NOW() WHERE id = ?', [status, id]);
-  }
-
-  static async getAction(id) {
-    const [rows] = await db.query(
-      "SELECT * FROM agent_actions WHERE id = ? AND status = 'pending' AND expires_at > NOW()",
-      [id]
+  // ---- 入站去重 ----
+  /** @returns {Promise<boolean>} true=首次见到（需要处理），false=重复消息 */
+  static async markInboundSeen(channel, externalId, messageId) {
+    if (!messageId) return true; // 没有可靠 id 时不去重，避免误吞消息
+    const [r] = await db.query(
+      'INSERT IGNORE INTO agent_inbound_dedup (channel, external_id, message_id) VALUES (?, ?, ?)',
+      [channel, externalId, String(messageId).slice(0, 160)]
     );
-    const row = rows[0];
-    if (!row) return null;
-    return { ...row, params: typeof row.params === 'string' ? safeParse(row.params) : row.params };
+    return r.affectedRows > 0;
   }
 
-  static async markAction(id, status, result) {
-    await db.query('UPDATE agent_actions SET status = ?, result = ?, executed_at = NOW() WHERE id = ?', [
-      status,
-      result ? JSON.stringify(result).slice(0, 8000) : null,
-      id
-    ]);
+  // ---- 附件 ----
+  static async registerAttachment({ userId, conversationId, url, name, mime, size, sha256, source }) {
+    await db.query(
+      'INSERT INTO agent_attachments (user_id, conversation_id, url, name, mime, size, sha256, source) ' +
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), mime = VALUES(mime), size = VALUES(size), sha256 = VALUES(sha256)',
+      [userId, conversationId || null, url, name || null, mime || null, Number(size) || 0, sha256 || null, source || 'app']
+    );
+    return AgentRepo.findAttachmentByUrl(url);
   }
+
+  static async findAttachmentByUrl(url) {
+    const [rows] = await db.query('SELECT * FROM agent_attachments WHERE url = ?', [url]);
+    return rows[0] || null;
+  }
+
+  static async listAttachmentsByConversation(conversationId, limit = 20) {
+    const [rows] = await db.query(
+      'SELECT * FROM agent_attachments WHERE conversation_id = ? ORDER BY id ASC LIMIT ?',
+      [conversationId, Math.min(Math.max(Number(limit) || 20, 1), 100)]
+    );
+    return rows;
+  }
+
+  /** 把本轮附件挂到会话上（上传时还不知道 conversation_id） */
+  static async bindAttachmentsToConversation(userId, urls, conversationId) {
+    const list = (urls || []).filter(Boolean);
+    if (!list.length || !conversationId) return;
+    await db.query(
+      'UPDATE agent_attachments SET conversation_id = ? WHERE user_id = ? AND url IN (?)',
+      [conversationId, userId, list]
+    );
+  }
+}
+
+function normalizeAction(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    params: typeof row.params === 'string' ? safeParse(row.params) : row.params,
+    state_version: Number(row.state_version || 0)
+  };
 }
 
 function safeParse(s) {
