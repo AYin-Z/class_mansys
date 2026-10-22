@@ -41,13 +41,29 @@ function check(name, cond, extra) {
   const read = await ChannelService.handleInbound({ channel: 'weixin', externalId: EXTERNAL, text: '我的请假记录', app });
   check('读消息走 Agent 并回复', !!read.reply && read.reply.length > 2, JSON.stringify(read.reply).slice(0, 120));
 
-  const write = await ChannelService.handleInbound({ channel: 'weixin', externalId: EXTERNAL, text: '建议：渠道冒烟建议', app });
-  check('写消息返回待确认动作', !!write.pendingAction && /确认/.test(write.reply), JSON.stringify(write).slice(0, 160));
+  // 连续 5 轮必须续接同一会话（旧实现每条消息新建会话，图片/草稿/确认全丢）
+  const convIds = [];
+  for (let i = 0; i < 5; i += 1) {
+    const r = await ChannelService.handleInbound({ channel: 'weixin', externalId: EXTERNAL, text: '我的请假记录', app });
+    convIds.push(r.conversationId);
+  }
+  check('连续 5 轮同一 conversationId', new Set(convIds).size === 1 && !!convIds[0], JSON.stringify(convIds));
+
+  const reset = await ChannelService.handleInbound({ channel: 'weixin', externalId: EXTERNAL, text: '/新会话', app });
+  check('/新会话 轮换会话', !!reset.conversationId && reset.conversationId !== convIds[0], JSON.stringify(reset));
+  const afterReset = await ChannelService.handleInbound({ channel: 'weixin', externalId: EXTERNAL, text: '我的请假记录', app });
+  check('/新会话 后消息进入新会话', afterReset.conversationId === reset.conversationId, JSON.stringify({ reset, afterReset }));
+
+  const write = await ChannelService.handleInbound({ channel: 'weixin', externalId: EXTERNAL, text: '我要请假：明天午集合，事由：渠道冒烟', app });
+  check('写消息返回待确认动作', !!write.pendingAction && /确认/.test(write.reply), JSON.stringify(write).slice(0, 200));
   if (write.pendingAction) {
     const confirmed = await ChannelService.confirm(user.id, write.pendingAction.id, app);
-    check('确认后执行成功', confirmed.success === true, JSON.stringify(confirmed).slice(0, 160));
+    check('确认后执行成功', confirmed.success === true && confirmed.already === false, JSON.stringify(confirmed).slice(0, 200));
+    const again = await ChannelService.confirm(user.id, write.pendingAction.id, app);
+    check('重复确认幂等（不再执行）', again.already === true && again.success === true && /已经执行过/.test(again.reply), JSON.stringify(again).slice(0, 200));
   } else {
     check('确认后执行成功', false, 'no pendingAction');
+    check('重复确认幂等（不再执行）', false, 'no pendingAction');
   }
 
   const unbound = await ChannelService.handleInbound({ channel: 'weixin', externalId: EXTERNAL, text: '/解绑', app });
@@ -58,6 +74,7 @@ function check(name, cond, extra) {
   const hint = await ChannelService.handleInbound({ channel: 'weixin', externalId: EXTERNAL, text: '我的请假记录', app });
   check('未绑定用户收到绑定指引', /绑定码/.test(hint.reply), hint.reply);
 
+  await db.query("DELETE FROM leaves WHERE user_id = ? AND reason = '渠道冒烟'", [user.id]);
   await db.query('DELETE FROM agent_bind_codes WHERE user_id = ?', [user.id]);
   console.log('\n渠道冒烟：PASS ' + pass + '  FAIL ' + fail);
   process.exit(fail ? 1 : 0);

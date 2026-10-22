@@ -27,10 +27,21 @@ describe('视觉：图片内容块', () => {
     expect(parts.length).toBeLessThanOrEqual(vision.MAX_IMAGES);
   });
 
-  it('剥掉图片块只留文本（回落纯文本上游时用）', () => {
-    const content = [{ type: 'text', text: '你好' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,AAA' } }];
-    expect(vision.stripImageParts(content)).toBe('你好');
+  it('图片块换成显式「图片不可见」占位，而不是静默丢弃（回落纯文本上游时用）', () => {
+    const content = [{ type: 'text', text: '你好' }, { type: 'image_url', image_url: { url: 'data:image/png;base64,AAA' }, _meta: { name: '证明.png', url: '/uploads/agent/a.png' } }];
+    const out = vision.stripImageParts(content);
+    expect(out).toContain('你好');
+    expect(out).toContain('图片不可见');
+    expect(out).toContain('证明.png');
+    expect(out).toContain('/uploads/agent/a.png');
     expect(vision.stripImageParts('纯文本')).toBe('纯文本');
+  });
+
+  it('发给视觉上游前剥掉内部 _meta，只保留 image_url', () => {
+    const content = [{ type: 'image_url', image_url: { url: 'data:image/png;base64,AAA' }, _meta: { name: 'x' } }];
+    const out = vision.sanitizeParts(content);
+    expect(out[0]._meta).toBeUndefined();
+    expect(out[0].image_url.url).toContain('base64');
   });
 });
 

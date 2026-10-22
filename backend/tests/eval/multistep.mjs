@@ -102,7 +102,7 @@ async function runScenario(sc, cat) {
       for (const call of calls) {
         const name = call.function && call.function.name;
         let args = {};
-        try { args = JSON.parse((call.function && call.function.arguments) || '{}'); } catch (e) { /* 参数不是合法 JSON：照样记录 */ }
+        try { args = JSON.parse((call.function && call.function.arguments) || '{}'); } catch { /* 参数不是合法 JSON：照样记录 */ }
         const label = args && args.action ? name + ' ' + args.action : name;
         chain.push(label);
         // 剧本查表：先精确（工具+action），再通配（工具 *），再工具名本身
