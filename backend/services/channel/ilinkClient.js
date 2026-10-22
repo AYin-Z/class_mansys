@@ -99,6 +99,13 @@ async function getUpdates({ token, syncBuf = '', timeoutMs = 35000 } = {}) {
   }
 }
 
+/** 入站消息的稳定 id（不同协议版本字段名不同；取不到就不去重，绝不误吞） */
+function messageIdOf(msg) {
+  if (!msg || typeof msg !== 'object') return '';
+  const v = msg.msg_id || msg.message_id || msg.messageId || msg.id || msg.seq || msg.client_id;
+  return v === undefined || v === null ? '' : String(v).trim();
+}
+
 function extractText(itemList) {
   for (const item of Array.isArray(itemList) ? itemList : []) {
     if (item && Number(item.type) === ITEM_TEXT) {
@@ -137,5 +144,5 @@ async function pollQrStatus(qrcode, base) {
 module.exports = {
   ILINK_APP_ID, CHANNEL_VERSION, ILINK_APP_CLIENT_VERSION, DEFAULT_BASE_URL,
   EP_GET_UPDATES, EP_SEND_MESSAGE, EP_GET_BOT_QR, EP_GET_QR_STATUS,
-  buildHeaders, buildBody, apiPost, apiGet, getUpdates, sendText, extractText, fetchQrCode, pollQrStatus, baseUrl
+  buildHeaders, buildBody, apiPost, apiGet, getUpdates, sendText, extractText, messageIdOf, fetchQrCode, pollQrStatus, baseUrl
 };

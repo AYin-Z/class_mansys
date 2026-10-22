@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const ChannelRepo = require('./channelRepo');
 const User = require('../../models/User');
 const AgentService = require('../agent/agentService');
+const channelSession = require('../agent/channelSession');
 const authService = require('../authService');
 const { env } = require('../../config/env');
 const logger = require('../../config/logger');
@@ -49,11 +50,14 @@ class ChannelService {
     const row = await ChannelRepo.consumeBindCode(code);
     if (!row) throw new BadRequestError('绑定码无效或已过期，请在 App 内重新生成');
     await ChannelRepo.upsertBinding({ channel, externalId, userId: row.user_id, displayName });
+    // 换绑时把上一个人的渠道会话指针关掉；新身份从干净会话开始
+    await channelSession.closeSession({ channel, externalId });
     logger.info({ channel, userId: row.user_id }, 'channel bound');
     return row.user_id;
   }
 
   static async unbind(channel, externalId) {
+    await channelSession.closeSession({ channel, externalId });
     return ChannelRepo.unbindByExternal(channel, externalId);
   }
 
@@ -108,13 +112,26 @@ class ChannelService {
     const user = await User.findById(binding.user_id);
     if (!user) return { reply: '绑定的账号已不存在，请重新绑定。' };
 
+    // /新会话：显式轮换，不把命令本身送进模型
+    if (channelSession.isResetCommand(trimmed)) {
+      const session = await channelSession.resolveSession({
+        channel, externalId, userId: user.id, title: '新会话', reset: true
+      });
+      return { reply: '已开始新会话。之前的对话仍保留在 App 里，可以直接说新的事。', conversationId: session.conversationId, pendingAction: null };
+    }
+
+    // 同渠道同身份续接：12h 空闲 / 7d 绝对过期自动轮换（见 services/agent/channelSession.js）
+    const session = await channelSession.resolveSession({
+      channel, externalId, userId: user.id, title: trimmed
+    });
+
     const token = authService.signToken(user);
     const result = await AgentService.chat(
       { id: user.id, name: user.name, role: user.role, class_id: user.class_id },
       token,
       // 微信收到的图片/文件已由 worker 落盘成 /uploads URL，这里作为附件交给 Agent
       // （请假证明、相册照片正好是现成用途）
-      { message: trimmed, attachments: Array.isArray(attachments) ? attachments : [] },
+      { conversationId: session.conversationId, message: trimmed, attachments: Array.isArray(attachments) ? attachments : [] },
       app
     );
 
@@ -143,7 +160,7 @@ class ChannelService {
     if (!user) throw new BadRequestError('账号不存在');
     const token = authService.signToken(user);
     const result = await AgentService.undoLast({ id: user.id, name: user.name, role: user.role }, token, app, {});
-    return { reply: result.reply, success: result.success };
+    return { reply: result.reply, success: result.success, already: !!result.already, code: result.code || null, status: result.status || null };
   }
 
   /** 微信侧确认：执行待确认动作 */
@@ -152,7 +169,7 @@ class ChannelService {
     if (!user) throw new BadRequestError('账号不存在');
     const token = authService.signToken(user);
     const result = await AgentService.confirm({ id: user.id, name: user.name, role: user.role }, token, actionId, app);
-    return { reply: result.reply, success: result.success };
+    return { reply: result.reply, success: result.success, already: !!result.already, code: result.code || null, status: result.status || null };
   }
 }
 
