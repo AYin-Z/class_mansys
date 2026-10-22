@@ -289,16 +289,16 @@ PASS: 108  FAIL: 0
 
 PR：https://github.com/AYin-Z/class_mansys/pull/1
 
-CI run `39728415499`（最终代码 `57e2f8e`）：
+CI run `39790613711`（复核补修代码 `c73e00b`）：
 
 | job | 结果 | 说明 |
 |---|---|---|
 | backend | pass | `npm run lint` + `npm test`（371 项） |
 | frontend | pass | 未改前端，沿用既有门禁 |
 | ui-smoke | pass | 未改 UI |
-| agent-eval | pass | 工具选择 307/330 = **93%**（门禁 90%）；多步行为 7/9=77.8% 为观测项 |
+| agent-eval | pass | 工具选择 306/330 = **92.7%**（门禁 90%）；多步行为 7/9=77.8% 为观测项 |
 
-说明：本分支同时修正了评测工具表（`tests/eval/run.mjs`、`multistep.mjs`）使用真实 `leave_config` 生成 `apply_leave.type` enum，并在工具描述中明确「不要先调 GET /api/leave/types」，使工具选择评测从 86.7% 提升到 93%。
+说明：本分支同时修正了评测工具表（`tests/eval/run.mjs`、`multistep.mjs`）使用真实 `leave_config` 生成 `apply_leave.type` enum，并在工具描述中明确「不要先调 GET /api/leave/types」，工具选择评测稳定在 92.7%~93%。
 
 ## 14. Hermes 独立验收补修（RED → GREEN）
 
