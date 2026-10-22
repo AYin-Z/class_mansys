@@ -234,6 +234,34 @@ describe('Harness 多轮与确认（需要测试库 + 本地测试端口）', ()
     expect((await AgentRepo.findAction(second.pendingAction.id)).status).toBe('pending');
   });
 
+  it('流式对话同样走草稿/预校验，并推送 pending 事件', async () => {
+    if (!ready) return;
+    vi.spyOn(llm, 'chatStream').mockResolvedValueOnce(toolCall('apply_leave', leaveArgs({ reason: '流式' })));
+    const events = [];
+    const out = await AgentService.chatStream(userA, tokenA, { message: '明天午集合请假', attachments: [] }, app, (e) => events.push(e));
+    conversationIds.push(out.conversationId);
+    expect(out.pendingAction).toBeTruthy();
+    expect(events.some((e) => e.type === 'pending')).toBe(true);
+    const conv = await AgentRepo.getConversationById(out.conversationId);
+    expect(conv.state.tool).toBe('apply_leave');
+    expect(conv.state.status).toBe('awaiting_confirm');
+  });
+
+  it('确认前复验：配置哈希变化 → invalidated，零副作用', async () => {
+    if (!ready) return;
+    vi.spyOn(llm, 'chat').mockResolvedValueOnce(toolCall('apply_leave', leaveArgs({ reason: '配置变更' })));
+    const out = await AgentService.chat(userA, tokenA, { message: '明天午集合请假', attachments: [] }, app);
+    conversationIds.push(out.conversationId);
+    const actionId = out.pendingAction.id;
+    await db.query('UPDATE agent_actions SET config_hash = ? WHERE id = ?', ['0'.repeat(64), actionId]);
+    const rejected = await AgentService.confirm(userA, tokenA, actionId, app);
+    expect(rejected.success).toBe(false);
+    expect(rejected.code).toBe('ACTION_INVALIDATED');
+    expect((await AgentRepo.findAction(actionId)).status).toBe('invalidated');
+    const [leaves] = await db.query('SELECT * FROM leaves WHERE user_id = ? AND reason = ?', [userA.id, REASON_PREFIX + '配置变更']);
+    expect(leaves).toHaveLength(0);
+  });
+
   it('用户隔离：B 不能确认 A 的动作，也不能引用 A 的附件', async () => {
     if (!ready) return;
     vi.spyOn(llm, 'chat')

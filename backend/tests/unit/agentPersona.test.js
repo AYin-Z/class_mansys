@@ -73,4 +73,12 @@ describe('system prompt 必须保持静态（前缀缓存的命门）', () => {
     expect(c).toContain('区队长');
     expect(c).toMatch(/今天 \d{4}-\d{2}-\d{2}/);
   });
+
+  it('任务草稿/配置/附件清单只进当前 user 上下文，不进 system prompt', () => {
+    const draft = '【当前任务草稿】工具 apply_leave，状态 collecting';
+    const c = buildUserContext({ name: '张三', role: 0 }, '明天请假', draft);
+    expect(c).toContain(draft);
+    expect(c).toContain('张三');
+    expect(buildSystemPrompt({ role: 0 })).not.toContain('当前任务草稿');
+  });
 });

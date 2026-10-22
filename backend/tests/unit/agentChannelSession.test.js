@@ -95,6 +95,21 @@ describe('渠道会话指针（需要测试库）', () => {
     expect(row.status).not.toBe('active');
   });
 
+  it('会话状态乐观锁：过期版本写入失败，mutate 能重读重试', async () => {
+    if (!ready) return;
+    const s = await channelSession.resolveSession({ channel: 'weixin', externalId: external, userId: userA });
+    conversations.push(s.conversationId);
+    const conv = await AgentRepo.getConversationById(s.conversationId);
+    expect(conv.state_version).toBe(0);
+    const ok = await AgentRepo.saveConversationState(s.conversationId, { tool: 'apply_leave', status: 'collecting', fields: {}, attachments: [], revision: 1 }, 0);
+    expect(ok).toBe(true);
+    const stale = await AgentRepo.saveConversationState(s.conversationId, { tool: 'x' }, 0);
+    expect(stale).toBe(false);
+    const mutated = await AgentRepo.mutateConversationState(s.conversationId, (prev) => ({ ...prev, revision: 2 }));
+    expect(mutated.changed).toBe(true);
+    expect(mutated.version).toBe(2);
+  });
+
   it('入站消息去重：同一 message_id 第二次返回 false', async () => {
     if (!ready) return;
     const mid = 'msg_' + crypto.randomBytes(4).toString('hex');

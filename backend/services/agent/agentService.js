@@ -66,6 +66,9 @@ async function prepareTurn(user, { conversationId, message, attachments }, app) 
     throw new HttpError(429, '今日对话次数已达上限，请明天再试', 'AGENT_QUOTA_EXCEEDED');
   }
 
+  // 附件所有权：未登记 / 别人的图 → 403（在创建会话/写消息前拦下，避免留下孤儿会话）
+  const atts = await attachmentAuth.authorize(user.id, rawAtts);
+
   const catalog = agentCatalogFor(app, user);
   let convId = conversationId ? Number(conversationId) : null;
   let conv;
@@ -78,8 +81,6 @@ async function prepareTurn(user, { conversationId, message, attachments }, app) 
     conv = await AgentRepo.getConversationById(convId);
   }
 
-  // 附件所有权：未登记 / 别人的图 → 403（必须在写消息前拦下）
-  const atts = await attachmentAuth.authorize(user.id, rawAtts);
   if (atts.length) await AgentRepo.bindAttachmentsToConversation(user.id, atts.map((a) => a.url), convId);
 
   await AgentRepo.addMessage(convId, 'user', userContent);

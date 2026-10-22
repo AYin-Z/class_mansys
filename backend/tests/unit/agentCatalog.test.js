@@ -72,6 +72,18 @@ describe('Agent 工具目录', () => {
     }
     const applyLeave = catalog.openai.find((t) => t.function.name === 'apply_leave');
     expect(applyLeave.function.parameters.required).toContain('start_time');
+    expect(applyLeave.function.parameters.required).toContain('reason');
+
+    // 动态配置：type 用真实枚举 + 窗口描述，避免模型猜数字/别名
+    const { toOpenAiTools } = require('../../services/agent/toolCatalog');
+    const dyn = toOpenAiTools(catalog, {
+      leaveTypes: [
+        { type_name: '午集合', is_fixed: true, start_time: '13:00:00', end_time: '14:00:00' },
+        { type_name: '其他', is_fixed: false }
+      ]
+    }).find((t) => t.function.name === 'apply_leave');
+    expect(dyn.function.parameters.properties.type.enum).toEqual(['午集合', '其他']);
+    expect(dyn.function.description).toContain('午集合 13:00-14:00');
   });
 
   it('模块工具的 action 带权限标记（供按角色裁剪）', () => {
