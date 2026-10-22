@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { createRequire } from 'node:module';
 
 process.env.NODE_ENV = 'test';
-process.env.DB_NAME = 'class_manage_sys_test';
+process.env.DB_NAME = process.env.DB_NAME || 'class_manage_sys_test';
 process.env.JWT_SECRET = 'test_secret_1234567';
 
 const require = createRequire(import.meta.url);
@@ -21,9 +21,11 @@ let ready = false;
 beforeAll(async () => {
   try {
     const cfg = await preflight.loadLeaveConfig(true);
-    ready = cfg.list.length > 0;
+    if (!cfg.list.length) throw new Error('leave_config 为空');
+    ready = true;
   } catch (e) {
-    ready = false;
+    // 预校验依赖真实配置：测试库不可用时必须 fail，不能静默 pass 掩盖回归
+    throw new Error('测试库不可用，预校验用例不允许静默跳过：' + e.message, { cause: e });
   }
 });
 

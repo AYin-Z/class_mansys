@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import crypto from 'node:crypto';
 
 process.env.NODE_ENV = 'test';
-process.env.DB_NAME = 'class_manage_sys_test';
+process.env.DB_NAME = process.env.DB_NAME || 'class_manage_sys_test';
 process.env.JWT_SECRET = 'test_secret_1234567';
 
 const require = createRequire(import.meta.url);
@@ -24,9 +24,11 @@ beforeAll(async () => {
     const [rows] = await db.query('SELECT id FROM users ORDER BY id LIMIT 2');
     userA = rows[0] && rows[0].id;
     userB = rows[1] && rows[1].id;
-    ready = !!(userA && userB);
+    if (!userA || !userB) throw new Error('测试库缺少用户');
+    ready = true;
   } catch (e) {
-    ready = false;
+    // 会话/附件所有权依赖测试库：不可用时必须 fail，不能静默 pass
+    throw new Error('测试库不可用，渠道会话用例不允许静默跳过：' + e.message, { cause: e });
   }
 });
 

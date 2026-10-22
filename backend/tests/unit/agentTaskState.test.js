@@ -74,6 +74,60 @@ describe('任务草稿状态机', () => {
     expect(mod.params.attachments).toEqual(['/uploads/a.png']);
   });
 
+  it('mergeArgs 把草稿字段并入 curated / module 参数，且模块工具按 action 隔离', () => {
+    const state = {
+      tool: 'apply_leave', status: 'failed',
+      fields: { type: '午集合', start_time: '2026-10-23 13:00:00', end_time: '2026-10-23 13:30:00' },
+      attachments: [], revision: 3
+    };
+    const curated = taskState.mergeArgs({ name: 'apply_leave', kind: 'curated' }, state, { reason: '病假' });
+    expect(curated.type).toBe('午集合');
+    expect(curated.reason).toBe('病假');
+
+    const moduleState = {
+      tool: 'leave', action: 'POST /api/leave/apply', status: 'failed',
+      fields: { type: '午集合', start_time: '2026-10-23 13:00:00', end_time: '2026-10-23 13:30:00' },
+      attachments: [], revision: 3
+    };
+    const mod = taskState.mergeArgs({ name: 'leave', kind: 'module' }, moduleState, { action: 'POST /api/leave/apply', params: { reason: '病假' } });
+    expect(mod.params.type).toBe('午集合');
+    expect(mod.params.reason).toBe('病假');
+    // 同模块不同 action 不得串字段
+    const other = taskState.mergeArgs({ name: 'leave', kind: 'module' }, moduleState, { action: 'PUT /api/leave/approve', params: { status: 1 } });
+    expect(other.params.type).toBeUndefined();
+  });
+
+  it('显式 attachments 可替换/清空；工具未定时的补图也会保留', () => {
+    const prev = {
+      tool: 'apply_leave', status: 'failed', fields: { type: '午集合' },
+      attachments: [{ url: '/uploads/a.png' }], revision: 2
+    };
+    const replaced = taskState.mergeDraft(prev, {
+      tool: 'apply_leave', args: { reason: 'x' }, attachments: ['/uploads/b.png'], replaceAttachments: true
+    });
+    expect(replaced.attachments.map((a) => a.url)).toEqual(['/uploads/b.png']);
+
+    const cleared = taskState.mergeDraft(prev, {
+      tool: 'apply_leave', args: { reason: 'x' }, attachments: [], replaceAttachments: true
+    });
+    expect(cleared.attachments).toEqual([]);
+
+    const noTool = taskState.mergeDraft(null, { tool: null, args: {}, attachments: ['/uploads/c.png'] });
+    expect(noTool.tool).toBeNull();
+    expect(noTool.attachments[0].url).toBe('/uploads/c.png');
+    expect(noTool.status).toBe('collecting');
+  });
+
+  it('clearAttachments 清空附件并回到 collecting', () => {
+    const cleared = taskState.clearAttachments({
+      tool: 'apply_leave', status: 'awaiting_confirm', fields: { type: '午集合' },
+      attachments: [{ url: '/uploads/a.png' }], revision: 4
+    });
+    expect(cleared.attachments).toEqual([]);
+    expect(cleared.status).toBe('collecting');
+    expect(cleared.last_error.code).toBe('ATTACHMENTS_CLEARED');
+  });
+
   it('prompt 块包含工具/字段/附件/上次失败，且不含系统提示词前缀', () => {
     const block = taskState.promptBlock({
       tool: 'apply_leave',
