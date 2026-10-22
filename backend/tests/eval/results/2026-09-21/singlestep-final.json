@@ -1,0 +1,81 @@
+{
+ "baseUrl": "http://127.0.0.1:8090/v1",
+ "model": "eval",
+ "rounds": 1,
+ "total": 165,
+ "passed": 151,
+ "score": 91.5,
+ "failures": [
+  {
+   "id": "announcement-list",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "attendance-company",
+   "round": 1,
+   "why": "选错工具 → company_leave_records"
+  },
+  {
+   "id": "leave-apply-tomorrow",
+   "round": 1,
+   "why": "参数取值不对 → {\"action\":\"GET /api/leave/types\"}"
+  },
+  {
+   "id": "leave-apply-tomorrow",
+   "round": 1,
+   "why": "参数取值不对 → {\"action\":\"GET /api/leave/types\"}"
+  },
+  {
+   "id": "leave-apply-next-monday",
+   "round": 1,
+   "why": "参数取值不对 → {\"action\":\"GET /api/leave/types\"}"
+  },
+  {
+   "id": "leave-apply-vague",
+   "round": 1,
+   "why": "选错工具 → auth"
+  },
+  {
+   "id": "leave-apply-vague",
+   "round": 1,
+   "why": "选错工具 → auth"
+  },
+  {
+   "id": "leave-cancel",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  },
+  {
+   "id": "leave-cancel",
+   "round": 1,
+   "why": "选错工具 → my_leaves"
+  },
+  {
+   "id": "leave-cancel",
+   "round": 1,
+   "why": "选错工具 → my_leaves"
+  },
+  {
+   "id": "expense-create-vague",
+   "round": 1,
+   "why": "选错工具 → my_profile"
+  },
+  {
+   "id": "expense-create-vague",
+   "round": 1,
+   "why": "选错工具 → my_profile"
+  },
+  {
+   "id": "leave-records-company",
+   "round": 1,
+   "why": "选错工具 → admin"
+  },
+  {
+   "id": "typo-notice",
+   "round": 1,
+   "why": "没调工具（改用文字回答）"
+  }
+ ],
+ "at": "2026-09-21T12:32:49.756Z"
+}

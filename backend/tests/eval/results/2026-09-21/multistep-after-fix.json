@@ -1,0 +1,129 @@
+{
+ "baseUrl": "http://127.0.0.1:8090/v1",
+ "model": "eval",
+ "total": 9,
+ "passed": 6,
+ "score": 66.7,
+ "failures": [
+  {
+   "id": "bare-name",
+   "problems": [
+    "回复未命中 /638|待审批|病假/"
+   ]
+  },
+  {
+   "id": "name-to-image",
+   "problems": [
+    "回复未命中 /uploads\\/leaves\\//"
+   ]
+  },
+  {
+   "id": "two-intents-must-ask",
+   "problems": [
+    "回复未命中 /另一件|要不要|请假类型/"
+   ]
+  }
+ ],
+ "detail": [
+  {
+   "id": "bare-name",
+   "role": 8,
+   "chain": [
+    "roster_search"
+   ],
+   "reply": "张驭捷（ID: 1001）在数据警务技术六区队，当前无待办/请假/班费等事项。  \n需要办理什么？比如请假、班费、通知、积分等？  \n（可直接说“帮我请假”或“我要报销”，我会立刻处理）",
+   "problems": [
+    "回复未命中 /638|待审批|病假/"
+   ],
+   "warns": []
+  },
+  {
+   "id": "name-to-image",
+   "role": 8,
+   "chain": [
+    "roster_search",
+    "leave GET /api/leave/:id",
+    "leave GET /api/leave/my"
+   ],
+   "reply": "张驭捷目前没有提交请假申请，因此没有请假证明可提供。请确认是否需要他提交请假申请，或提供其他需求。",
+   "problems": [
+    "回复未命中 /uploads\\/leaves\\//"
+   ],
+   "warns": []
+  },
+  {
+   "id": "typo-name",
+   "role": 8,
+   "chain": [
+    "roster_search"
+   ],
+   "reply": "系统未找到名为“张玉杰”的成员。请确认姓名是否正确，或提供其他信息（如学号、手机号）以便我进一步查找。",
+   "problems": [],
+   "warns": []
+  },
+  {
+   "id": "follow-up-narrow",
+   "role": 1,
+   "chain": [
+    "pending_leave_approvals",
+    "company GET /api/company/overview"
+   ],
+   "reply": "六区队（ID: 6）待审批请假：  \n**ID: 638**  \n- 姓名：张驭捷  \n- 请假类型：早操  \n- 时间：2026-09-21 06:00-08:00  \n- 事由：病假  \n- 证明材料：![病假证明](/uploads/leaves/1789942993198_iirxvr.jpg)  \n\n请确认是否要审批这条请假。  \n（审批通过：status=1；驳回：status=2，可加批注）",
+   "problems": [],
+   "warns": []
+  },
+  {
+   "id": "bare-list",
+   "role": 1,
+   "chain": [],
+   "reply": "请明确您想“列一下”什么内容，例如：\n\n- 待审批请假/班费？\n- 今日出勤/未销假人员？\n- 通知/公告/作业/班费/积分等列表？\n- 某个人的请假/报销记录？\n- 相册/投票/抽奖/擂台等状态？\n\n请告诉我具体要列哪一类，我会立刻为您查询并整理条目。",
+   "problems": [],
+   "warns": []
+  },
+  {
+   "id": "single-intent-no-append",
+   "role": 0,
+   "chain": [
+    "fee GET /api/fee/summary"
+   ],
+   "reply": "班费目前余额为 0 元，收入 0 元，支出 0 元。",
+   "problems": [],
+   "warns": []
+  },
+  {
+   "id": "two-intents-must-ask",
+   "role": 0,
+   "chain": [
+    "leave GET /api/leave/types",
+    "fee GET /api/fee/collections",
+    "auth GET /api/auth/userinfo",
+    "fee GET /api/fee/collections"
+   ],
+   "reply": "我查不到班费余额，建议你直接在「班费」页查看（/pages/fee/index），或找区队长确认。  \n请假请告诉我：类型、时间、事由，我帮你提交。",
+   "problems": [
+    "回复未命中 /另一件|要不要|请假类型/"
+   ],
+   "warns": []
+  },
+  {
+   "id": "insult",
+   "role": 8,
+   "chain": [],
+   "reply": "我不能处理或回应这种不尊重的言论。请使用文明用语，共同维护良好的沟通环境。如果你有其他问题或需要帮助，我很乐意为你提供支持。",
+   "problems": [],
+   "warns": []
+  },
+  {
+   "id": "multi-day-leave-suggest",
+   "role": 0,
+   "chain": [
+    "leave GET /api/leave/types",
+    "apply_leave"
+   ],
+   "reply": "已为您提交请假申请（早集合，2026-09-22 至 2026-09-26），请确认是否提交。  \n（审批通过后，按系统提示销假）",
+   "problems": [],
+   "warns": []
+  }
+ ],
+ "at": "2026-09-21T12:22:32.887Z"
+}

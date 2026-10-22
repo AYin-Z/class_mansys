@@ -50,7 +50,9 @@ const LOCAL_TOOLS = [
 
 // 干部管理快捷工具（写操作需二次确认）
 const CADRE_CURATED = [
-  { name: 'pending_leave_approvals', label: '待审批请假', method: 'GET', path: '/api/leave/all', desc: '查看全部请假记录（需 VIEW_ROSTER 权限），可据此筛选待审批项' },
+  // 描述里点明"干部审批用、本人请假走 my_leaves"：实测（2026-09-14）模型会拿它去答
+  // "我请的假批下来了吗" —— 原描述"查看全部请假记录"字面撞上了本人请假。
+  { name: 'pending_leave_approvals', label: '待审批请假（干部）', method: 'GET', path: '/api/leave/all', desc: '干部审批用：查看本区队全部请假记录。用户问"有什么要我批的 / 待审批的请假有哪些 / 有没有待办"时用。查本人请假请用 my_leaves' },
   { name: 'pending_fee_approvals', label: '待审批班费', method: 'GET', path: '/api/fee/approvals/pending', desc: '查看当前待我审批的班费申请' },
   { name: 'roster_search', label: '成员名册', method: 'GET', path: '/api/admin/members', desc: '按姓名/学号/手机号搜索本区队成员（需 VIEW_ROSTER 权限）', query: ['keyword'] },
   {
@@ -84,29 +86,37 @@ const CURATED = [
   { name: 'my_leaves', label: '我的请假记录', method: 'GET', path: '/api/leave/my', desc: '查看本人全部请假记录（含状态）' },
   {
     name: 'apply_leave', label: '提交请假申请', method: 'POST', path: '/api/leave/apply', write: true,
-    desc: '提交请假申请。type 必须是后端配置的请假类型（如 早操/早集合/午集合/收假集合/晚自习/中队会/全休/其他），start_time/end_time 为 YYYY-MM-DD HH:mm:ss',
+    desc: '提交请假申请。type 必须是后端启用的真实请假类型（不能写数字或别名；可选值已在本工具 schema 的 enum 中列出，直接使用，不要先调用 GET /api/leave/types 查类型），start_time/end_time 为 YYYY-MM-DD HH:mm:ss，reason 必填',
     body: ['type', 'start_time', 'end_time', 'reason', 'attachments'],
-    required: ['type', 'start_time', 'end_time']
+    required: ['type', 'start_time', 'end_time', 'reason']
   },
   { name: 'cancel_leave', label: '销假', method: 'PUT', path: '/api/leave/cancel/{id}', pathParams: ['id'], write: true, desc: '对本人某条请假记录销假（id 为请假记录 id）' },
   { name: 'my_expenses', label: '我的班费报销', method: 'GET', path: '/api/fee/expenses/my', desc: '查看本人提交的班费报销申请与审批状态' },
   {
     name: 'create_expense', label: '提交班费报销', method: 'POST', path: '/api/fee/expenses', write: true,
-    desc: '提交班费报销申请。amount 为金额（元），purpose 为用途说明，proof_url 为已上传的证明材料地址（可选）',
+    // 实测（2026-09-14）模型对"我要报销35元，买的是扫把"会改用文字反问、不调工具。
+    // 描述里补上触发语和"别再反问"的指令——金额和用途都在句子里，本就该直接调。
+    desc: '提交班费报销申请。用户说"我要报销 / 报销一下 / 提交班费报销"并给出金额和用途时**立刻调用**，不要改用文字反问。amount 为金额（元，可只填数字），purpose 写买了什么，proof_url 为已上传的证明材料地址（可选）',
     body: ['amount', 'type', 'purpose', 'details', 'semester', 'proof_url'],
     required: ['amount', 'purpose']
   },
   { name: 'my_points', label: '我的积分', method: 'GET', path: '/api/points/mine', desc: '查看本人积分明细与总分' },
   { name: 'points_ranking', label: '积分排行', method: 'GET', path: '/api/points/ranking', desc: '查看积分排行榜', query: ['limit'] },
-  { name: 'list_notices', label: '通知列表', method: 'GET', path: '/api/notice', desc: '查看通知列表（含未读/待办状态）' },
+  // 去掉原描述里的"待办"二字（实测模型会拿它去答"有没有待办"，那属于干部审批工具）。
+  // 也**不在这里**提"公告"：实测写成交叉引用（"公告用 list_announcements"）后，
+  // 连"通志在哪"这种错别字问句都被带偏到公告工具上去了——区分说明放在公告工具那一侧。
+  { name: 'list_notices', label: '通知列表', method: 'GET', path: '/api/notice', desc: '查看发给我的通知列表与未读状态。用户问"有什么通知 / 通知在哪看 / 有新通知吗"都用这个' },
+  { name: 'list_announcements', label: '公告列表', method: 'GET', path: '/api/announcement', desc: '查看公告列表。公告 = 面向全体的发布（与"发给个人的通知"不是同一个功能）' },
   { name: 'notice_detail', label: '通知详情', method: 'GET', path: '/api/notice/{id}', pathParams: ['id'], desc: '查看某条通知详情（id 为通知 id）' },
   { name: 'my_homework', label: '作业列表', method: 'GET', path: '/api/homework', desc: '查看作业列表与截止时间' },
   {
     name: 'submit_suggestion', label: '写建议信', method: 'POST', path: '/api/suggestion', write: true,
     desc: '匿名提交建议/反馈（内容至少 5 个字）', body: ['content', 'category'], required: ['content']
   },
-  { name: 'company_attendance', label: '中队出勤概览', method: 'GET', path: '/api/company/overview', desc: '各区队出勤/请假/未销假统计（需 VIEW_COMPANY 权限）', query: ['date'] },
-  { name: 'company_leave_records', label: '中队当日请假明细', method: 'GET', path: '/api/company/leave-records', desc: '当日跨区队请假明细（需 VIEW_COMPANY 权限）', query: ['date', 'company_id'] },
+  // 这两条实测最容易混（模型拿"请假明细"去答"出勤怎么样"）。描述里把"统计数字"与
+  // "人员名单"的分工写死，并给出各自的典型问法。
+  { name: 'company_attendance', label: '中队出勤概览', method: 'GET', path: '/api/company/overview', desc: '全中队出勤概览：到课/未到/请假/未销假的**人数统计**。问"出勤怎么样 / 有几个人没到 / 有多少人未销假"用这个', query: ['date'] },
+  { name: 'company_leave_records', label: '中队当日请假明细', method: 'GET', path: '/api/company/leave-records', desc: '当日请假的**人员名单明细**（谁、什么假、去向）。只有用户明确要"名单/明细/都有谁请假"时才用；问出勤情况要用 company_attendance', query: ['date', 'company_id'] },
   { name: 'my_psychological', label: '我的心理申请', method: 'GET', path: '/api/psychological/mine', desc: '查看本人心理援助申请及处理状态' },
   { name: 'create_psychological', label: '提交心理申请', method: 'POST', path: '/api/psychological', write: true, desc: '提交心理援助申请（内容至少 3 字）', body: ['content'] },
   { name: 'list_albums', label: '相册列表', method: 'GET', path: '/api/album', desc: '查看区队相册' },
@@ -260,8 +270,17 @@ function isWriteCall(tool, args) {
 }
 
 
-/** 转成 OpenAI function-calling 工具格式 */
-function toOpenAiTools(catalog) {
+function leaveTypeHint(leaveTypes) {
+  if (!Array.isArray(leaveTypes) || !leaveTypes.length) return '';
+  return leaveTypes
+    .map((t) => (t.is_fixed && t.start_time && t.end_time
+      ? t.type_name + ' ' + String(t.start_time).slice(0, 5) + '-' + String(t.end_time).slice(0, 5) + '（同日）'
+      : t.type_name + '（不限固定时段）'))
+    .join('；');
+}
+
+/** 转成 OpenAI function-calling 工具格式；leaveTypes 为真实启用配置（60s TTL，见 preflight） */
+function toOpenAiTools(catalog, opts) {
   return catalog.tools.map((t) => {
     if (t.kind === 'module') {
       return {
@@ -296,7 +315,13 @@ function toOpenAiTools(catalog) {
     const props = {};
     const required = [];
     for (const k of t.pathParams || []) {
-      props[k] = { type: 'string', description: k };
+      // ⚠️ 别写成纯 string（2026-09-14 实测踩坑）：
+      // 模型经常把 id 写成裸数字（{"id": 3}），llama.cpp 在参数不符合 schema 时会**内部重试**，
+      // 把"参数非法"当成新一轮对话喂回去；我们的模型会接着续写这段对话，
+      // 一路生成到 max_tokens 才停（finish_reason=length，参数解析出来是一堆垃圾）。
+      // 实测把类型放宽成 string|number 后同一请求立刻正常返回 {"id": 3}。
+      // id 最终是拼进 URL 路径的，数字与字符串等价，放宽没有副作用。
+      props[k] = { type: ['string', 'number'], description: k };
       required.push(k);
     }
     // 布尔字段给明确的 boolean 类型，模型填错时前端/后端也更容易发现
@@ -307,8 +332,23 @@ function toOpenAiTools(catalog) {
       if (t.required && t.required.includes(k)) required.push(k);
       else if (!t.required && ['type', 'start_time', 'end_time', 'amount', 'content', 'purpose'].includes(k)) required.push(k);
     }
+    // apply_leave.type：用真实配置生成 enum + 窗口描述，避免模型猜数字/别名。
+    // 动态配置在请求时传入（60s TTL），权限目录仍按角色缓存。
+    if (t.name === 'apply_leave' && opts && Array.isArray(opts.leaveTypes) && opts.leaveTypes.length) {
+      const hint = leaveTypeHint(opts.leaveTypes);
+      props.type = {
+        type: 'string',
+        enum: opts.leaveTypes.map((x) => x.type_name),
+        description: '必须是后端启用的请假类型：' + opts.leaveTypes.map((x) => x.type_name).join('、') + '。直接从这里取值，不要先调用 GET /api/leave/types。真实时段：' + hint
+      };
+      if (!required.includes('reason')) required.push('reason');
+      const windows = '可用的请假类型与固定时段：' + hint;
+      const f = { name: t.name, description: (t.label ? t.label + '：' : '') + (t.desc || '') + '。' + windows, parameters: { type: 'object', properties: props, required } };
+      return { type: 'function', function: f };
+    }
     for (const k of t.query || []) {
-      props[k] = { type: 'string', description: k };
+      // 同 pathParams：查询参数也放宽成 string|number，避免模型填数字就被判非法
+      props[k] = { type: ['string', 'number'], description: k };
     }
     return {
       type: 'function',
@@ -321,4 +361,4 @@ function toOpenAiTools(catalog) {
   });
 }
 
-module.exports = { buildTools, agentCatalog, toOpenAiTools, isWriteCall, CURATED, CADRE_CURATED, LOCAL_TOOLS, MODULE_META, QUERY_KEYS };
+module.exports = { buildTools, agentCatalog, toOpenAiTools, isWriteCall, leaveTypeHint, CURATED, CADRE_CURATED, LOCAL_TOOLS, MODULE_META, QUERY_KEYS };

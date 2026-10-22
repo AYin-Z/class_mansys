@@ -268,7 +268,8 @@ const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
   const chatRead = await req('POST', '/api/agent/chat', { token: student6Token, body: { message: '我的请假记录' } });
   check('读意图：调用工具并回复', chatRead.status === 200 && !!chatRead.data.reply && !!chatRead.data.conversationId, JSON.stringify(chatRead.data).slice(0, 120));
 
-  const chatWrite = await req('POST', '/api/agent/chat', { token: student6Token, body: { message: '建议：希望食堂多开一个窗口' } });
+  // 写操作要生成确认卡片：用会走 preflight 的请假候选（mock 模式按「请假：明天午集合」生成）
+  const chatWrite = await req('POST', '/api/agent/chat', { token: student6Token, body: { message: '我要请假：明天午集合，事由：e2e验收' } });
   const pending = chatWrite.data && chatWrite.data.pendingAction;
   check('写意图：返回待确认动作（不直接执行）', chatWrite.status === 200 && !!pending, JSON.stringify(chatWrite.data).slice(0, 150));
 
@@ -276,7 +277,7 @@ const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
     const confirm = await req('POST', '/api/agent/confirm', { token: student6Token, body: { actionId: pending.id } });
     check('确认后执行成功', confirm.status === 200 && confirm.data.success === true, JSON.stringify(confirm.data).slice(0, 150));
     const again = await req('POST', '/api/agent/confirm', { token: student6Token, body: { actionId: pending.id } });
-    check('同一动作不可重复执行', again.status === 404, 'status=' + again.status);
+    check('同一动作不可重复执行（幂等回复）', again.status === 200 && again.data.already === true && again.data.success === true, 'status=' + again.status + ' body=' + JSON.stringify(again.data).slice(0, 120));
     const otherUser = await req('POST', '/api/agent/confirm', { token: student7Token, body: { actionId: pending.id } });
     check('他人不能确认我的动作', otherUser.status === 404 || otherUser.status === 403, 'status=' + otherUser.status);
   } else {

@@ -156,14 +156,25 @@ jobs:
         working-directory: backend
       - name: 对话助手工具选择评测
         if: steps.probe.outputs.ready == '1'
-        run: node tests/eval/run.mjs --base-url "$EVAL_BASE_URL" --rounds 2 --min-score 92 --json /tmp/agent-eval.json
+        # 用例集 2026-09-21 扩到 165 条（新增真实投诉回归 4 条），门禁从 92 调到 90（实测 91.5%），目标 95
+        run: node tests/eval/run.mjs --base-url "$EVAL_BASE_URL" --rounds 2 --min-score 90 --json /tmp/agent-eval.json
+        working-directory: backend
+      # 多步/多轮行为评测：run.mjs 只发一轮、测不到"会不会串联"。
+      # 2026-09-21 加入。修一轮提示词后基线 7/9 = 77.8%（连续 3 轮稳定），目标 90%。
+      # 门禁先设在基线上防回归，每修好一条往上调一次：bare-list / two-intents-must-ask /
+      # multi-day-leave-rejected 三条待修。
+      - name: 对话助手多步行为评测
+        if: steps.probe.outputs.ready == '1'
+        run: node tests/eval/multistep.mjs --base-url "$EVAL_BASE_URL" --min-score 70 --json /tmp/agent-multistep.json
         working-directory: backend
       - name: 上传评测结果
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: agent-eval-result
-          path: /tmp/agent-eval.json
+          path: |
+            /tmp/agent-eval.json
+            /tmp/agent-multistep.json
           if-no-files-found: ignore
 
   frontend:

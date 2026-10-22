@@ -41,6 +41,7 @@ if (!BASE_URL) {
 process.env.NODE_ENV = process.env.NODE_ENV || 'production';
 const app = require('../../app');
 const { buildTools, agentCatalog, toOpenAiTools } = require('../../services/agent/toolCatalog');
+const preflight = require('../../services/agent/preflight');
 const { buildSystemPrompt, buildUserContext } = require('../../services/agent/persona');
 
 async function buildCatalogs() {
@@ -48,10 +49,12 @@ async function buildCatalogs() {
   // 于是评测会误判成"模型选不出工具"。app.js 启动时会 loadPermissions()，这里显式等一次。
   await require('../../shared/permissions').loadPermissions();
   const full = buildTools(app);
+  // 与生产一致：apply_leave.type 用真实 leave_config 生成 enum + 窗口描述
+  const leaveTypes = (await preflight.loadLeaveConfig()).list;
   const byRole = {};
   for (const role of [0, 1, 5]) {
     byRole[role] = {
-      tools: toOpenAiTools(agentCatalog(full, { role })),
+      tools: toOpenAiTools(agentCatalog(full, { role }), { leaveTypes }),
       sys: buildSystemPrompt({ role }),
       ctx: buildUserContext({ name: '评测', role })
     };
@@ -88,12 +91,14 @@ function argProblems(name, args, schemaOf) {
   return probs;
 }
 
-async function ask(cat, message) {
+async function ask(cat, message, role) {
+  // 线上按消息决定是否注入日期块，评测必须一致（否则测的不是线上行为）
+  const ctx = buildUserContext({ name: '评测', role: role === undefined ? cat.role : role }, message);
   const body = {
     model: MODEL,
     messages: [
       { role: 'system', content: cat.sys },
-      { role: 'user', content: cat.ctx + '\n' + message }
+      { role: 'user', content: ctx + '\n' + message }
     ],
     tools: cat.tools,
     tool_choice: 'auto',
@@ -116,6 +121,13 @@ async function ask(cat, message) {
     });
     if (!res.ok) return { error: 'HTTP ' + res.status };
     const data = await res.json();
+    // 调试用：EVAL_DUMP_RAW=<文件> 时把请求体和原始响应写出来
+    // （只报"参数不是合法 JSON"定位不了问题，得看模型真正吐了什么）
+    if (process.env.EVAL_DUMP_RAW) {
+      const fs = await import('node:fs');
+      fs.appendFileSync(process.env.EVAL_DUMP_RAW,
+        JSON.stringify({ body, data }) + '\n');
+    }
     const msg = (data.choices && data.choices[0] && data.choices[0].message) || {};
     return { toolCalls: msg.tool_calls || [], content: msg.content || '', usage: data.usage || null };
   } catch (e) {
@@ -142,7 +154,7 @@ async function main() {
   for (let round = 1; round <= ROUNDS; round += 1) {
     for (const c of cases) {
       const cat = catalogs[c.role] || catalogs[0];
-      const out = await ask(cat, c.message);
+      const out = await ask(cat, c.message, c.role);
       total += 1;
       if (out.error) { failures.push({ id: c.id, round, why: '请求失败: ' + out.error }); continue; }
       const calls = out.toolCalls;
@@ -173,7 +185,11 @@ async function main() {
       if (!allowed) { failures.push({ id: c.id, round, why: '选错工具 → ' + name }); continue; }
       let args;
       try { args = JSON.parse(calls[0].function.arguments || '{}'); } catch {
-        failures.push({ id: c.id, round, why: '参数不是合法 JSON' }); continue;
+        // 把原始参数带出来：只说"不是合法 JSON"定位不了（单引号？中文引号？夹了说明文字？）
+        const raw = String(calls[0].function.arguments || '');
+        failures.push({ id: c.id, round, why: '参数不是合法 JSON', raw: raw.slice(0, 200) });
+        console.log(`   · ${c.id} 原始参数: ${JSON.stringify(raw.slice(0, 160))}`);
+        continue;
       }
       const probs = argProblems(name, args, schemaOf);
       if (probs.length) { failures.push({ id: c.id, round, why: '参数问题: ' + probs.join('; ') }); continue; }

@@ -96,6 +96,20 @@ async function main() {
       for (const msg of msgs) {
         const from = String(msg.from_user_id || '').trim();
         if (!from || from === creds.account_id) continue;
+        let currentMessageId = '';
+        try {
+        // 入站去重：长轮询重放/worker 重启后同一条消息可能再次下发。
+        // 先占位再处理；处理抛错时释放占位，让 iLink 重投可以真正重试（at-least-once）。
+        // 没有稳定 id 时不去重。
+        const messageId = ilink.messageIdOf(msg);
+        currentMessageId = messageId;
+        if (messageId) {
+          const first = await AgentRepo.markInboundSeen('weixin', from, messageId);
+          if (!first) {
+            logger.info({ event: 'dedup_hit', channel: 'weixin', messageId }, 'duplicate inbound skipped');
+            continue;
+          }
+        }
         const contextToken = String(msg.context_token || '').trim();
         let text = ilink.extractText(msg.item_list);
         const mediaRefs = ilinkMedia.extractMediaItems(msg.item_list);
@@ -150,7 +164,9 @@ async function main() {
           try {
             const binding = await ChannelRepoMod.findBinding('weixin', from);
             if (!binding) { await ilink.sendText({ token: creds.token, toUserId: from, text: '尚未绑定账号，请先发送：/绑定 <绑定码>', contextToken }); continue; }
-            const pending = await AgentRepo.latestPendingAction(binding.user_id);
+            const session = await AgentRepo.findChannelSession('weixin', from);
+            const convId = session && Number(session.user_id) === Number(binding.user_id) ? session.conversation_id : null;
+            const pending = await AgentRepo.latestPendingAction(binding.user_id, convId);
             if (!pending) { await ilink.sendText({ token: creds.token, toUserId: from, text: '当前没有待确认操作（可能已过期或已处理）。', contextToken }); continue; }
             // 高危操作必须带对短码：码由 actionId 派生，用户得把影响面那行看一眼才打得出来
             if (pending.risk === 'high') {
@@ -189,7 +205,9 @@ async function main() {
           try {
             const binding = await ChannelRepoMod.findBinding('weixin', from);
             if (binding) {
-              const pending = await AgentRepo.latestPendingAction(binding.user_id);
+              const session = await AgentRepo.findChannelSession('weixin', from);
+              const convId = session && Number(session.user_id) === Number(binding.user_id) ? session.conversation_id : null;
+              const pending = await AgentRepo.latestPendingAction(binding.user_id, convId);
               if (pending) await AgentRepo.markAction(pending.id, 'cancelled', {});
             }
           } catch (e) {
@@ -204,6 +222,10 @@ async function main() {
           out = await ChannelService.handleInbound({ channel: 'weixin', externalId: from, displayName: from, text: trimmed, attachments, app });
         } catch (e) {
           logger.warn({ err: e.message, from }, 'channel inbound failed');
+          // 业务处理失败也释放去重占位：让下一次重投有机会重试，而不是永久吞掉
+          if (currentMessageId) {
+            try { await AgentRepo.clearInboundSeen('weixin', from, currentMessageId); } catch (cleanupErr) { logger.warn({ err: cleanupErr.message }, 'clear inbound dedup failed'); }
+          }
           out = { reply: '处理失败：' + e.message };
         }
         if (out.reply) {
@@ -211,6 +233,13 @@ async function main() {
           // 回复里如果带 Markdown 图片（如助手展示相册照片），微信里必须真把图发出去——
           // 微信不渲染 Markdown，只发 `![说明](/uploads/x.jpg)` 用户看到的就是一串路径。
           await sendReplyImages(out.reply, { token: creds.token, toUserId: from, contextToken, cdnBaseUrl: creds.cdn_base_url });
+        }
+        } catch (e) {
+          // 未捕获异常：释放占位后交给外层退避重试
+          if (currentMessageId) {
+            try { await AgentRepo.clearInboundSeen('weixin', from, currentMessageId); } catch (cleanupErr) { logger.warn({ err: cleanupErr.message }, 'clear inbound dedup failed'); }
+          }
+          throw e;
         }
       }
     } catch (e) {

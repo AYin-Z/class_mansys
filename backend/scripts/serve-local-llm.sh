@@ -66,9 +66,33 @@ else
   echo "[serve-local-llm] 未找到视觉投影器 $MMPROJ，本次以纯文本模式启动" >&2
 fi
 
+# LoRA 适配器（2026-09-14 自建数据微调）。**默认关闭**，原因见下。
+#
+# 2026-09-21 实测结论：这个适配器**目前不适合上生产**。
+#   · 它在"第一步选对工具"上确实更强：165 条评测 98.2% vs 原版 92.1%
+#   · 但在**真实多步链路**上更差（用 scripts/agent-probe.js 跑线上同一套链路）：
+#       「张驭捷」            → 只回报"在数据警务技术六区队"，不再去查待办（原版会查到待审批请假并向用户确认）
+#       「把张驭捷的证明图片发给我」→ **编造了记录 id 88** 然后报"该记录不存在"（原版直接查到真记录并渲染图片）
+#   根因：训练数据是"一句话一次工具调用"的单轮样本，没教过多步串联
+#   （姓名 → 查人 → 查记录 → 取详情）。评测又恰好只断言第一步，所以测不出来。
+# 要启用（例如重训出带多步链路的版本后）：
+#   LOCAL_LLM_LORA=/home/ayin/models/gguf/qwen3vl-agent-lora.gguf systemctl --user restart class-mansys-llm.service
+# 要彻底关掉：默认即关闭，本行为空。
+LORA="${LOCAL_LLM_LORA-}"
+LORA_ARGS=()
+if [[ -n "$LORA" ]]; then
+  if [[ -f "$LORA" ]]; then
+    LORA_ARGS=(--lora "$LORA")
+    echo "[serve-local-llm] 启用 LoRA：$LORA" >&2
+  else
+    echo "[serve-local-llm] 指定的 LoRA 不存在（$LORA），按原版启动" >&2
+  fi
+fi
+
 exec "$LLAMA_SERVER" \
   -m "$MODEL" \
   "${MMPROJ_ARGS[@]}" \
+  "${LORA_ARGS[@]}" \
   -ngl 99 \
   --host "$HOST" \
   --port "$PORT" \

@@ -1,0 +1,21 @@
+{
+ "baseUrl": "http://127.0.0.1:8095/v1",
+ "model": "eval",
+ "rounds": 1,
+ "total": 161,
+ "passed": 159,
+ "score": 98.8,
+ "failures": [
+  {
+   "id": "leave-records-company",
+   "round": 1,
+   "why": "选错工具 → company_attendance"
+  },
+  {
+   "id": "cadre-pending-leave",
+   "round": 1,
+   "why": "选错工具 → list_notices"
+  }
+ ],
+ "at": "2026-09-14T11:37:47.715Z"
+}

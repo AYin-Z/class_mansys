@@ -1,0 +1,140 @@
+{
+ "baseUrl": "http://127.0.0.1:8090/v1",
+ "model": "eval",
+ "total": 9,
+ "passed": 6,
+ "score": 66.7,
+ "failures": [
+  {
+   "id": "bare-list",
+   "problems": [
+    "回复命中禁忌 /今天.*明天.*后天/s：以下是当前日期（2026-09-21 周一）及您指定的相对日期：\n\n- **今天**：2026-09-21（周一）  \n- **明天**：2026-09-22（",
+    "回复命中禁忌 /下周一.*本周末/s：以下是当前日期（2026-09-21 周一）及您指定的相对日期：\n\n- **今天**：2026-09-21（周一）  \n- **明天**：2026-09-22（"
+   ]
+  },
+  {
+   "id": "two-intents-must-ask",
+   "problems": [
+    "回复未命中 /另一件|要不要|请假类型/"
+   ]
+  },
+  {
+   "id": "multi-day-leave-rejected",
+   "problems": [
+    "回复未命中 /时段|07:30|同一天/"
+   ]
+  }
+ ],
+ "detail": [
+  {
+   "id": "bare-name",
+   "role": 8,
+   "chain": [
+    "roster_search",
+    "leave GET /api/leave/my",
+    "company_attendance",
+    "company_leave_records"
+   ],
+   "reply": "**张驭捷 请假记录与出勤情况汇总：**\n\n- **请假记录**：\n  - ID: 638\n  - 姓名: 张驭捷\n  - 类型: 早操病假\n  - 时间: 2026-09-21 06:00-08:00\n  - 状态: 待审批（status=0）\n  - 证明材料: ![病假证明](/uploads/leaves/1789942993198_iirxvr.jpg)\n\n- **中队出勤概览**（2026-09-21）：\n  - 数据警务技术六区队（ID:6）\n  - 总人数: 40人\n  - 请假人数: 1人（张驭捷）\n  - 未销假人数: 0人\n\n**下一步建议**：\n1. **审批请假**：",
+   "problems": [],
+   "warns": [
+    "多余调用 leave GET /api/leave/my"
+   ]
+  },
+  {
+   "id": "name-to-image",
+   "role": 8,
+   "chain": [
+    "leave GET /api/leave/:id",
+    "roster_search",
+    "leave GET /api/leave/all"
+   ],
+   "reply": "张驭捷的请假证明已找到，详情如下：\n\n- 请假类型：早操\n- 请假时间：2026-09-21 06:00-08:00\n- 事由：病假\n- 证明材料：![请假证明](/uploads/leaves/1789942993198_iirxvr.jpg)\n\n请确认是否需要我帮你把这份证明转交给相关负责人或存档。",
+   "problems": [],
+   "warns": []
+  },
+  {
+   "id": "typo-name",
+   "role": 8,
+   "chain": [
+    "leave GET /api/leave/:id",
+    "roster_search"
+   ],
+   "reply": "系统未找到名为“张玉杰”的成员记录。请确认姓名是否正确，或提供学号/手机号等其他信息以便进一步查找。",
+   "problems": [],
+   "warns": []
+  },
+  {
+   "id": "follow-up-narrow",
+   "role": 1,
+   "chain": [
+    "pending_leave_approvals",
+    "company GET /api/company/overview",
+    "company GET /api/company/leave-records"
+   ],
+   "reply": "**六区队（ID: 6）待审批请假明细**：\n\n- **ID**: 638\n- **姓名**: 张驭捷\n- **请假类型**: 早操\n- **时段**: 2026-09-21 06:00-08:00\n- **事由**: 病假\n- **状态**: 待审批\n- **证明材料**: ![病假证明](/uploads/leaves/1789942993198_iirxvr.jpg)\n\n> 六区队今日（2026-09-21）共 1 人请假，0 人未销假。  \n> 请确认是否要批准此请假申请。  \n> （批准后系统会自动生成待确认卡片，您点击「确认执行」即可。）",
+   "problems": [],
+   "warns": []
+  },
+  {
+   "id": "bare-list",
+   "role": 1,
+   "chain": [],
+   "reply": "以下是当前日期（2026-09-21 周一）及您指定的相对日期：\n\n- **今天**：2026-09-21（周一）  \n- **明天**：2026-09-22（周二）  \n- **后天**：2026-09-23（周三）  \n- **下周一**：2026-09-28  \n- **本周末**：2026-09-26（周六）  \n\n如需其他日期或格式，请告诉我。",
+   "problems": [
+    "回复命中禁忌 /今天.*明天.*后天/s：以下是当前日期（2026-09-21 周一）及您指定的相对日期：\n\n- **今天**：2026-09-21（周一）  \n- **明天**：2026-09-22（",
+    "回复命中禁忌 /下周一.*本周末/s：以下是当前日期（2026-09-21 周一）及您指定的相对日期：\n\n- **今天**：2026-09-21（周一）  \n- **明天**：2026-09-22（"
+   ],
+   "warns": []
+  },
+  {
+   "id": "single-intent-no-append",
+   "role": 0,
+   "chain": [
+    "fee GET /api/fee/summary"
+   ],
+   "reply": "班费目前余额为 0 元，收入 0 元，支出 0 元。  \n（注：班费收缴需按批次进行，如需缴纳请进入「班费」页操作。）",
+   "problems": [],
+   "warns": []
+  },
+  {
+   "id": "two-intents-must-ask",
+   "role": 0,
+   "chain": [
+    "leave GET /api/leave/my",
+    "fee GET /api/fee/collections"
+   ],
+   "reply": "你目前没有请假记录，可以先提交请假申请。  \n关于班费余额，系统暂不支持直接查询，建议你联系区队长或管理员获取最新数据。  \n需要我帮你提交请假吗？",
+   "problems": [
+    "回复未命中 /另一件|要不要|请假类型/"
+   ],
+   "warns": []
+  },
+  {
+   "id": "insult",
+   "role": 8,
+   "chain": [],
+   "reply": "我不能处理或回应带有侮辱性或不尊重的言论。请使用文明用语，这样我们才能更好地协作。如果你有任何其他问题或需要帮助，我很乐意为你提供支持。",
+   "problems": [],
+   "warns": []
+  },
+  {
+   "id": "multi-day-leave-rejected",
+   "role": 0,
+   "chain": [
+    "leave GET /api/leave/types",
+    "apply_leave",
+    "apply_leave",
+    "apply_leave",
+    "apply_leave",
+    "apply_leave"
+   ],
+   "reply": "",
+   "problems": [
+    "回复未命中 /时段|07:30|同一天/"
+   ],
+   "warns": []
+  }
+ ],
+ "at": "2026-09-21T12:16:21.638Z"
+}
