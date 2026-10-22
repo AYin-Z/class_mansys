@@ -252,6 +252,11 @@ $ DB_NAME=class_manage_sys_test NODE_ENV=test AGENT_LLM_MODE=mock \
   SELF_BASE_URL=http://127.0.0.1:3102 node tests/channel-smoke.js
 渠道冒烟：PASS 15  FAIL 0
 （连续 5 轮同一 conversationId、/新会话 轮换、重复确认幂等）
+
+$ DB_NAME=class_manage_sys_test NODE_ENV=test node tests/fixtures.js
+$ E2E_BASE=http://127.0.0.1:3103 node tests/e2e-acceptance.js
+PASS: 108  FAIL: 0
+（含真实上传落盘、只发附件对话、确认幂等；e2e 已按新语义更新）
 ```
 
 新增/扩展用例（共 354 项）：
@@ -284,4 +289,5 @@ $ DB_NAME=class_manage_sys_test NODE_ENV=test AGENT_LLM_MODE=mock \
 - 提示词/工具 schema：`backend/services/agent/persona.js`、`backend/services/agent/toolCatalog.js`
 - 回退：`backend/services/agent/vision.js`、`backend/services/agent/llm.js`
 - 附件：`backend/services/agent/attachmentAuth.js`、`backend/routes/agent.js`、`backend/services/channel/mediaIntake.js`
-- 测试：`backend/tests/unit/agentPreflight.test.js`、`agentTaskState.test.js`、`agentChannelSession.test.js`、`tests/api/agentHarness.test.js`、`tests/channel-smoke.js`、`tests/unit/vision.test.js`
+- 上传目录兜底：`backend/config/multer.js`（全新 checkout 没有 `uploads/` 时自动创建，避免上传 500）
+- 测试：`backend/tests/unit/agentPreflight.test.js`、`agentTaskState.test.js`、`agentChannelSession.test.js`、`tests/api/agentHarness.test.js`、`tests/channel-smoke.js`、`tests/e2e-acceptance.js`、`tests/unit/vision.test.js`

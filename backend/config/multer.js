@@ -3,6 +3,13 @@
  */
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+
+/** 上传目录兜底创建：全新 checkout / 容器里 uploads 可能还不存在，multer 不会自动建目录 */
+function ensureDir(dir) {
+  try { fs.mkdirSync(dir, { recursive: true }); } catch (e) { /* 交给 multer 报错 */ }
+  return dir;
+}
 
 const ALLOWED_RESOURCE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.zip']);
 const ALLOWED_RESOURCE_MIMES = new Set([
@@ -37,7 +44,7 @@ function fileFilter(allowedExts, allowedMimes) {
 // 资源文件存储（公告附件）
 const resourceStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '..', 'uploads', 'resources'));
+    cb(null, ensureDir(path.join(__dirname, '..', 'uploads', 'resources')));
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -49,7 +56,7 @@ const resourceStorage = multer.diskStorage({
 // 相册图片存储
 const albumStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '..', 'uploads', 'albums'));
+    cb(null, ensureDir(path.join(__dirname, '..', 'uploads', 'albums')));
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -68,7 +75,7 @@ exports.uploadResource = multer({
 // 对话附件存储（办事助手：图片/文件）
 const agentStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '..', 'uploads', 'agent'));
+    cb(null, ensureDir(path.join(__dirname, '..', 'uploads', 'agent')));
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -86,7 +93,7 @@ exports.uploadAgentFile = multer({
 // 请假证明材料存储
 const leaveStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '..', 'uploads', 'leaves'));
+    cb(null, ensureDir(path.join(__dirname, '..', 'uploads', 'leaves')));
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
