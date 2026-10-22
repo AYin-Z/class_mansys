@@ -562,4 +562,19 @@ describe('Harness 多轮与确认（需要测试库 + 本地测试端口）', ()
     });
   });
 
+  it('RED→GREEN：动作 executing 时新轮次返回 CONVERSATION_BUSY（确认与改口互斥）', async () => {
+    vi.spyOn(llm, 'chat').mockResolvedValueOnce(toolCall('apply_leave', leaveArgs({ reason: '执行互斥' })));
+    const out = await AgentService.chat(userA, tokenA, { message: '明天午集合请假', attachments: [] }, app);
+    conversationIds.push(out.conversationId);
+    const action = await AgentRepo.findAction(out.pendingAction.id);
+    const claimed = await AgentRepo.claimAction({
+      id: action.id, userId: userA.id, stateVersion: action.state_version, claimToken: crypto.randomUUID()
+    });
+    expect(claimed).toBe(true);
+    await expect(
+      AgentService.chat(userA, tokenA, { conversationId: out.conversationId, message: '等等，我改一下', attachments: [] }, app)
+    ).rejects.toMatchObject({ status: 409, code: 'CONVERSATION_BUSY' });
+    await AgentRepo.markAction(action.id, 'failed', { error: 'test cleanup' });
+  });
+
 });

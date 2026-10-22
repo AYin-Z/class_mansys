@@ -16,6 +16,7 @@ let ready = false;
 let userA = null;
 let userB = null;
 const external = 'harness_test_' + crypto.randomBytes(4).toString('hex');
+const concurrentExternal = 'harness_concurrent_' + crypto.randomBytes(4).toString('hex');
 const conversations = [];
 const urls = [];
 
@@ -34,7 +35,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (ready) {
-    await db.query('DELETE FROM agent_channel_sessions WHERE external_id = ?', [external]);
+    await db.query('DELETE FROM agent_channel_sessions WHERE external_id IN (?)', [[external, concurrentExternal]]);
     if (conversations.length) {
       await db.query('DELETE FROM agent_actions WHERE conversation_id IN (?)', [conversations]);
       await db.query('DELETE FROM agent_messages WHERE conversation_id IN (?)', [conversations]);
@@ -112,12 +113,27 @@ describe('渠道会话指针（需要测试库）', () => {
     expect(mutated.version).toBe(2);
   });
 
-  it('入站消息去重：同一 message_id 第二次返回 false', async () => {
+  it('入站消息去重：同一 message_id 第二次返回 false；失败释放后可以重试', async () => {
     if (!ready) return;
     const mid = 'msg_' + crypto.randomBytes(4).toString('hex');
     expect(await AgentRepo.markInboundSeen('weixin', external, mid)).toBe(true);
     expect(await AgentRepo.markInboundSeen('weixin', external, mid)).toBe(false);
+    expect(await AgentRepo.clearInboundSeen('weixin', external, mid)).toBe(1);
+    expect(await AgentRepo.markInboundSeen('weixin', external, mid)).toBe(true);
     await db.query('DELETE FROM agent_inbound_dedup WHERE external_id = ?', [external]);
+  });
+
+  it('首条消息并发创建渠道会话：unique 冲突时复用赢家会话，不抛错', async () => {
+    if (!ready) return;
+    const [a, b] = await Promise.all([
+      channelSession.resolveSession({ channel: 'weixin', externalId: concurrentExternal, userId: userA, title: '并发A' }),
+      channelSession.resolveSession({ channel: 'weixin', externalId: concurrentExternal, userId: userA, title: '并发B' })
+    ]);
+    conversations.push(a.conversationId, b.conversationId);
+    expect(a.conversationId).toBe(b.conversationId);
+    const row = await AgentRepo.findChannelSession('weixin', concurrentExternal);
+    expect(Number(row.user_id)).toBe(Number(userA));
+    expect(Number(row.conversation_id)).toBe(Number(a.conversationId));
   });
 });
 
