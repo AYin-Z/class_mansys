@@ -6,6 +6,7 @@ const { schemas } = require('../shared/schemas');
 const { asyncHandler, ok, BadRequestError } = require('../shared/http');
 const { uploadAgentFile } = require('../config/multer');
 const AgentService = require('../services/agent/agentService');
+const attachmentAuth = require('../services/agent/attachmentAuth');
 const { MAX_ATTACHMENTS } = require('../services/agent/attachments');
 const path = require('path');
 
@@ -30,8 +31,19 @@ router.get('/conversations/:id/messages', authenticateToken, asyncHandler(async 
 // 对话附件上传（图片；返回可直接放进消息的 url）
 router.post('/upload', authenticateToken, uploadAgentFile.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) throw new BadRequestError('未收到文件或文件类型不支持');
+  const url = '/uploads/agent/' + path.basename(req.file.path);
+  // 落盘即登记所有权（含 sha256）；chat 前按 URL 反查，未登记/非本人一律 403
+  await attachmentAuth.registerUpload({
+    userId: req.user.id,
+    absPath: req.file.path,
+    url,
+    name: req.file.originalname || path.basename(req.file.path),
+    mime: req.file.mimetype,
+    size: req.file.size,
+    source: 'app'
+  });
   return ok(res, {
-    url: '/uploads/agent/' + path.basename(req.file.path),
+    url,
     name: req.file.originalname || path.basename(req.file.path),
     mime: req.file.mimetype,
     size: req.file.size,

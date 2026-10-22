@@ -7,7 +7,9 @@
  */
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const mediaService = require('../mediaService');
+const AgentRepo = require('../agent/repo');
 const logger = require('../../config/logger');
 
 /** 图片进 agent 目录（与 App 内对话上传同一目录），其余进 resources（允许非图片） */
@@ -50,6 +52,19 @@ async function saveInboundMedia(buffer, opts = {}) {
 
   // describe 会做原图优化 + 生成变体（图片），与 App 内上传同一套处理
   const info = await mediaService.describe(fakeFile, { kind: dir === 'agent' ? 'agent' : 'resource', ownerId: opts.ownerId });
+
+  const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+  // 入站即登记所有权：后续 chat 会按 URL 查库，别人/未登记的图不能挂到请假申请上
+  await AgentRepo.registerAttachment({
+    userId: opts.ownerId,
+    conversationId: opts.conversationId || null,
+    url: info.url,
+    name: opts.filename || base,
+    mime: info.mime || 'application/octet-stream',
+    size: info.size || buffer.length,
+    sha256,
+    source: 'weixin'
+  });
 
   logger.info(
     { kind, dir, bytes: buffer.length, url: info.url, width: info.width, height: info.height },
