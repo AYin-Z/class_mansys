@@ -86,7 +86,7 @@ const CURATED = [
   { name: 'my_leaves', label: '我的请假记录', method: 'GET', path: '/api/leave/my', desc: '查看本人全部请假记录（含状态）' },
   {
     name: 'apply_leave', label: '提交请假申请', method: 'POST', path: '/api/leave/apply', write: true,
-    desc: '提交请假申请。type 必须是后端启用的真实请假类型（不能写数字或别名），start_time/end_time 为 YYYY-MM-DD HH:mm:ss，reason 必填',
+    desc: '提交请假申请。type 必须是后端启用的真实请假类型（不能写数字或别名；可选值已在本工具 schema 的 enum 中列出，直接使用，不要先调用 GET /api/leave/types 查类型），start_time/end_time 为 YYYY-MM-DD HH:mm:ss，reason 必填',
     body: ['type', 'start_time', 'end_time', 'reason', 'attachments'],
     required: ['type', 'start_time', 'end_time', 'reason']
   },
@@ -339,7 +339,7 @@ function toOpenAiTools(catalog, opts) {
       props.type = {
         type: 'string',
         enum: opts.leaveTypes.map((x) => x.type_name),
-        description: '必须是后端启用的请假类型：' + opts.leaveTypes.map((x) => x.type_name).join('、') + '。真实时段：' + hint
+        description: '必须是后端启用的请假类型：' + opts.leaveTypes.map((x) => x.type_name).join('、') + '。直接从这里取值，不要先调用 GET /api/leave/types。真实时段：' + hint
       };
       if (!required.includes('reason')) required.push('reason');
       const windows = '可用的请假类型与固定时段：' + hint;
