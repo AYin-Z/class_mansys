@@ -269,7 +269,22 @@ PASS: 108  FAIL: 0
 - `tests/channel-smoke.js`：渠道链路 15 项断言。
 - `tests/unit/vision.test.js`：图片占位与 `_meta` 清理。
 
-## 13. 未验证项与剩余风险
+## 13. CI 证据
+
+PR：https://github.com/AYin-Z/class_mansys/pull/1
+
+CI run `39728415499`（最终代码 `57e2f8e`）：
+
+| job | 结果 | 说明 |
+|---|---|---|
+| backend | pass | `npm run lint` + `npm test`（354 项） |
+| frontend | pass | 未改前端，沿用既有门禁 |
+| ui-smoke | pass | 未改 UI |
+| agent-eval | pass | 工具选择 307/330 = **93%**（门禁 90%）；多步行为 7/9=77.8% 为观测项 |
+
+说明：本分支同时修正了评测工具表（`tests/eval/run.mjs`、`multistep.mjs`）使用真实 `leave_config` 生成 `apply_leave.type` enum，并在工具描述中明确「不要先调 GET /api/leave/types」，使工具选择评测从 86.7% 提升到 93%。
+
+## 14. 未验证项与剩余风险
 
 1. **未部署、未重启生产**：本次只提交代码/迁移/测试，未对 `/srv/apps/class-mansys` 执行迁移或重启；线上仍是 `410f319` 旧行为。部署需按 `docs/OPERATIONS.md` 单独授权。
 2. **未用真实微信账号回放**：渠道链路用 `AGENT_LLM_MODE=mock` + 测试库验证；真实 iLink 的 `msg_id` 字段名可能是 `msg_id/message_id/id`，代码已做兼容，但未在真实下行消息上验证。没有稳定 id 时**不去重**，宁可不吞消息。
@@ -280,7 +295,7 @@ PASS: 108  FAIL: 0
 7. **附件 URL 全局唯一**：媒体文件名由 `mediaService.uniqueName` 保证；若未来出现同 URL 复用，`ON DUPLICATE KEY` 只更新元数据、不转移 owner（保守，避免所有权被覆盖）。
 8. **真实并发压测未做**：并发确认用 2 个 Promise 验证，未做多进程/高并发压测。
 
-## 14. 涉及文件
+## 15. 涉及文件
 
 - 迁移：`backend/migrations/030_agent_harness.sql`
 - 仓储：`backend/services/agent/repo.js`
